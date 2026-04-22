@@ -6,6 +6,53 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.11.0] — 2026-04-22
+
+### Added — integration-specialist expandido com Meta Ads (Fase 2 Sprint 10)
+
+- `agents/integration-specialist.md` expandido: Calendar + Revolut + **Meta Ads** (trindade de boundaries externas fecha).
+  - Novo scope_in_sprint_10: 10 tabelas `meta_*` cache
+  - 10 novos playbooks Meta: list_campaigns, list_adsets, list_ads, list_insights_daily, list_breakdowns, check_meta_sync_status, check_meta_connection, trigger_meta_sync, campaign_performance_summary, spend_snapshot_trend
+  - Novo core principle implicit: **specialist fornece DATA, expertise squads (/metaAds) decidem estratégia**. Linha bem clara entre operacional e estratégico.
+  - 1 novo output example (happy path + underperformer flags + route to /metaAds)
+  - 2 novos smoke tests: meta_campaigns_happy + meta_strategic_question_rejected
+  - Anti-patterns Meta-specific: nunca pausar/ativar campaigns (Sprint 11+), nunca recommend strategy (route to /metaAds), preserve currency
+  - Staleness thresholds Meta: fast_sync 30min / incremental 2h / full 24h
+
+- `tasks/list-meta-campaigns.md` (HO-TP-001):
+  - Read-only em `meta_ads_campaigns_cache`
+  - Aggregates (total_spend, avg_CTR, avg_ROI) computed
+  - **Underperformer flags automáticos:** CTR<1%, CPL>threshold, ROI<1.0, frequency>3
+  - Currency preservation (sem conversão)
+  - Strategic recommendations: rejeitadas (route to /metaAds)
+  - 5 exemplos: happy FRESH / underperformer flags / VERY_STALE+failed / DISCONNECTED BLOCKED / strategic question ESCALATE
+
+### Arquitetura atingida com Sprint 10
+
+7 agents cobrindo 3 boundaries externas + 5 roles:
+
+| Boundary | Status | Tabelas cache |
+|----------|--------|---------------|
+| Google Calendar | ✓ (Sprint 8) | 5 tabelas |
+| Revolut | ✓ (Sprint 9) | 4 tabelas |
+| **Meta Ads** | **✓ (Sprint 10)** | **10 tabelas** |
+
+**Territory separation clarificada:**
+- Meta Ads data + sync → integration-specialist
+- Meta Ads strategy + recommendations → /metaAds expertise squad
+- Revolut transactions → platform-specialist Finance
+- Revolut balances/sync → integration-specialist
+
+### Total edge functions referenciadas
+
+- sync-google-calendar
+- get-google-events
+- sync-revolut-transactions
+- get-revolut-balances
+- sync-meta-billing
+
+---
+
 ## [0.10.0] — 2026-04-22
 
 ### Added — integration-specialist expandido com Revolut (Fase 2 Sprint 9)

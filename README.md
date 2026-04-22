@@ -223,12 +223,14 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 7:** `tasks/create-landing-page.md` (HO-TP-001 — slug validation, uniqueness, always active=false)
 - [x] **Sprint 8:** `integration-specialist` (Tier 3 — external boundary) — 632L, 7 playbooks, 3 smoke tests. Escopo Sprint 8: **Google Calendar** (read cache + staleness + trigger re-sync)
 - [x] **Sprint 8:** `tasks/list-calendar-events.md` (HO-TP-001 read-only com sync_status pre-check)
-- [x] **Sprint 9:** `integration-specialist` expandido com **Revolut** — agora 963L, 15 playbooks total (7 Calendar + 8 Revolut), 6 smoke tests, privacy strict (access_token never exposed)
-- [x] **Sprint 9:** `tasks/list-revolut-balances.md` (HO-TP-001 com discrepancy flagging + staleness 15min threshold)
-- [ ] **Sprint 10:** Expandir `integration-specialist` com Meta Ads sync (campaigns, ad_sets, insights)
-- [ ] **Sprint 10:** Currency auto-convert workflow (ECB/Revolut rates → finance_transactions.converted_amount)
-- [ ] **Sprint 10:** Finance recurrence + Onboarding approval + customer churn workflows
-- [ ] **Sprint 10+:** `admin-specialist` / `automation-specialist` / `imports-specialist`
+- [x] **Sprint 9:** `integration-specialist` expandido com **Revolut** — 963L, 15 playbooks, 6 smoke tests
+- [x] **Sprint 9:** `tasks/list-revolut-balances.md` (HO-TP-001 com discrepancy flagging + staleness 15min)
+- [x] **Sprint 10:** `integration-specialist` expandido com **Meta Ads** — 25 playbooks total (7 Calendar + 8 Revolut + 10 Meta), 8 smoke tests, trindade de boundaries completa
+- [x] **Sprint 10:** `tasks/list-meta-campaigns.md` (HO-TP-001 com aggregates + underperformer flags)
+- [ ] **Sprint 11:** Currency auto-convert workflow (ECB/Revolut rates → finance_transactions.converted_amount)
+- [ ] **Sprint 11:** Finance recurrence + Onboarding approval + customer churn workflows
+- [ ] **Sprint 11+:** `admin-specialist` / `automation-specialist` / `imports-specialist`
+- [ ] **Sprint 11+:** External mutations (pause Meta campaigns, Revolut transferências via 2FA, Google Calendar event creation)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

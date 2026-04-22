@@ -6,6 +6,45 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.4.0] — 2026-04-22
+
+### Added — platform-specialist Finance module + 3 tasks (Fase 2 Sprint 3)
+
+- `agents/platform-specialist.md` expandido de 526L → **870L**:
+  - Novo scope section `in_sprint_3` com **Finance module** adicionado (5 tabelas: `finance_transactions`, `finance_categories`, `finance_cost_centers`, `finance_bank_accounts`, `finance_credit_cards`)
+  - 6 novos **playbooks Finance**: `create_finance_transaction`, `list_transactions`, `reconcile_transaction`, `update_transaction_fields`, `delete_transaction`, `list_categories`, `list_cost_centers`, `list_bank_accounts`
+  - Novos **core_principles**: `FINANCE REQUIRES FINANCE ACCESS` (has_finance_access() gate), `MONEY VALUES ARE NUMERIC` (parsing rules para €500, 1.250,00 etc.)
+  - **2 output examples** adicionais: happy path Finance (lançar despesa Revolut EUR), listagem filtrada por data/conta
+  - **1 output example** renovado: scope rejection agora aponta para CS (Sprint 4), não mais Finance
+  - **2 smoke tests** novos: `test_4_finance_happy_path`, `test_5_finance_rls_denial` (quando role=cs sem finance_access)
+  - **Anti-patterns Finance-specific**: amount sempre numeric, echo sign, não auto-convert currency, não criar recorrência (Sprint 4)
+  - **future_notes** expandidas: finance RLS já properly restricted (modelo para outros módulos), finance history missing (trigger-level audit não existe)
+
+- `tasks/create-finance-transaction.md` (nova, HO-TP-001 completa):
+  - Parser de amount multi-format (€500, "1.250,00", "500 EUR", "-€500")
+  - Resolução de category/cost_center/account por nome via list_* playbooks
+  - 4 exemplos de execução: happy path DONE / amount ambíguo ESCALATE / role sem finance_access BLOCKED / multiple category matches ESCALATE
+
+- `tasks/list-tasks.md` (nova, HO-TP-001 completa):
+  - Read-only SELECT com filtros (status, date_range, priority/urgency, project, assigned_to)
+  - LIMIT 50 default, max 200, truncation flag
+  - SELECT explícito sem `SELECT *`
+  - 3 exemplos: overdue happy / empty result DONE / truncation warning
+
+- `tasks/complete-task.md` (nova, HO-TP-001 completa):
+  - UPDATE idempotente (`AND status != 'done'` race-safe)
+  - Resolução por task_id ou task_title (ESCALATE se 0/>1 matches)
+  - Support a tarefas recorrentes (trigger DB cuida de task_completed_occurrences)
+  - 4 exemplos: happy / idempotent hit / title ambíguo / recurrent task
+
+### Observações Finance
+
+- Policies RLS atuais de `finance_transactions` usam `has_finance_access()` (owner + financeiro) — modelo correto que serve de referência para outros módulos.
+- Não existe trigger de audit em `finance_transactions` — UPDATEs não são auditados pelo DB. Documentado em `future_notes`.
+- Recorrência/installments/conversion automática ficam fora do Sprint 3 (vão para Sprint 4-5).
+
+---
+
 ## [0.3.0] — 2026-04-22
 
 ### Added — platform-specialist com escopo Tasks (Fase 2 Sprint 2)

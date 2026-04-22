@@ -6,6 +6,48 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.14.0] — 2026-04-22
+
+### Added — admin-specialist + imports-specialist (Fase 2 Sprint 13)
+
+Dois agents Tier 3 novos cobrindo operações de governance (users/roles) e bulk data entry (CSV imports).
+
+- `agents/admin-specialist.md` — **OWNER-ONLY** Tier 3 user/role management
+  - Primeira check de qualquer cycle: **owner pre-flight** — se role != 'owner', BLOCKED imediato (zero queries)
+  - 9 playbooks: check_owner_preflight, list_users, get_user_detail, list_roles_available, grant_role, revoke_role, replace_role, deactivate_user, reactivate_user, list_users_with_role
+  - 8 core_principles: OWNER_ONLY_ACTIVATION, DOUBLE_CONFIRMATION_ON_MUTATIONS (step 1 preview + step 2 "confirma" literal), **NEVER_REMOVE_LAST_OWNER** (safety absoluto), DOWNGRADE_WARNINGS (lista capabilities lost), UPGRADE_JUSTIFICATION, DEACTIVATION_PRESERVES_DATA (is_active=false, não DELETE), AUDIT_BY_QUALITY_GUARDIAN mandatory, READ is safe WRITE is dangerous
+  - 3 output examples: list role financeiro / non-owner blocked / last owner protected
+  - 3 smoke tests + 8 anti-patterns
+  - Handoff ALWAYS flag for quality-guardian audit (admin ops = INV-07 equivalent)
+
+- `agents/imports-specialist.md` — Tier 3 bulk CSV imports
+  - 7 playbooks: parse_csv, validate_rows, dedup_check, dry_run_summary, batch_insert, list_import_batches, rollback_batch
+  - 8 core_principles: DRY_RUN_MANDATORY, BATCH_ID_FOR_REVERSIBILITY (import_batch_id + import_file_name tagged em cada row), DEDUP_CHECK_OBLIGATORY, PARSE_ERRORS_FAIL_EARLY, VALIDATION_PER_FIELD, **HARD_CAP_1000_ROWS**, RLS_PER_ROW, NO_AUTO_RETRY_PARCIAL
+  - Escopo Sprint 13: leads_csv + finance_transactions_csv (customers/tasks/tickets = Sprint 14+)
+  - 3 output examples: happy 141 leads / 2500 rows ESCALATE / rollback FK blocked
+  - 3 smoke tests + 6 anti-patterns
+
+### Estado do squad após Sprint 13
+
+- **10 agents** (admin-specialist + imports-specialist ← NOVOS)
+- **4 workflows**
+- **12 tasks HO-TP-001**
+- CLI auth funcional
+- **Tiers cobertos:** T0 (ops-chief) / T1 (auth, platform) / T2 (sales, content, automation) / T3 (integration, quality-guardian, admin, imports)
+
+### Roles cobertas (todas as 5 + guardrails)
+
+| Role | Specialist primário |
+|------|-------------------|
+| owner | Todos os agents + admin-specialist exclusivo |
+| admin | Platform (sem finance) + routing |
+| financeiro | Platform Finance + Revolut reads |
+| comercial | Sales-specialist |
+| cs | Platform CS |
+| marketing | Content-builder + automation-specialist |
+
+---
+
 ## [0.13.0] — 2026-04-22
 
 ### Added — automation-specialist + list-automation-flows (Fase 2 Sprint 12)

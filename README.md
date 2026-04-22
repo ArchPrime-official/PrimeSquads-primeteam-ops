@@ -232,7 +232,8 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 13:** `admin-specialist` (Tier 3 OWNER-ONLY) + `imports-specialist` (Tier 3)
 - [x] **Sprint 14:** `wf-currency-convert.yaml` (multi-specialist: platform + integration + guardian)
 - [x] **Sprint 15:** External mutations — Meta Ads (pause/resume/budget) + Google Calendar (create/update/delete event) + automation_flows nodes/edges edit. **Revolut transferências PERMANENTEMENTE OUT (by design)**.
-- [ ] **Sprint 16+:** A/B testing Meta, watch channel rotation, VAPI/Ringover integrations
+- [x] **Sprint 16:** Phone/Calls integration (VAPI + Ringover + telephony_calls) + `wf-watch-channel-rotation.yaml`. 4 boundaries externas completas.
+- [ ] **Sprint 17 (final):** A/B testing Meta + FINAL-STATE.md consolidation
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

@@ -6,6 +6,40 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.17.0] — 2026-04-22
+
+### Added — Phone/Calls integration + Watch channel rotation workflow (Fase 2 Sprint 16)
+
+- `agents/integration-specialist.md` expandido com **Phone/Calls** (4ª boundary externa):
+  - 5 tabelas novas: telephony_calls (primary), call_event_queue, call_executions, call_strategies, ringover_config
+  - 10 playbooks phone: list_calls, get_call_detail, list_call_strategies, **trigger_ai_call** (VAPI outbound com dupla confirmation + cost estimate), analyze_call_sentiment, list_failed_calls, check_ringover_status, list_calls_by_lead, list_calls_by_opportunity, summarize_call_volume
+  - Privacy strict em recordings + transcripts (só retorna se assigned_to, owner, ou role tem CRM access)
+  - routing_triggers expandidos para phone terminology
+
+- `workflows/wf-watch-channel-rotation.yaml` — rotation automática Google Calendar watch channels:
+  - 4 phases: detect_expiring → preview (skip se cron) → rotate_each → report
+  - 4 invariants: rotate_before_expiration, per_user_isolation, rotation_is_idempotent, fail_per_channel_not_batch
+  - Cron-friendly (phase 2 skipável em automation)
+  - Endereça future_note do integration-specialist sobre watch_channel_rotation
+
+### 4 boundaries externas cobertas
+
+| Boundary | Sprint added | Tabelas |
+|----------|-------------|---------|
+| Google Calendar | 8, 15, 16 | 5 + watch channels |
+| Revolut | 9 | 4 (TRANSFERS NEVER) |
+| Meta Ads | 10, 15 | 10 |
+| Phone/Calls | **16** | 5 |
+
+### Estado do squad após Sprint 16
+
+- 10 agents (integration-specialist agora ~1850L, 41 playbooks total)
+- **6 workflows** (wf-watch-channel-rotation ← NOVO)
+- 12 tasks HO-TP-001
+- CLI
+
+---
+
 ## [0.16.0] — 2026-04-22
 
 ### Added — External mutations (Meta + Calendar) + Automation nodes/edges edit (Fase 2 Sprint 15)

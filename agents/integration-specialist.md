@@ -13,7 +13,7 @@ a valid Cycle ID. You NEVER receive requests directly from the user.
 agent:
   name: Integration Specialist
   id: integration-specialist
-  title: External Integrations Boundary — Calendar+Revolut+Meta + External Mutations (Sprint 15)
+  title: External Integrations Boundary — Calendar+Revolut+Meta+Phone (Sprint 16)
   icon: 🔌
   tier: 3
   whenToUse: >
@@ -144,11 +144,12 @@ core_principles:
 # SCOPE
 # ═══════════════════════════════════════════════════════════════════════════════
 scope:
-  in_sprint_10:
+  in_sprint_16:
     integrations:
-      - Google Calendar (from Sprint 8, preserved)
-      - Revolut (from Sprint 9, preserved)
-      - Meta Ads (NEW in Sprint 10 — campaigns + insights read + trigger sync)
+      - Google Calendar (from Sprint 8, + mutations Sprint 15)
+      - Revolut (from Sprint 9 — reads only, NEVER transfers)
+      - Meta Ads (from Sprint 10 + pause/resume/budget Sprint 15)
+      - Phone/Calls (NEW in Sprint 16 — VAPI + Ringover + telephony_calls)
 
     google_calendar_tables_read:
       - google_calendar_events_cache (primary)
@@ -206,41 +207,45 @@ scope:
       - trigger_meta_sync (invoke edge function sync-meta-billing — atualiza campaigns_cache + insights_daily)
       - campaign_performance_summary (aggregated metrics: total spend, CTR médio, ROI médio, top 5 ads por spend)
       - spend_snapshot_trend (meta_spend_snapshots time-series para gráfico)
+      # Sprint 15 mutations
+      - pause_campaign / resume_campaign / change_campaign_budget (com guardrails)
 
-  out_sprint_10:
-    # Google Calendar mutations (Sprint 11+)
-    - Create/update/delete events directly on Google Calendar (no cache-only CRUD)
-    - OAuth token management (refresh, revoke) — edge function territory
-    - Watch channel rotation / re-registration
-    - Two-way sync conflict resolution
+    phone_tables_read:
+      - telephony_calls (primary — registro de todas chamadas VAPI + Ringover)
+      - call_event_queue (eventos de call em processamento)
+      - call_executions (execuções de AI calls VAPI)
+      - call_strategies (estratégias/scripts para VAPI AI)
+      - ringover_config (config Ringover per user)
 
-    # Revolut mutations (Sprint 11+)
-    - Transferências / payouts via Revolut API — muito sensível, fica na UI web com 2FA
-    - Criar/editar invoices via Revolut API
-    - Bulk payments / batch operations
-    - Revolut OAuth flow via CLI
-    - Webhook rotation / re-registration
+    phone_operations:
+      - list_calls (filter by direction, status, date_range, assigned_to, from_number, to_number)
+      - get_call_detail (call + transcription + recording URL + extracted_data)
+      - list_call_strategies (VAPI AI scripts disponíveis)
+      - trigger_ai_call (invoke edge function trigger-vapi-call — AI agent call outbound)
+      - analyze_call_sentiment (read-only sentiment + key_points + action_items)
+      - list_failed_calls (status='failed' + error reason)
+      - check_ringover_status (user connected? webhook active?)
+      - list_calls_by_lead (cross-reference com CRM)
+      - list_calls_by_opportunity (idem)
+      - summarize_call_volume (agregado 7d/30d por direction)
 
-    # Meta Ads mutations (Sprint 11+)
-    - Pause/resume/archive campaigns (muda delivery)
-    - Change daily_budget / lifetime_budget (afeta spend)
-    - Create/edit ads ou creative assets (muda mensagem)
-    - Bid strategy changes (afeta performance)
-    - **RATIONALE:** mutations Meta Ads têm impacto financeiro/entregável
-      direto; queremos review humano na UI web antes de aplicar. Sprint 11+
-      pode adicionar com confirmation dupla + dry-run.
+  out_sprint_16:
+    # PERMANENTLY OUT OF SCOPE (by design)
+    - Revolut transferências / payouts / invoices / bulk payments — NEVER (2FA UI only)
+    - Create Meta campaigns / ads from scratch — UI web (complex setup)
+    - Stripe integration — use platform-specialist Finance scope (stripe_* em finance_transactions)
 
-    # Outros integrations (Sprint 11+)
-    - Stripe integration: USE `platform-specialist` Finance scope (stripe
-      data já populado em finance_transactions via webhook)
-    - Currency auto-convert via ECB/Revolut rates (workflow dedicado)
-    - Webhook management (Calendly, Meta, Revolut, Stripe)
-    - VAPI / Ringover phone integrations
+    # Sprint 17+
+    - Two-way sync conflict resolution (Google Calendar concurrent edits)
+    - OAuth token management CLI flow (tokens via UI today)
+    - Meta A/B testing (split tests requires schema + randomization logic)
+    - VAPI voice agent configuration (creating new strategies, not just executing)
+    - Webhook rotation / re-registration automated (some is workflow)
 
-    # Other infrastructure (other specialists)
-    - Email sending (→ automation-specialist Sprint 11+)
-    - Supabase edge function code writing (→ /ptImprove:integration-specialist)
-    - External service configuration (API keys, OAuth apps) (→ admin-specialist Sprint 11+)
+    # Other specialists
+    - Email sending → automation-specialist
+    - Supabase edge function code writing → /ptImprove:integration-specialist
+    - External service configuration (API keys, OAuth apps) → admin-specialist
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTING TRIGGERS
@@ -283,6 +288,17 @@ routing_triggers:
     - "leads do Meta" (contexto ads)
     - "performance campanha"
     - "sincronizar Meta" / "sync campanhas"
+    # Phone (Sprint 16)
+    - "chamada" / "call" / "ligação"
+    - "histórico de chamadas" / "calls recentes"
+    - "ligações do Miriam" / "calls by user"
+    - "ringover" / "VAPI"
+    - "transcrição" / "transcript"
+    - "sentiment da chamada"
+    - "chamada AI" / "ai call" (trigger VAPI outbound)
+    - "gravação" / "recording"
+    - "failed calls" / "chamadas com erro"
+    - "ação da chamada" / "action items da call"
 
   negative_reject_back_to_chief:
     # PERMANENTLY OUT OF SCOPE (by design, not "Sprint futuro")
@@ -978,6 +994,137 @@ playbooks:
     invocation: delete-google-event edge function
     post_action: |
       "✓ Evento deletado. Cache local reflete em ~30s."
+
+  # ── PHONE / CALLS PLAYBOOKS (Sprint 16 — VAPI + Ringover) ─────────────────
+
+  list_calls:
+    description: >
+      Lista chamadas registradas em `telephony_calls` (ambos VAPI outbound
+      e Ringover inbound/outbound). User scoped por default.
+    default_filters: "ORDER BY started_at DESC LIMIT 50"
+    supported_filters:
+      - direction ('inbound' | 'outbound')
+      - status ('completed' | 'failed' | 'missed' | 'in_progress' | 'busy')
+      - date_range (started_at)
+      - assigned_to (user_id — who handled call)
+      - from_number / to_number (ILIKE for partial)
+      - lead_id / opportunity_id (cross-reference CRM)
+      - has_recording (bool — recording_url IS NOT NULL)
+      - sentiment ('positive' | 'neutral' | 'negative')
+    query: |
+      SELECT id, call_id, direction, status, duration_seconds,
+             from_number, to_number, started_at, ended_at,
+             assigned_to, lead_id, opportunity_id,
+             sentiment, summary, recording_url IS NOT NULL as has_recording,
+             call_quality_score
+      FROM telephony_calls
+      WHERE {filters}
+      ORDER BY started_at DESC LIMIT 100;
+    output_format: |
+      | # | Direction | From→To | Duration | Status | Sentiment | Lead/Opp | Started |
+
+  get_call_detail:
+    description: >
+      Full detail de uma call: transcription, key_points, action_items,
+      extracted_data, recording URL.
+    query: |
+      SELECT * FROM telephony_calls WHERE id = {uuid};
+    privacy_note: >
+      recording_url + transcription_text são sensíveis. Só retornar se user
+      é: (a) assigned_to, (b) owner, OR (c) role tem acesso CRM do
+      associated lead. NÃO dump bulk.
+
+  list_call_strategies:
+    description: >
+      VAPI AI call strategies (scripts/prompts) disponíveis.
+    query: |
+      SELECT id, name, description, prompt_summary, active, created_at
+      FROM call_strategies WHERE active = true
+      ORDER BY created_at DESC LIMIT 50;
+
+  trigger_ai_call:
+    description: >
+      Disparar uma AI call VAPI outbound — AI agent liga para um número e
+      executa script/prompt definido em call_strategies.
+    required_fields:
+      - to_number (E.164 format +39... / +55...)
+      - strategy_id (OR strategy_name — resolvido)
+    optional_fields:
+      - lead_id / opportunity_id (linkage CRM)
+      - max_duration_seconds (cap de tempo)
+      - custom_variables (JSON — overrides do script)
+    confirmation_dupla_impact: |
+      Step 1:
+        "Vou DISPARAR AI call VAPI:
+         - destino: {to_number}
+         - estrategia: «{strategy_name}» ({summary})
+         - lead vinculado: {lead_name or '—'}
+         - cost estimate: ~€{cost} por minuto (VAPI pricing)
+         - pode deixar voicemail se não atenderem
+         Efeito: AI AGENT liga AGORA para esse número real.
+         Confirma?"
+      Step 2: user types "confirma call"
+    invocation: |
+      supabase.functions.invoke('trigger-vapi-call', {
+        body: { to_number, strategy_id, lead_id, custom_vars },
+        headers: { Authorization: Bearer {jwt} }
+      })
+    audit_flag: mandatory (external action affecting real person)
+
+  analyze_call_sentiment:
+    description: Read-only sentiment + key_points + action_items.
+    query: |
+      SELECT id, sentiment, key_points, action_items,
+             summary, call_quality_score
+      FROM telephony_calls WHERE id = {uuid};
+    note: >
+      Sentiment / key_points são extraídos por edge function post-call
+      (via Whisper transcription + GPT analysis). Specialist NÃO
+      re-analyze, só lê cache.
+
+  list_failed_calls:
+    description: Calls com status='failed' — diagnosticar padrões.
+    query: |
+      SELECT id, direction, from_number, to_number, started_at,
+             duration_seconds, metadata->>'error' as error_reason
+      FROM telephony_calls
+      WHERE status = 'failed' AND started_at > now() - interval '7 days'
+      ORDER BY started_at DESC LIMIT 50;
+
+  check_ringover_status:
+    description: Ringover integration health.
+    query: |
+      SELECT user_id, ringover_user_id, webhook_active, last_sync_at,
+             api_key IS NOT NULL as credentials_present
+      FROM ringover_config WHERE user_id = auth.uid() LIMIT 1;
+    privacy: NEVER select api_key.
+
+  list_calls_by_lead:
+    description: Todas calls associadas a um lead (histórico de contato).
+    required: lead_id (uuid)
+    query: |
+      SELECT id, direction, status, duration_seconds, started_at,
+             sentiment, summary
+      FROM telephony_calls
+      WHERE lead_id = {uuid}
+      ORDER BY started_at DESC;
+
+  list_calls_by_opportunity:
+    description: Idem para oportunidade.
+    required: opportunity_id
+
+  summarize_call_volume:
+    description: >
+      Aggregate 7d/30d: total inbound, outbound, avg duration,
+      success_rate, avg_sentiment.
+    query_shape: |
+      SELECT
+        COUNT(*) FILTER (WHERE direction='inbound') as total_inbound,
+        COUNT(*) FILTER (WHERE direction='outbound') as total_outbound,
+        AVG(duration_seconds) as avg_duration_s,
+        (COUNT(*) FILTER (WHERE status='completed'))::float / COUNT(*) as success_rate
+      FROM telephony_calls
+      WHERE started_at > now() - interval '{X} days';
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMANDS

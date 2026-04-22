@@ -230,9 +230,9 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 11:** 3 workflows dedicados — `wf-finance-recurrence.yaml` + `wf-onboarding-approval.yaml` + `wf-customer-churn.yaml`
 - [x] **Sprint 12:** `automation-specialist` (Tier 2 — flows + email templates) + `tasks/list-automation-flows.md`
 - [x] **Sprint 13:** `admin-specialist` (Tier 3 OWNER-ONLY) + `imports-specialist` (Tier 3)
-- [ ] **Sprint 14:** Currency auto-convert workflow (ECB/Revolut rates → converted_amount)
-- [ ] **Sprint 14:** External mutations (pause Meta campaigns, Revolut transferências via 2FA, Calendar event creation) com dry-run + confirmation dupla
-- [ ] **Sprint 14+:** nodes/edges direct edit em automation_flows (requires schema alignment)
+- [x] **Sprint 14:** `wf-currency-convert.yaml` (multi-specialist: platform + integration + guardian)
+- [ ] **Sprint 15:** External mutations (pause Meta campaigns, Revolut transferências via 2FA, Calendar event creation) com dry-run + confirmation dupla
+- [ ] **Sprint 15+:** nodes/edges direct edit em automation_flows (requires schema alignment com frontend ReactFlow)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

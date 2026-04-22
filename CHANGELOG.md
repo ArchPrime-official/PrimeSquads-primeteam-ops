@@ -6,6 +6,37 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.15.0] — 2026-04-22
+
+### Added — wf-currency-convert workflow (Fase 2 Sprint 14)
+
+- `workflows/wf-currency-convert.yaml` — currency auto-convert em batch
+  - 6 phases: identify_candidates → fetch_rates → dry_run_preview → confirm_update → report_unavailable → gate
+  - 5 invariants: rate_source_explicit (ECB | Revolut | manual), conversion_date_matches_transaction, only_fill_nulls_by_default, dry_run_before_batch, fail_per_row_not_batch
+  - Hard cap 500 transactions per batch (prevent runaway)
+  - Multi-specialist collaboration: platform-specialist (identify + UPDATE) + integration-specialist (fetch rates) + quality-guardian (audit se >50 rows)
+  - 3 exemplos: monthly ECB reconciliation / Revolut realtime with weekend gaps / dry-run abort
+  - 4 failure modes documentados (hard_cap, edge_5xx, RLS_denial, partial_failure)
+  - Assume future table `fx_rate_cache` (formalizar em Sprint 15+)
+  - ECB vs Revolut trade-offs documentados
+  - Retroactive conversion warnings (closed-period implications)
+
+### Estado do squad após Sprint 14
+
+- **10 agents** (same)
+- **5 workflows** (wf-currency-convert ← NOVO)
+- **12 tasks HO-TP-001**
+- CLI auth funcional
+
+Total artefatos: 10 agents + 5 workflows + 12 tasks + 1 CLI = **28 componentes** cobrindo 5 roles, 3 boundaries externas, governance (admin), bulk entry (imports), e agora currency reconciliation.
+
+### Endereço de future_notes
+
+- ✓ integration-specialist.currency_conversion_auto (Sprint 14)
+- ✓ platform-specialist finance_conversion_auto (Sprint 14 workflow)
+
+---
+
 ## [0.14.0] — 2026-04-22
 
 ### Added — admin-specialist + imports-specialist (Fase 2 Sprint 13)

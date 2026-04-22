@@ -213,9 +213,10 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 2:** `tasks/create-task.md` (HO-TP-001 template — anatomia 8 campos + 3 exemplos)
 - [x] **Sprint 3:** expandir `platform-specialist` para **Finance** module — 870L total, 5 smoke tests, 5 output examples, 6 playbooks Finance
 - [x] **Sprint 3:** `tasks/create-finance-transaction.md` + `tasks/list-tasks.md` + `tasks/complete-task.md`
-- [ ] **Sprint 4:** `sales-specialist` (CRM + leads + pipeline)
-- [ ] **Sprint 4:** `quality-guardian` (i18n + lint + RLS audit — auditar policies permissivas de tasks/etc.)
-- [ ] **Sprint 4:** Finance recurrence (is_recurring + recurrence_*) — workflow dedicado
+- [x] **Sprint 4:** `sales-specialist` (CRM — leads + opportunities + pipeline, 696L, 3 smoke tests, 10 playbooks)
+- [x] **Sprint 4:** `tasks/create-lead.md` + `tasks/move-opportunity-stage.md`
+- [ ] **Sprint 5:** `quality-guardian` (i18n + lint + RLS audit — auditar policies permissivas de tasks/etc.)
+- [ ] **Sprint 5:** Finance recurrence (is_recurring + recurrence_*) — workflow dedicado
 - [ ] **Sprint 5:** `integration-specialist` (Google Calendar + Meta sync + Revolut + currency auto-convert)
 - [ ] **Sprint 5:** `wf-platform-operation.yaml` (workflow principal)
 - [ ] **Sprint 6+:** CS, Admin, Imports, Profile

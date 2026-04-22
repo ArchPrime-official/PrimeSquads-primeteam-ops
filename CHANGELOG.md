@@ -6,6 +6,51 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.0.0-rc1] — 2026-04-22 — Fase 2 COMPLETA
+
+### Added — wf-meta-ab-test + FINAL-STATE.md (Sprint 17 FINAL)
+
+- `workflows/wf-meta-ab-test.yaml` — A/B test Meta Ads infrastructure
+  - 6 phases: define → setup variants → track → check significance → present decision → execute choice
+  - 5 invariants: minimum_sample_size_before_decision, only_one_variable_per_test, budget_split_equal_default, **no_auto_winner_action** (human decides), guardian_audit_on_setup
+  - Principle-chave: specialist fornece INFRA + stats; decisão de winner é humana via expertise squad (/metaAds:ralph-burns)
+  - 2 exemplos: 14-day creative test / inconclusive test → extend
+  - Assume future tables (ab_test_results) — documentadas em notes
+
+- `FINAL-STATE.md` — documento de consolidação pós Sprint 17:
+  - TL;DR do estado atual
+  - Estrutura final do squad (tree completo)
+  - Cobertura por role
+  - 4 boundaries externas mapeadas
+  - Princípios arquiteturais
+  - O que NÃO foi testado (honestidade)
+  - Próximos passos ordenados (imediato → curto → médio → longo)
+  - Onboarding rápido para colaboradores
+  - Changelog resumo 17 sprints
+
+### Estado final v1.0.0-rc1
+
+- **10 agents**: ops-chief, auth, platform (Tasks+Finance+CS), sales, content-builder, automation, integration (Calendar+Revolut+Meta+Phone), quality-guardian, admin (OWNER-ONLY), imports
+- **7 workflows**: platform-operation + finance-recurrence + onboarding-approval + customer-churn + currency-convert + watch-channel-rotation + meta-ab-test
+- **12 tasks HO-TP-001**
+- **CLI auth funcional** (login/whoami/logout PKCE)
+- **4 boundaries externas** cobertas (Calendar, Revolut, Meta, Phone)
+- **Total:** ~14000 linhas de squad spec
+
+### Pendente para v1.0.0 (remove rc1)
+
+- Admin config Supabase (SETUP-ADMIN.md)
+- Primeiro login real por colaborador
+- Smoke tests runtime de agents (3+ por specialist)
+- Edge functions faltantes (update-meta-campaign, trigger-vapi-call, rotate-google-watch, fetch-ecb-rates, create/update/delete-google-event)
+- Migrations pendentes (fx_rate_cache, ab_test_results)
+
+### Revolut transfers PERMANENTEMENTE OUT (reiterado)
+
+Decisão arquitetural confirmada por Pablo: movimentações bancárias sempre via UI web Revolut com 2FA. **NÃO é "Sprint futuro"**. Squad cobre transações (record-keeping via platform-specialist Finance) mas NUNCA money movement.
+
+---
+
 ## [0.17.0] — 2026-04-22
 
 ### Added — Phone/Calls integration + Watch channel rotation workflow (Fase 2 Sprint 16)

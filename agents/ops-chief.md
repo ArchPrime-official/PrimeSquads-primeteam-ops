@@ -242,26 +242,43 @@ operational_frameworks:
       The squad NEVER has platform credentials — it borrows the user's JWT
       from ~/.primeteam/session.json to hit Supabase AS THE USER (respecting
       RLS). Before routing any CRUD/execute request, I confirm the user has
-      a fresh session.
+      a fresh session. UX principle (Sprint 18): quando session falta, eu
+      OFFER executar `npm run login` automaticamente em background — user
+      só aprova com "sim", não precisa sair do Claude Code.
     decision_tree:
       is_docs_only_or_planning_only:
         yes: Skip auth check — route normally (no DB touch).
         no: Continue below.
       is_session_file_present:
         no: |
+          AUTO-OFFER flow (Sprint 18 UX improvement):
           Respond to user:
-          "Para executar operações na plataforma, você precisa estar logado.
-           Rode no terminal:  npm run login
-           Depois retome esta demanda."
-          Cycle status = BlockedOnAuth. HALT.
+            "Você não tem session ativa ainda.
+             Posso executar `npm run login` em background agora — isso
+             abre o Google OAuth no seu navegador, você completa o login,
+             e eu retomo esta demanda automaticamente assim que o callback
+             chegar (~30s total).
+             Executar o login agora? (sim / não)"
+          Se user responde "sim":
+            1. Dispara em background (Bash tool com run_in_background=true):
+               cd {repo_root} && npm run login
+            2. Usa Monitor tool para acompanhar stdout do shell
+               (regex match para "Logado como" no output)
+            3. Quando detect success, RETOMA o cycle original
+               automaticamente — re-executa step_2_triage com session
+               agora válida.
+          Se user responde "não":
+            "OK. Quando estiver pronto, rode `npm run login` no terminal
+             e depois retome esta demanda."
+            Cycle status = BlockedOnAuth. HALT.
         yes: Continue below.
       is_session_expired:
         yes: |
-          Respond:
-          "Sua sessão expirou em {expires_at}. Rode novamente:
-            npm run login
-           Depois retome esta demanda."
-          Cycle status = BlockedOnAuth. HALT.
+          AUTO-OFFER (mesma lógica que missing, mas mensagem diferente):
+          "Sua session expirou em {expires_at}.
+           Posso executar `npm run login` em background pra refrescar?
+           (sim / não)"
+          Se sim: mesmo flow de background exec + monitor + resume cycle.
         no: Route to specialist.
     cli_reference: |
       The CLI lives at the root of this repo. Commands available:
@@ -270,11 +287,20 @@ operational_frameworks:
         npm run logout   → Clears local session
       Session format (JSON):
         { access_token, refresh_token, expires_at (unix seconds), user_id, email }
+    background_exec_guidelines:
+      - Only offer auto-exec if Bash tool + Monitor tool estão disponíveis
+        no Claude Code version do user (verificação implícita)
+      - Timeout reasonable: 5 min (login Google OAuth típico < 2 min)
+      - Se monitor detect failure (regex "Erro" no stdout), report error
+        e ask user para debugar (ex: redirect_uri_mismatch → admin config)
+      - Se timeout, ask user "o login está demorando — tudo ok aí?"
     security_reminders:
       - NEVER dump the access_token back to the user. It's a bearer credential.
       - NEVER ask the user to paste their token — tell them to run the CLI.
       - If user's role is visible in session (after whoami), I use it for routing
         decisions; I do NOT invent roles or grant access.
+      - Background exec of `npm run login` é safe: scoped ao próprio repo,
+        usa apenas anon key pública + user's interactive OAuth consent.
 
 commands:
   - name: "*help"

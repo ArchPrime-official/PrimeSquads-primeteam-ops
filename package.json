@@ -1,6 +1,6 @@
 {
   "name": "primeteam-ops-cli",
-  "version": "0.2.0",
+  "version": "1.0.0-rc2",
   "description": "CLI companheira do squad primeteam-ops: auth Google OAuth para operar a plataforma PrimeTeam via Claude Code.",
   "private": true,
   "type": "module",
@@ -8,7 +8,8 @@
     "login": "tsx cli/index.ts login",
     "whoami": "tsx cli/index.ts whoami",
     "logout": "tsx cli/index.ts logout",
-    "cli": "tsx cli/index.ts"
+    "cli": "tsx cli/index.ts",
+    "postinstall": "node cli/postinstall.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -225,12 +225,13 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 8:** `tasks/list-calendar-events.md` (HO-TP-001 read-only com sync_status pre-check)
 - [x] **Sprint 9:** `integration-specialist` expandido com **Revolut** — 963L, 15 playbooks, 6 smoke tests
 - [x] **Sprint 9:** `tasks/list-revolut-balances.md` (HO-TP-001 com discrepancy flagging + staleness 15min)
-- [x] **Sprint 10:** `integration-specialist` expandido com **Meta Ads** — 25 playbooks total (7 Calendar + 8 Revolut + 10 Meta), 8 smoke tests, trindade de boundaries completa
+- [x] **Sprint 10:** `integration-specialist` expandido com **Meta Ads** — 25 playbooks total, 8 smoke tests, trindade de boundaries completa
 - [x] **Sprint 10:** `tasks/list-meta-campaigns.md` (HO-TP-001 com aggregates + underperformer flags)
-- [ ] **Sprint 11:** Currency auto-convert workflow (ECB/Revolut rates → finance_transactions.converted_amount)
-- [ ] **Sprint 11:** Finance recurrence + Onboarding approval + customer churn workflows
-- [ ] **Sprint 11+:** `admin-specialist` / `automation-specialist` / `imports-specialist`
-- [ ] **Sprint 11+:** External mutations (pause Meta campaigns, Revolut transferências via 2FA, Google Calendar event creation)
+- [x] **Sprint 11:** 3 workflows dedicados — `wf-finance-recurrence.yaml` + `wf-onboarding-approval.yaml` + `wf-customer-churn.yaml`
+- [ ] **Sprint 12:** `admin-specialist` (users/roles — owner-only)
+- [ ] **Sprint 12:** `automation-specialist` (email templates + flows — Sandra)
+- [ ] **Sprint 12:** `imports-specialist` (CSV imports)
+- [ ] **Sprint 13+:** Currency auto-convert workflow + External mutations (pause Meta campaigns, Revolut transferências via 2FA)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

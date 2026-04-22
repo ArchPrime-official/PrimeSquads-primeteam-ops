@@ -1,0 +1,242 @@
+# Workflow: Finance Recurrence (wf-finance-recurrence)
+#
+# Gerencia criação de transação recorrente em finance_transactions — campos
+# is_recurring, recurrence_*, installment_* — que ficaram OUT-OF-SCOPE nos
+# playbooks atômicos de platform-specialist (Sprint 3).
+#
+# Use este workflow quando user quer:
+# - "Criar despesa recorrente mensal (ex: aluguel €800 todo mês)"
+# - "Parcelar uma venda em N parcelas automaticamente"
+# - "Gerar N linhas filhas a partir de 1 template"
+
+metadata:
+  id: wf-finance-recurrence
+  title: Finance Recurrence — Create Template + Generate Occurrences
+  description: >
+    Cria transação "mãe" com is_recurring=true + define padrão de recorrência
+    + gera N linhas filhas (parent_transaction_id, recurrence_number). Para
+    installments, idem mas com installment_number + total_installments.
+  version: "0.12.0"
+  phases: 5
+  orchestrator: ops-chief
+  specialists_involved:
+    - platform-specialist  # Finance module scope
+    - quality-guardian     # optional audit (destructive batch operation)
+  estimated_time: 2-10min per recurrence setup
+  requires_auth: true
+  rls_requirement: has_finance_access() = owner OR financeiro
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-FR-01
+    name: explicit_count_required
+    rule: >
+      User DEVE especificar quantidade (N installments, ou recurrence_count,
+      ou recurrence_end_date). Workflow NUNCA gera infinito. Hard limit: 36
+      ocorrências (3 anos mensais).
+
+  - id: INV-FR-02
+    name: dry_run_before_batch
+    rule: >
+      Antes de INSERT batch das linhas filhas, mostrar dry-run completo:
+      todas as dates + valores + categorias. User confirma "sim" para
+      executar. Cancel = zero writes.
+
+  - id: INV-FR-03
+    name: parent_template_immutable_after_generation
+    rule: >
+      Uma vez que linhas filhas são geradas, NÃO editar amount/currency/
+      category_id do parent (quebra consistência histórica). Editar só na
+      próxima série (criar novo parent).
+
+  - id: INV-FR-04
+    name: skip_weekends_respected
+    rule: >
+      Se user marca skip_weekends=true + recurrence_skip_weekends=true,
+      workflow desloca date cuidadosamente (próximo dia útil segunda→sexta).
+
+  - id: INV-FR-05
+    name: installments_linked_to_source
+    rule: >
+      Installments originados de uma venda (opportunity) devem linkar
+      opportunity_id em TODAS as linhas filhas, não só no parent.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_gather_recurrence_spec
+    name: Gather Recurrence Specification
+    actor: ops-chief (elicit) → platform-specialist
+    duration: 1-3 min (user input heavy)
+    description: >
+      Chief coleta do user todos os parâmetros da recorrência. Se falta algo
+      crítico, ASK. NÃO gerar com defaults inventados.
+    required_params:
+      - frequency: "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly" | "custom"
+      - count_or_end:
+          option_a: recurrence_count (int 2..36)
+          option_b: recurrence_end_date (date, max +3 years)
+      - amount: numeric (can be negative/positive)
+      - type: "expense" | "income"
+      - category_id (or category_name resolved)
+      - first_date: when first occurrence happens (Europe/Rome)
+      - skip_weekends (bool, opcional — default false)
+    optional_params:
+      - recurrence_due_day (if monthly with specific day)
+      - cost_center_id / bank_account_id / description
+      - installment flag (se is installment-style vs standalone recurrence)
+      - opportunity_id / customer_id (para linkage)
+
+  - id: phase_2_generate_dry_run
+    name: Generate Dry-Run Preview
+    actor: platform-specialist
+    duration: 5-10s
+    description: >
+      Com params do phase 1, gerar lista completa de N ocorrências
+      (dates + valores). NÃO escrever no DB ainda. Apresentar ao user
+      via chief como tabela.
+    algorithm: |
+      For i in 1..count:
+        date_i = first_date + (i-1) * interval
+        IF skip_weekends AND date_i is Sat/Sun:
+          date_i = next_weekday(date_i)
+        occurrences[i] = { date: date_i, amount, ... }
+    output:
+      - dry_run_table: markdown com # | Data | Valor | Descrição
+      - total_amount_sum: soma total (sanity check)
+      - first_occurrence: date
+      - last_occurrence: date
+
+  - id: phase_3_confirm_batch_insert
+    name: Confirm Before Batch Insert
+    actor: ops-chief (elicit)
+    duration: human-dependent
+    description: >
+      Chief apresenta dry-run ao user + ASK "confirma INSERT de N linhas?"
+      User responde "sim" / "não" / "modifica X".
+    decision_tree:
+      confirm_yes: proceed to phase_4
+      confirm_no: cycle closes sem writes (verdict=escalate_to_user)
+      modify_request: voltar phase_1 com novos params
+
+  - id: phase_4_batch_insert
+    name: Batch Insert Parent + Children
+    actor: platform-specialist
+    duration: 10-30s (depending on N)
+    description: >
+      Transação DB (all-or-nothing se possível):
+      1. INSERT parent transaction (is_recurring=true, recurrence_count=N,
+         recurrence_type=X, etc.) → obter parent_id
+      2. INSERT N children transactions (parent_transaction_id=parent_id,
+         recurrence_number=1..N, transaction_date=date_i, etc.)
+      All com user_id=auth.uid(), status='confirmed'.
+    rls_enforced: has_finance_access() for all inserts
+    on_partial_failure: >
+      Se N-1 filhos inseridos e 1 falha: log warning com list de
+      (parent_id, children_inserted, children_failed). NÃO rollback
+      automático (requires transaction, not always available). Surface
+      para user decidir: cleanup manual ou aceitar parcial.
+    on_rls_denial: BLOCKED com role explanation
+
+  - id: phase_5_gate_and_close
+    name: Gate + Close with Audit
+    actor: ops-chief (optional: quality-guardian audit)
+    duration: 30s (or 1-2min if guardian involved)
+    description: >
+      Quality-guardian audit SUGERIDO para este workflow (batch operation
+      destrutiva — INV-07 trigger). Gate valida:
+      - Parent row inserted ✓
+      - N children inserted ✓
+      - All children linkados via parent_transaction_id
+      - Dates consistent (skip_weekends respeitado)
+      - opportunity_id propagated se aplicável (INV-FR-05)
+    output:
+      - parent_transaction_id
+      - children_transaction_ids (array N items)
+      - total_amount_sum
+      - changelog entry
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: monthly_rent_12_months
+    trigger: "criar despesa recorrente mensal de €800 para aluguel, 12 meses começando 2026-05-01"
+    trace:
+      - phase_1: params coletados (frequency=monthly, count=12, amount=-800 EUR, type=expense, category='Aluguel', first_date=2026-05-01)
+      - phase_2: dry-run gera 12 rows (2026-05-01, 2026-06-01, ..., 2027-04-01)
+      - phase_3: user confirma
+      - phase_4: INSERT 1 parent + 12 children
+      - phase_5: gate PASS → close
+    total: ~3min
+
+  - name: sale_installments_3x
+    trigger: "parcelar venda Marco Rossi €7.500 em 3x (entrada hoje + 2 mensais)"
+    trace:
+      - phase_1: params (entrada 2500 hoje + 2 parcelas 2500 mensais)
+      - phase_2: dry-run 3 installments
+      - phase_3: user confirma
+      - phase_4: INSERT 1 parent (total=7500) + 3 children (installment_number=1..3, amounts 2500 each, opportunity_id linked)
+      - phase_5: gate PASS
+    total: ~2min
+
+  - name: cancel_mid_workflow
+    trigger: user says "não, modifica para 24 meses" at phase_3
+    trace:
+      - phase_1-3: normal until phase_3
+      - phase_3: user não confirma
+      - loop back to phase_1 with count=24
+      - phase_2-5: normal
+    note: "Nenhum write até phase_4"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+  - mode: partial_batch_insert
+    handling: "Surface count inserted vs expected; user decide cleanup/aceitar"
+  - mode: rls_denial
+    handling: BLOCKED with has_finance_access explanation; zero writes
+  - mode: category_resolution_fail
+    handling: phase_1 ESCALATE, lista categorias disponíveis
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - agents/platform-specialist.md (Finance scope + playbook create_finance_transaction para reference)
+  - agents/quality-guardian.md (audit opcional phase 5)
+  - workflows/wf-platform-operation.yaml (pattern base)
+  - tasks/create-finance-transaction.md (task atômica usada dentro de phase_4 batch)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════════════════════════
+notes:
+  why_workflow_not_atomic_task: |
+    Recurrence é inerentemente multi-phase: gather → preview → confirm →
+    batch insert. Se fosse task atômica, user veria params inventados
+    ou erros silenciosos. Dry-run + confirm explícito é CRÍTICO em
+    operação financeira destrutiva em escala.
+
+  hard_limit_36_occurrences: |
+    Limite de 36 evita INSERT descontrolado (ex: daily recurrence com
+    end_date 5 anos = 1825 rows). Se user precisa mais, criar múltiplas
+    séries ou usar recurring_template_id (campo existente, apontar para
+    template sem gerar filhos).
+
+  parent_child_linkage: |
+    `parent_transaction_id` é self-FK em finance_transactions. Query para
+    ver todas as ocorrências de uma série:
+    ```
+    SELECT * FROM finance_transactions
+    WHERE parent_transaction_id = {parent_id}
+       OR id = {parent_id}
+    ORDER BY recurrence_number ASC;
+    ```

@@ -1,0 +1,254 @@
+# Workflow: Onboarding Approval (wf-onboarding-approval)
+#
+# Transforma uma onboarding_submission (formulário submetido por novo cliente)
+# em um customer ativo na plataforma + assign CS manager + trigger welcome
+# sequence. Multi-phase porque envolve:
+# - Review dos dados (humano decide aprovar/rejeitar)
+# - INSERT em customers + linkagem com lead/opportunity
+# - Assign cs_manager_id
+# - Trigger welcome email (via automation_flow ou edge function)
+# - Mark submission as processed
+#
+# Esse era um out_sprint_6 do platform-specialist CS — agora formalizado.
+
+metadata:
+  id: wf-onboarding-approval
+  title: Onboarding Submission Approval — Submit to Customer Active
+  description: >
+    Fluxo multi-phase de aprovação de formulário de onboarding. Sai do
+    estado pending em `onboarding_submissions` e culmina em `customers`
+    ativo com cs_manager atribuído.
+  version: "0.12.0"
+  phases: 6
+  orchestrator: ops-chief
+  specialists_involved:
+    - platform-specialist  # CS module scope
+    - integration-specialist  # opcional — se welcome email envolve edge function
+    - quality-guardian  # opcional — cycle destrutivo (creates customer)
+  estimated_time: 5-15min per approval (human review heavy)
+  requires_auth: true
+  rls_requirement: role 'owner' OR 'cs' (read submissions), role 'owner' OR 'cs' (create customer — has_cs_access or equivalent)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-OB-01
+    name: human_reviews_before_approval
+    rule: >
+      Workflow NUNCA aprova automaticamente. Humano vê dados do
+      submission e decide "aprovar" ou "rejeitar". Decision explícita =
+      INSERT em customers; "rejeitar" ou ignorar = submission fica em
+      status='reviewed_rejected' sem side-effects.
+
+  - id: INV-OB-02
+    name: duplicate_detection_mandatory
+    rule: >
+      Antes de criar customer, BUSCAR se já existe (por contact_email ou
+      company_name + VAT). Se duplicate → ESCALATE com 3 opções:
+      (a) merge into existing customer
+      (b) create anyway (força novo customer row)
+      (c) reject submission. NUNCA criar duplicate silencioso.
+
+  - id: INV-OB-03
+    name: cs_manager_assignment_required
+    rule: >
+      customer.cs_manager_id NÃO pode ser NULL em aprovação. Chief ASK
+      qual CS vai atender (Jessica ou Andrea). Default manual — NÃO
+      auto-assign round-robin.
+
+  - id: INV-OB-04
+    name: welcome_trigger_idempotent
+    rule: >
+      Se welcome email já foi enviado anteriormente (flag em customer
+      metadata), NÃO re-enviar. Workflow re-execute deve ser
+      idempotente na parte email.
+
+  - id: INV-OB-05
+    name: submission_status_marked
+    rule: >
+      Após aprovação bem-sucedida, UPDATE onboarding_submissions SET
+      status='approved' + review_status='completed' + reviewed_by=auth.uid() +
+      reviewed_at=now() + customer_id={new_customer_id}. Audit trail
+      preservado.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_fetch_submission
+    name: Fetch Submission for Review
+    actor: platform-specialist (CS scope)
+    duration: 5-10s
+    description: >
+      Chief recebe submission_id do user ou resolve via form_token.
+      Platform-specialist faz list_onboarding_submissions filter by id
+      + join com lead/opportunity se houver ligação.
+    outputs:
+      - submission row (id, form_token, submitted_at, data JSON)
+      - linked_lead (se lead_id ref existe)
+      - linked_opportunity (se opportunity_id ref existe)
+
+  - id: phase_2_human_review
+    name: Human Review (elicit)
+    actor: ops-chief (elicit)
+    duration: 2-10 min (human reading time)
+    description: >
+      Chief apresenta dados da submission ao user para review. User decide
+      aprovar (prossegue phase_3) ou rejeitar (prossegue phase_6 com
+      status=rejected).
+    presentation: |
+      Chief shows:
+      "Submission id={X} submetida em {Y}:
+       - Nome: {full_name}
+       - Empresa: {company_name}
+       - Email: {contact_email}
+       - Telefone: {contact_phone}
+       - VAT: {vat_number or '—'}
+       - País: {country}
+       - Outras respostas: {custom_fields}
+       Linkagem:
+       - Lead origem: {lead_name or '—'}
+       - Opp origem: {opp_name or '—'}
+       Decisão: aprovar ou rejeitar?"
+    branches:
+      approve: proceed phase_3
+      reject: proceed phase_6 with status=rejected
+      more_info: chief ASK user for missing info, re-render
+
+  - id: phase_3_duplicate_check
+    name: Check for Existing Customer
+    actor: platform-specialist
+    duration: 5s
+    description: >
+      SELECT customers WHERE contact_email = {email} OR
+      (company_name ILIKE {name} AND vat_number = {vat}).
+      Se 0 matches: prosseguir phase_4.
+      Se 1+ matches: ESCALATE com opções.
+    outputs:
+      - existing_customer_ids: array (empty if no duplicates)
+      - escalation_if_dupes: bool
+    on_duplicate: pause cycle, chief ASK user: merge/create anyway/reject
+
+  - id: phase_4_create_customer
+    name: Insert Customer + Assign CS
+    actor: platform-specialist
+    duration: 10-20s
+    description: >
+      1. Chief ASK user: "Qual CS vai atender? Jessica, Andrea, ou outra?"
+      2. Resolve cs_manager_id via profiles lookup
+      3. INSERT customer with:
+         - contact_name, contact_email, contact_phone
+         - company_name, industry, country, etc.
+         - cs_manager_id (resolved)
+         - lead_id / opportunity_id (se linked from submission)
+         - onboarding_completed=true (submission approved)
+         - onboarding_completed_at=now()
+         - customer_since=now()
+         - health_score='healthy' (default inicial — CS pode ajustar depois)
+         - created_by=auth.uid()
+      4. Capturar new_customer_id
+    rls_check: >
+      INSERT em customers requires role owner/cs. Se role=marketing/
+      comercial, RLS nega → BLOCKED.
+
+  - id: phase_5_trigger_welcome
+    name: Trigger Welcome Email (optional)
+    actor: integration-specialist (or platform-specialist if simple)
+    duration: 5-30s
+    description: >
+      Opcional: invocar edge function `send-welcome-email` com new_customer_id.
+      Chief ASK primeiro: "Enviar welcome email agora? (template padrão ou
+      custom?)" Se user skip, phase_5 é SKIP. Se confirm, trigger + log.
+    idempotency: |
+      Antes de enviar, check se customer.metadata.welcome_email_sent_at
+      existe. Se sim, WARN "welcome já enviado em X" e skip.
+    output:
+      - welcome_email_sent: bool
+      - email_log_id (se enviado)
+
+  - id: phase_6_mark_submission_done
+    name: Mark Submission as Processed + Close
+    actor: platform-specialist
+    duration: 5s
+    description: >
+      Atualizar onboarding_submissions:
+      - status = 'approved' | 'rejected'
+      - review_status = 'completed'
+      - reviewed_by = auth.uid()
+      - reviewed_at = now()
+      - customer_id = new_customer_id (se approved)
+      - rejection_reason = '{text}' (se rejected)
+      Marca audit trail pristine. Chief close cycle.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: happy_approval_flow
+    trigger: "aprovar submissão de onboarding sub-a1b2 para nova empresa X"
+    trace:
+      - phase_1: fetch submission, dados completos, no linked lead/opp
+      - phase_2: user review, decide aprovar
+      - phase_3: duplicate check → 0 matches → continuar
+      - phase_4: chief ASK CS → "Jessica" → resolve uuid → INSERT customer
+      - phase_5: chief ASK welcome → "sim, padrão" → trigger edge function
+      - phase_6: UPDATE submission status=approved, reviewed_by/at
+    total: ~8 min
+
+  - name: duplicate_customer_detected
+    trigger: "aprovar sub-x7y8"
+    trace:
+      - phase_1-2: normal
+      - phase_3: email match customer existing id=c1r2...
+      - phase_3: ESCALATE with 3 options (merge/create anyway/reject)
+      - user picks "reject as duplicate"
+      - phase_6: mark submission rejected with reason="duplicate of c1r2..."
+
+  - name: reject_invalid_data
+    trigger: "sub-j9k0 tem VAT inválido, rejeitar"
+    trace:
+      - phase_1: fetch
+      - phase_2: user decide reject
+      - phase_6: UPDATE status=rejected, rejection_reason="VAT inválido / não verificável"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+  - mode: submission_not_found
+    handling: phase_1 BLOCKED with "sub-X não existe ou sem permissão de leitura"
+  - mode: cs_manager_ambiguous
+    handling: phase_4 ESCALATE with list of CS candidates
+  - mode: rls_denial_customer_create
+    handling: BLOCKED explanation role requirements
+  - mode: welcome_email_fail
+    handling: phase_5 WARN but cycle continues (não bloqueia aprovação pelo fail de email)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - agents/platform-specialist.md (CS scope, list_onboarding_submissions, update_customer_status, complete_onboarding)
+  - agents/integration-specialist.md (trigger welcome email se via edge function)
+  - workflows/wf-platform-operation.yaml
+  - data/team-roles-reference.md (CS team = Jessica, Andrea)
+
+notes:
+  why_not_atomic: |
+    Approval envolve human decision no meio (phase_2), duplicate check
+    que pode desviar (phase_3), CS assignment (phase_4 elicit), e welcome
+    trigger opcional (phase_5). Multi-phase é inerente.
+
+  welcome_email_template: |
+    Template padrão "welcome_primeteam_default" (futuro). Sprint 11 assume
+    template ID vem hardcoded no edge function. Sprint 12+ pode ter
+    escolha de template no phase_5.
+
+  linkage_to_lead_opp: |
+    Se submission veio de um lead específico (tracking UTM params),
+    customer nasce com lead_id populated. Se já tinha opportunity, idem
+    opportunity_id. Workflow preserva essa cadeia.

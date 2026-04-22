@@ -1,0 +1,229 @@
+# Workflow: Customer Churn Analysis & Retention (wf-customer-churn)
+#
+# Detecta customers em risco (health_score='at_risk' ou churn_risk alto),
+# monta contexto diagnóstico, e ROUTES para expertise squads (CS humano
+# ou /stratMgmt se estratégico) para ação. Specialist NÃO executa retention
+# strategy — só detecta + encapsula contexto + route.
+#
+# Endereça future_note do platform-specialist: "customer_churn_analysis_multi_step"
+
+metadata:
+  id: wf-customer-churn
+  title: Customer Churn — Detection + Context + Route to Retention
+  description: >
+    Workflow analítico + routing. Detecta signals de churn em customers,
+    coleta contexto (health_score history, last_contact, churn_risk score,
+    tickets abertos, sentiment), e apresenta ao user com recomendação de
+    route para CS team manual ou expertise squad. NÃO executa retention
+    actions automaticamente — é decisão humana.
+  version: "0.12.0"
+  phases: 5
+  orchestrator: ops-chief
+  specialists_involved:
+    - platform-specialist  # CS scope (customers, tickets read)
+    - integration-specialist  # opcional — pra Meta Ads insights cross-reference (se churn = feedback problem)
+    - quality-guardian  # opcional
+  estimated_time: 3-8min per customer analysis
+  requires_auth: true
+  rls_requirement: role 'owner' OR 'cs' (read customers + tickets)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-CH-01
+    name: no_auto_retention_actions
+    rule: >
+      Workflow NUNCA envia email automático, nunca cancela assinatura,
+      nunca oferece desconto. Apenas DETECTA + CONTEXTUALIZA + ROUTES.
+      Retention actions são human decisions via CS team ou /stratMgmt
+      expertise.
+
+  - id: INV-CH-02
+    name: data_minimization_on_context
+    rule: >
+      Output contexto contém dados agregados + last N tickets (5 max)
+      + last N interactions. NÃO dump complete customer history (privacy
+      + noise). User pede mais se precisar.
+
+  - id: INV-CH-03
+    name: route_not_recommend_strategy
+    rule: >
+      Specialist surface o problema + dados; NUNCA sugere "ofereça
+      desconto" ou "envie email de win-back". Routing suggestions:
+      - /stratMgmt:mark-roberge para retention strategy (SaaS)
+      - /stratMgmt:seth-godin para positioning/communication
+      - CS team humano (Jessica/Andrea) para contact direto
+
+  - id: INV-CH-04
+    name: privacy_customer_data
+    rule: >
+      Output inclui customer_id, name, company, email, MRR/ARR/LTV
+      somente se role='owner' OU cs_manager_id=auth.uid(). Outros CS
+      não veem dados de carteira alheia.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_detect_at_risk
+    name: Detect At-Risk Customers
+    actor: platform-specialist (CS scope)
+    duration: 10-20s
+    description: >
+      Query list_customers com filter health_score='at_risk' OR
+      churn_risk>70 OR last_contact_date < (now - 30 days) AND
+      mrr IS NOT NULL. Retorna candidate list.
+    query_shape: |
+      SELECT id, company_name, contact_email, health_score, churn_risk,
+             mrr, arr, ltv, cs_manager_id, last_contact_date,
+             next_check_in_date, customer_since
+      FROM customers
+      WHERE (
+        health_score = 'at_risk'
+        OR churn_risk > 70
+        OR (last_contact_date < now() - interval '30 days' AND mrr IS NOT NULL)
+      )
+      {AND cs_manager_id = auth.uid() if role=cs and not owner}
+      ORDER BY churn_risk DESC NULLS LAST, mrr DESC NULLS LAST
+      LIMIT 20;
+    outputs:
+      - at_risk_candidates: array of customer rows
+      - total_count: int
+      - total_mrr_at_risk: numeric (soma de MRR)
+
+  - id: phase_2_deep_context
+    name: Collect Deep Context per Customer
+    actor: platform-specialist
+    duration: 20-60s (per customer, run for top N)
+    description: >
+      Para cada candidate (ou top 5 se muitos), coletar:
+      - tickets recentes (últimas 10): status, type, priority, resolution_time
+      - last_contact_date + (delta vs today)
+      - onboarding_completed? completed_at?
+      - opportunity closed historically (sale date, value — if closed=SALE_DONE)
+      - health_score trend se existir histórico
+      - próximo check_in_date agendado? ou vazio?
+    query_per_customer: |
+      -- Tickets
+      SELECT id, ticket_number, title, status, priority, type, created_at, resolved_at
+      FROM tickets WHERE customer_id = {cid} ORDER BY created_at DESC LIMIT 10;
+      -- Opp histórica (se existe)
+      SELECT id, stage, closed_at, sales_proposal_value, sales_proposal_currency
+      FROM opportunities WHERE id = customer.opportunity_id;
+
+  - id: phase_3_pattern_detection
+    name: Detect Signals & Patterns
+    actor: platform-specialist (lógica)
+    duration: 10s
+    description: >
+      Analisar context coletado por signals comuns de churn:
+      - Many open tickets (>3 unresolved) = support struggle
+      - High avg ticket resolution_time = frustration
+      - last_contact > 60 days = disengagement
+      - onboarding_completed = false após 30 dias = adoption failure
+      - No opportunity closed ever = low commitment signal
+      - Check-in overdue significantly = abandonment
+      - MRR/ARR drop in history (se detectable)
+    outputs:
+      - signals_by_customer: { customer_id: [signal_1, signal_2, ...] }
+      - severity_ranking: customer_id ordered by signal severity
+
+  - id: phase_4_route_decision
+    name: Route Recommendations (NO auto-actions)
+    actor: ops-chief (elicit)
+    duration: 2-5 min (human review)
+    description: >
+      Chief apresenta ao user: N customers at risk, com top 5 detalhados
+      + signals detectados. Pergunta qual action user quer:
+      a) Route to CS team (cs_manager_id contact direto — manual)
+      b) Route to /stratMgmt:mark-roberge (SaaS retention strategy)
+      c) Route to /stratMgmt:seth-godin (positioning/communication)
+      d) Create TAREFA pra follow-up (via platform-specialist Tasks)
+      e) Skip / ignore (user só queria visibility)
+    NOTA: >
+      Chief NÃO sugere "ofereça desconto" ou "envie email de win-back".
+      Specialist fornece DATA + signals; decisão estratégica é humana.
+
+  - id: phase_5_execute_choice
+    name: Execute User Choice
+    actor: varies by choice
+    duration: 1-5min
+    description: >
+      Baseado na escolha do user:
+      a) Nothing in this cycle (user fala com CS team off-squad)
+      b-c) Route_to expertise squad — chief hand off com contexto agregado
+      d) platform-specialist create_task com title "Follow-up churn risk:
+         {company_name}" + due_date próxima semana + priority=3
+      e) Close cycle com changelog entry only (visibility preserved)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: weekly_churn_check
+    trigger: "quem está em risco nesta semana?"
+    trace:
+      - phase_1: 8 candidates detected (health_score=at_risk OR churn_risk>70)
+      - phase_2: deep context para top 5 (por churn_risk DESC)
+      - phase_3: signals computed (tickets, contact delay, opportunity history)
+      - phase_4: apresenta ao user + pergunta route
+      - phase_5: user escolhe "criar tarefa follow-up" → platform-specialist
+        cria 5 tasks (1 por customer top-5) com due_date +7d
+    total: ~5min
+
+  - name: deep_dive_single_customer
+    trigger: "analise churn do aluno Rossi Consulting"
+    trace:
+      - phase_1: single candidate forced (filter company_name)
+      - phase_2: deep context (ticket history, opportunity, checkins)
+      - phase_3: signals specific (3 tickets unresolved, contact 45 days ago)
+      - phase_4: user asks "recomendações estratégicas?"
+      - phase_5: route_to /stratMgmt:mark-roberge com payload
+        { customer_summary, signals, history }
+    total: ~4min
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+  - mode: no_at_risk_customers
+    handling: phase_1 returns 0 rows → chief responde "nenhum customer em risco
+              detectado; healthy base (good news)"
+  - mode: rls_blocks_other_cs_portfolio
+    handling: role=cs filtered silently; chief mencione "resultados filtrados
+              para seu portfolio" no output
+  - mode: deep_context_timeout
+    handling: phase_2 retry 1x per customer; se persist, surface partial data
+              com warning
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - agents/platform-specialist.md (CS scope, list_customers, list_tickets)
+  - agents/sales-specialist.md (opportunity history cross-reference)
+  - /stratMgmt expertise squad (Mark Roberge, Seth Godin) — routing target
+  - workflows/wf-platform-operation.yaml (pattern base)
+  - data/team-roles-reference.md
+
+notes:
+  strategic_vs_operational: |
+    Workflow reforça the squad's operational boundary: we DETECT + PRESENT
+    DATA, we DO NOT decide retention strategy. Retention = business/product
+    decision territory → /stratMgmt expertise or CS team humano.
+
+  privacy_and_scope: |
+    Customer data é sensível. RLS filtra naturalmente, mas output ainda
+    minimiza (top 5 apenas detalhados, signals agregados, no full history
+    dump).
+
+  auto_detection_threshold_tunable: |
+    Sprint 12+ pode expor thresholds (churn_risk > X, contact_days > Y)
+    como configuráveis. Sprint 11 usa defaults razoáveis:
+    - health_score='at_risk'
+    - churn_risk > 70
+    - last_contact > 30d + has MRR

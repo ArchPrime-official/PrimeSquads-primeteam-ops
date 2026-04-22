@@ -6,6 +6,54 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.12.0] — 2026-04-22
+
+### Added — 3 workflows dedicados (Fase 2 Sprint 11)
+
+Sprint de workflows para gaps identificados nas future_notes dos agents. Sem novos agents — apenas formalização multi-phase de fluxos que não couberam em tasks atômicas.
+
+- `workflows/wf-finance-recurrence.yaml` — Finance recurrence gerenciada
+  - 5 phases: gather_spec → dry_run → confirm → batch_insert → gate
+  - 5 invariants: explicit_count_required, dry_run_before_batch, parent_template_immutable, skip_weekends_respected, installments_linked_to_source
+  - Hard limit 36 ocorrências (3 anos mensais) para prevenir runaway
+  - Parent-child linkage via `parent_transaction_id` + `recurrence_number`
+  - 3 exemplos: monthly rent 12x / sale installments 3x / cancel mid-workflow
+  - Endereça future_note de platform-specialist sobre recurrence_* fields (Sprint 3 deixou out-of-scope)
+
+- `workflows/wf-onboarding-approval.yaml` — Submission → Customer Active
+  - 6 phases: fetch_submission → human_review → duplicate_check → create_customer → trigger_welcome → mark_processed
+  - 5 invariants: human_reviews_before_approval, duplicate_detection_mandatory, cs_manager_assignment_required, welcome_trigger_idempotent, submission_status_marked
+  - Detecção de duplicatas obrigatória (email + company_name+VAT) com 3 opções (merge/create anyway/reject)
+  - CS manager resolution via chief ASK (NÃO auto round-robin)
+  - 3 exemplos: happy approval / duplicate detected ESCALATE / reject invalid
+  - Endereça future_note de platform-specialist CS (approval workflow Sprint 7+)
+
+- `workflows/wf-customer-churn.yaml` — Detection + Context + Route (NO auto-actions)
+  - 5 phases: detect_at_risk → deep_context → pattern_detection → route_decision → execute_choice
+  - 4 invariants: no_auto_retention_actions, data_minimization_on_context, route_not_recommend_strategy, privacy_customer_data
+  - Signals detectados: tickets unresolved, last_contact delay, onboarding failure, no closed opp
+  - Routing options: CS team manual / /stratMgmt:mark-roberge / seth-godin / platform-specialist Tasks (follow-up)
+  - 2 exemplos: weekly churn check / deep dive single customer
+  - Endereça future_note de platform-specialist CS sobre customer_churn_analysis_multi_step
+
+### Arquitetura atingida após Sprint 11
+
+```
+primeteam-ops/
+├── agents/ (7 agents)
+├── workflows/ (4 yamls)
+│   ├── wf-platform-operation.yaml    (Sprint 5)
+│   ├── wf-finance-recurrence.yaml    ← NOVO
+│   ├── wf-onboarding-approval.yaml   ← NOVO
+│   └── wf-customer-churn.yaml        ← NOVO
+├── tasks/ (11 HO-TP-001)
+├── cli/ + docs
+```
+
+**Pattern reforçado em todos os 3 workflows:** specialist fornece DATA e facilita ROUTING, NUNCA executa estratégia. Retention/approval/recurrence são decisões humanas com specialist como habilitador.
+
+---
+
 ## [0.11.0] — 2026-04-22
 
 ### Added — integration-specialist expandido com Meta Ads (Fase 2 Sprint 10)

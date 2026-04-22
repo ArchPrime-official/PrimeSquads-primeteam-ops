@@ -6,6 +6,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.7.0] — 2026-04-22
+
+### Added — platform-specialist CS module + list-students task (Fase 2 Sprint 6)
+
+- `agents/platform-specialist.md` expandido de 870L → **1177L**:
+  - Novo scope section `in_sprint_6`: Tasks + Finance + **Customer Success** (4 tabelas: `customers`, `tickets`, `ticket_comments`, `onboarding_submissions` read-only)
+  - 9 novos playbooks CS: `list_customers`, `update_customer_status`, `complete_onboarding`, `list_tickets`, `create_ticket`, `update_ticket_status`, `assign_ticket`, `add_ticket_comment`, `list_onboarding_submissions`
+  - Novos routing_triggers: "aluno", "customer", "health score", "churn risk", "onboarding", "ticket", "CS manager", "next check-in"
+  - 2 novos output examples: happy path criar ticket billing (Jessica/role=cs) + scope rejection approval onboarding (Sprint 7+)
+  - 2 novos smoke tests: `test_6_cs_create_ticket_happy`, `test_7_onboarding_approval_rejected`
+  - CS-specific anti-patterns (nunca mutar onboarding_submission.status, resolver customer via ILIKE antes de INSERT, falar "aluno" não "customer" ao user, não inventar ticket_number)
+  - Nomenclatura: tabela `customers` no DB = "aluno/students" no linguajar ArchPrime (convenção de produto). Specialist resolve via company_name/contact_name ILIKE.
+  - future_notes: onboarding approval é workflow (Sprint 7+), ticket SLA sem enforcement automático, customer churn analysis multi-step, ticket assignment precisa user_lookup via profiles
+
+- `tasks/list-students.md` (novo, HO-TP-001):
+  - Read-only SELECT com 18 colunas explícitas (nunca SELECT *)
+  - Filtros típicos CS: health_score, cs_manager, onboarding status, churn_risk range, mrr/arr/ltv ranges, date ranges (overdue / today / this_week)
+  - 5 exemplos de execução: triagem at_risk / meus alunos (Jessica) / check-in overdue / empty result DONE / cs_manager ambíguo ESCALATE
+  - Campos sensíveis (tax_id, vat_number, custom_fields, billing_*) NÃO incluídos por default
+
+### Observações CS
+
+- `ticket_status` enum: new | open | in_progress | waiting_customer | waiting_internal | resolved | closed | cancelled
+- `ticket_priority` enum: low | medium | high | urgent | critical
+- `ticket_type` enum: 9 tipos (technical_support / billing / feature_request / bug_report / onboarding / training / general_inquiry / cancellation_request / upgrade_request)
+- `health_score` enum: at_risk | needs_attention | healthy | excellent
+
+### Estado do squad após Sprint 6
+
+- 5 agents: ops-chief (T0), auth (T1), platform (T1 — Tasks+Finance+CS, 1177L), sales (T2), quality-guardian (T3)
+- 1 workflow: wf-platform-operation.yaml
+- 7 tasks HO-TP-001: test-handoff-flow, create-task, list-tasks, complete-task, create-finance-transaction, create-lead, move-opportunity-stage, list-students
+- CLI auth funcional
+
+---
+
 ## [0.6.0] — 2026-04-22
 
 ### Added — wf-platform-operation + quality-guardian (Fase 2 Sprint 5)

@@ -1,0 +1,181 @@
+# Workflow: Google Calendar Watch Channel Rotation (wf-watch-channel-rotation)
+#
+# Google Calendar watch channels (push notifications) expiram em 7 dias
+# máximo. Se não re-registrar, cache google_calendar_events_cache fica
+# silenciosamente stale — webhooks param de chegar e user pensa que
+# events estão sincronizados.
+#
+# Workflow detecta channels que vão expirar em < 24h E os re-registra via
+# edge function. Normalmente rodado via cron job, mas documentado como
+# workflow para manual trigger + audit.
+
+metadata:
+  id: wf-watch-channel-rotation
+  title: Google Calendar Watch Channel — Rotation Before Expiration
+  description: >
+    Detecta watch channels em `google_calendar_watch_channels` expirando
+    em <24h e re-registra cada um via edge function `rotate-google-watch`.
+    Preserva continuidade do cache (events continuam fluindo via push).
+  version: "0.17.0"
+  phases: 4
+  orchestrator: ops-chief
+  specialists_involved:
+    - integration-specialist  # check + trigger rotation
+    - quality-guardian  # optional (batch of rotations)
+  estimated_time: 30s-5min (depends on channel count)
+  requires_auth: true
+  rls_requirement: read own channels; rotation per-user via user JWT
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-WR-01
+    name: rotate_before_expiration
+    rule: >
+      Rotation MUST acontecer antes de expiration (buffer 24h default).
+      Rotation PÓS expiration = perda de continuidade (cache stale até
+      re-register). Edge function idempotente: se channel já foi rotated,
+      skip.
+
+  - id: INV-WR-02
+    name: per_user_isolation
+    rule: >
+      Cada user tem seu próprio watch channel (separate OAuth context).
+      Rotation roda com user JWT; NUNCA cross-user rotation.
+
+  - id: INV-WR-03
+    name: rotation_is_idempotent
+    rule: >
+      Se rotation já aconteceu (new channel_id present with future
+      expiration), skip — não re-rotate.
+
+  - id: INV-WR-04
+    name: fail_per_channel_not_batch
+    rule: >
+      Se rotation de 1 channel falha, loggar e continuar para próximos.
+      NÃO abortar batch.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_detect_expiring
+    name: Detect Channels Expiring Soon
+    actor: integration-specialist
+    duration: 5s
+    description: >
+      Query watch channels com expiration < now + 24h.
+    query: |
+      SELECT channel_id, user_id, expiration, resource_uri, created_at
+      FROM google_calendar_watch_channels
+      WHERE expiration < now() + interval '24 hours'
+        AND expiration > now()  -- ainda ativo (nao expired já)
+      ORDER BY expiration ASC;
+    outputs:
+      - expiring_channels: array
+      - total_count
+      - already_expired_count (separate — needs emergency rotation + possible re-sync)
+
+  - id: phase_2_preview_rotations
+    name: Show Preview Before Rotation Batch
+    actor: ops-chief (elicit)
+    duration: human-dependent
+    description: >
+      Chief apresenta lista de channels + expiration ao user. Auto-run
+      via cron skips this phase. Manual run apresenta preview:
+        "Vai rotacionar {N} watch channels (todos expirando em <24h).
+         Custo: ~2s por channel + quota Google Calendar API.
+         Channels:
+         - User Pablo: expira em 6h
+         - User Joyce: expira em 18h
+         - User Miriam: expira em 22h
+         Confirma rotation?"
+    skip_if: cron mode (automated)
+
+  - id: phase_3_rotate_each
+    name: Rotate Each Channel via Edge Function
+    actor: integration-specialist
+    duration: 2-5s per channel
+    description: >
+      Para cada channel expiring, invoke edge function
+      `rotate-google-watch` com user's JWT. Edge function:
+      1. Stop old channel (Google API)
+      2. Create new channel with fresh expiration (7 days future)
+      3. UPDATE google_calendar_watch_channels row
+    invocation_per_channel: |
+      supabase.functions.invoke('rotate-google-watch', {
+        body: { channel_id: {id} },
+        headers: { Authorization: Bearer {user_jwt} }
+      })
+    handling_per_channel:
+      success: log + continue to next
+      failure: log error + continue to next (INV-WR-04)
+      already_rotated: skip idempotent (INV-WR-03)
+
+  - id: phase_4_report_and_close
+    name: Summary Report
+    actor: ops-chief
+    duration: 5s
+    description: >
+      Report final: N attempted, V rotated, F failed, S already-done.
+      Para failures, list channel_ids + error para investigação manual.
+    output: |
+      "Rotation completo:
+       - Attempted: {N}
+       - Rotated: {V} ✓
+       - Already done (idempotent): {S}
+       - Failed: {F}
+         {list of failed channel_ids + errors}
+       Próxima rotation esperada em 7 dias (expiration dos novos)."
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: cron_automated_rotation
+    trigger: cron job (Supabase pg_cron) runs this workflow 4x/day
+    trace:
+      - phase_1: 3 channels expiring in <24h
+      - phase_2: SKIPPED (automated mode)
+      - phase_3: rotate each, all success
+      - phase_4: log "3/3 rotated"
+    total: ~10s
+
+  - name: manual_emergency_rotation
+    trigger: "user calls: 'minha agenda não atualiza há 2h'"
+    trace:
+      - phase_1: detect expired channel (expiration already < now)
+      - phase_2: preview ao user — "1 channel expired. Rotation + re-sync
+        full necessário"
+      - phase_3: rotate new channel
+      - post-rotation: chief delegates trigger_calendar_resync to fetch
+        missed events
+    total: ~2min
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - agents/integration-specialist.md (playbook list_watch_channels)
+  - workflows/wf-platform-operation.yaml (pattern base)
+
+notes:
+  why_workflow: |
+    Rotation é multi-channel batch + cron-friendly. Single atomic task
+    não faria sentido (teria que iterar). Workflow permite parallelization
+    futura + clear audit trail de batch operation.
+
+  cron_integration: |
+    Recomendado configurar pg_cron no Supabase para rodar esse workflow
+    via edge function 4x/day. Edge function invoke é simples (sem
+    user interaction phase_2). Falhas logged em dedicated table para
+    alert se high failure rate.
+
+  google_expiration_hard_limit: |
+    Google Calendar watch channels TEM 7-day max expiration hard-coded
+    pela Google. Rotation periódica é mandatory se o squad depende de
+    webhooks (e depende — senão cache fica stale silenciosamente).

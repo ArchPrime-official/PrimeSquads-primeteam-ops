@@ -233,7 +233,8 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 14:** `wf-currency-convert.yaml` (multi-specialist: platform + integration + guardian)
 - [x] **Sprint 15:** External mutations — Meta Ads (pause/resume/budget) + Google Calendar (create/update/delete event) + automation_flows nodes/edges edit. **Revolut transferências PERMANENTEMENTE OUT (by design)**.
 - [x] **Sprint 16:** Phone/Calls integration (VAPI + Ringover + telephony_calls) + `wf-watch-channel-rotation.yaml`. 4 boundaries externas completas.
-- [x] **Sprint 17 (FINAL):** `wf-meta-ab-test.yaml` + `FINAL-STATE.md` — **v1.0.0-rc1 Fase 2 COMPLETA**
+- [x] **Sprint 17:** `wf-meta-ab-test.yaml` + `FINAL-STATE.md` — Fase 2 scope completo
+- [x] **Sprint 18 (UX polish):** postinstall banner + ops-chief auto-offer login em background — **v1.0.0-rc2**
 
 📋 **Ver [`FINAL-STATE.md`](./FINAL-STATE.md)** para status consolidado, próximos passos e guia de onboarding.
 

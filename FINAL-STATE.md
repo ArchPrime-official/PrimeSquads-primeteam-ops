@@ -242,9 +242,11 @@ git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git pr
 cd primeteam-ops
 
 # 2. Instalar deps (CLI auth)
+# Após isto, um banner vai aparecer direcionando para o próximo passo.
 npm install
 
 # 3. Login Google OAuth (abre navegador)
+# O postinstall já te disse que esse era o próximo passo.
 npm run login
 
 # 4. Confirmar (mostra email + roles)
@@ -262,6 +264,22 @@ claude
 
 # No Claude Code, usar slash commands:
 /PrimeteamOps:agents:ops-chief
+```
+
+### Esqueceu de fazer login? (Sprint 18 UX)
+
+Se você abrir o Claude Code sem ter feito `npm run login` ainda, o ops-chief **vai te OFFER executar o login em background automaticamente** quando você pedir alguma operação que toca o Supabase. Você responde "sim" e o login acontece sem sair do Claude Code.
+
+Exemplo:
+```
+Você:         "liste minhas tarefas atrasadas"
+ops-chief:    "Você não tem session ativa ainda. Posso executar
+               `npm run login` em background agora? (sim / não)"
+Você:         "sim"
+ops-chief:    [dispara em background, abre navegador para OAuth]
+[you complete OAuth]
+ops-chief:    "✓ Login ok. Retomando sua demanda..."
+              [roteia pra platform-specialist listar tarefas]
 ```
 
 O `ops-chief` é o **único ponto de entrada**. Ele tria sua demanda e roteia para o specialist correto. Você nunca precisa chamar specialists diretamente.

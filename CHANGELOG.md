@@ -6,6 +6,52 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.0.0-rc2] — 2026-04-22 — UX Polish (Sprint 18)
+
+### Fixed — UX friction no primeiro login (feedback real do Pablo)
+
+Pablo testou primeiro login (PR #18 merged) e identificou friction:
+1. Depois de `npm install`, não ficou claro que próximo passo é login
+2. Quando ops-chief detectou missing session, instruiu "rode npm run login em outro terminal" — user teve que pedir manualmente pro agent executar em background
+
+Sprint 18 endereça ambos:
+
+- `cli/postinstall.mjs` (Node ESM puro — sem deps para funcionar antes de tsx estar garantido):
+  - Hook automático após `npm install`
+  - Detecta estado da session e imprime banner visível:
+    - Missing → "Próximo passo: npm run login"
+    - Expired → "Session expirou em X — rode npm run login"
+    - Valid → "✓ Pronto. Logado como {email}. Abra claude + /PrimeteamOps:agents:ops-chief"
+  - Silencioso em CI / non-TTY
+  - Tolerante a errors (não quebra npm install)
+
+- `package.json`:
+  - Adicionado `"postinstall": "node cli/postinstall.mjs"` hook
+  - Version bump para `1.0.0-rc2`
+
+- `agents/ops-chief.md` — Auth Verification Protocol atualizado:
+  - **AUTO-OFFER flow (Sprint 18 UX improvement):** quando session missing/expired, ops-chief OFFER executar `npm run login` em background automaticamente (via Bash tool + Monitor tool)
+  - User só responde "sim/não" — não precisa sair do Claude Code
+  - Se "sim": dispara background exec, monitora stdout para "Logado como", retoma cycle original automaticamente
+  - Se "não": mensagem tradicional "rode manualmente no terminal"
+  - `background_exec_guidelines` documentadas (timeout 5min, error handling)
+  - Security reminder adicional: background exec é safe (scoped ao repo, só anon key + user OAuth consent)
+
+### Resultado UX
+
+Antes (rc1):
+1. User pede demanda
+2. ops-chief: "você precisa rodar npm run login em outro terminal"
+3. User sai do Claude OR pede manualmente pro agent executar
+4. User volta e re-pede demanda
+
+Depois (rc2):
+1. `npm install` já direciona para login (banner visível)
+2. Se user entra no Claude sem login ainda, ops-chief OFFER auto-exec
+3. User responde "sim" → background login dispara → cycle resume automaticamente
+
+---
+
 ## [1.0.0-rc1] — 2026-04-22 — Fase 2 COMPLETA
 
 ### Added — wf-meta-ab-test + FINAL-STATE.md (Sprint 17 FINAL)

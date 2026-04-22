@@ -1,0 +1,292 @@
+# Workflow: Currency Auto-Convert (wf-currency-convert)
+#
+# Popula campos converted_amount / converted_currency / exchange_rate /
+# conversion_date em finance_transactions para rows que têm amount em
+# currency diferente da "base" do negócio (EUR), usando taxas FX externas
+# (Revolut rates ou ECB rates) via edge function.
+#
+# Endereça future_note do integration-specialist "currency_conversion_auto"
+# e do platform-specialist Finance.
+#
+# Sprint 3-10 assumiram user fornece exchange_rate/converted_amount OU deixa
+# NULL. Sprint 14 formaliza o fluxo de auto-fill retroativo/batch.
+
+metadata:
+  id: wf-currency-convert
+  title: Currency Auto-Convert — Populate converted_amount via FX Rates
+  description: >
+    Workflow que identifica finance_transactions sem converted_amount em
+    currency != EUR, busca FX rate histórica (ECB ou Revolut snapshot para
+    a transaction_date), calcula converted_amount = amount * exchange_rate,
+    e UPDATE batch. Preserva audit trail em cada row.
+  version: "0.15.0"
+  phases: 6
+  orchestrator: ops-chief
+  specialists_involved:
+    - platform-specialist  # Finance module — queries + UPDATE
+    - integration-specialist  # FX rate fetch via edge function
+    - quality-guardian  # audit (batch mutation operation)
+  estimated_time: 2-10min per batch (depends on row count)
+  requires_auth: true
+  rls_requirement: has_finance_access() (owner + financeiro)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-CC-01
+    name: rate_source_explicit
+    rule: >
+      User DEVE especificar fonte da rate: 'ECB_historical' OR
+      'revolut_snapshot' OR 'manual'. Cada fonte tem trade-offs
+      (ECB = official mas latency 1d; Revolut = real used no timing da
+      tx; manual = user provides). NUNCA inventar rate.
+
+  - id: INV-CC-02
+    name: conversion_date_matches_transaction
+    rule: >
+      `conversion_date` == `transaction_date` por default (rate aplicada
+      na data do lançamento, não hoje). User pode override (ex: retroativo)
+      mas precisa avisar explicit.
+
+  - id: INV-CC-03
+    name: only_fill_nulls_by_default
+    rule: >
+      UPDATE apenas rows onde converted_amount IS NULL. NÃO sobrescrever
+      valores existentes (user pode ter setado manualmente). User pode
+      forçar override com flag explicit.
+
+  - id: INV-CC-04
+    name: dry_run_before_batch
+    rule: >
+      Antes de UPDATE batch, mostrar preview com sample de rates (primeiras
+      10 rows) + rate summary per currency. User confirma "sim" com count
+      explicit.
+
+  - id: INV-CC-05
+    name: fail_per_row_not_batch
+    rule: >
+      Se rate não disponível para row X (ex: currency XOF em data feriado
+      sem rate ECB), SKIP esse row (log warning) mas NÃO abort batch. Row
+      fica com converted_amount=NULL + conversion_error note.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_identify_candidates
+    name: Identify Candidate Transactions
+    actor: platform-specialist (Finance scope)
+    duration: 5-15s
+    description: >
+      Query transactions que NEED conversion — amount em currency != EUR
+      AND converted_amount IS NULL. Filter por date range do user.
+    query_shape: |
+      SELECT id, amount, currency, transaction_date, bank_account_id,
+             type, description
+      FROM finance_transactions
+      WHERE currency IS NOT NULL AND currency != 'EUR'
+        AND converted_amount IS NULL
+        AND transaction_date >= {range_start}
+        AND transaction_date <= {range_end}
+      ORDER BY transaction_date ASC;
+    outputs:
+      - candidates: array de transactions
+      - distinct_currencies: [USD, BRL, GBP, ...]
+      - date_range: {min, max}
+      - total_count
+    hard_cap: 500 transactions per batch (prevent runaway)
+
+  - id: phase_2_fetch_rates
+    name: Fetch FX Rates from External Source
+    actor: integration-specialist
+    duration: 10-30s
+    description: >
+      Baseado em rate_source escolhido, chamar edge function:
+      - ECB_historical → edge function fetch-ecb-rates com {date, from, to}
+      - revolut_snapshot → edge function fetch-revolut-rate com {date, from, to}
+      - manual → skip (user forneceu rate inline no phase 1)
+      Rate é cached na tabela `fx_rate_cache` (Sprint 14 assume existe OU
+      cria on-demand — simple 1-row per (date, from_currency, to_currency)).
+    rate_coverage_check: |
+      For each (transaction_date, currency) pair needed:
+      - Check fx_rate_cache first
+      - If miss, invoke edge function
+      - If edge function fail OR rate=null for that date: mark as
+        "rate_unavailable" + skip in phase 4
+    outputs:
+      - rates_by_currency_date: map { (currency, date) → rate }
+      - rows_with_rate: subset of candidates with rate found
+      - rows_without_rate: subset to skip
+
+  - id: phase_3_dry_run_preview
+    name: Dry-Run with Rate Preview
+    actor: ops-chief + platform-specialist
+    duration: 5-15s
+    description: >
+      Show user preview:
+      - Total candidates: N
+      - Rows with rate (will update): V
+      - Rows without rate (skip): S
+      - Sample of 10 rows with rate applied:
+        | id | amount | currency | rate | converted_amount | date |
+      - Total converted_amount sum per currency (sanity check)
+    format_output: |
+      "Preview conversion:
+       - Total candidates: {N}
+       - Rate source: {source}
+       - Rows convertíveis: {V}
+       - Rows skipped (no rate): {S}
+       Sample:
+         | id | amount | curr | rate | converted | date |
+         | x1 | 100.00 | USD  | 0.93 | 93.00 EUR | 2026-04-15 |
+         ...
+       Total converted (EUR): {sum}
+       Confirma UPDATE batch?"
+
+  - id: phase_4_confirm_and_update
+    name: Confirm + Batch UPDATE
+    actor: ops-chief (elicit) + platform-specialist
+    duration: 10-60s (depending on N)
+    description: >
+      User types "confirma update de {V} rows" literal. Se confirmado:
+    mutation_pattern: |
+      For each row with rate:
+        UPDATE finance_transactions
+        SET converted_amount = amount * rate,
+            converted_currency = 'EUR',
+            exchange_rate = rate,
+            conversion_date = transaction_date,
+            updated_at = now()
+        WHERE id = {row_id} AND converted_amount IS NULL;
+      -- NOTE: AND converted_amount IS NULL protege contra race condition
+      -- (se user fez conversion manual entre phase 1 e phase 4).
+    rls_scope: user JWT enforces has_finance_access.
+    on_row_failure: log + continue (NOT abort batch)
+    output:
+      - updated_count
+      - skipped_count
+      - failed_count
+      - batch_correlation_id (uuid correlacionando todas as UPDATEs)
+
+  - id: phase_5_report_unavailable
+    name: Report Rows Without Rate
+    actor: platform-specialist
+    duration: 5s
+    description: >
+      Para rows in rows_without_rate, gerar report:
+      - List ids + currencies + dates
+      - Reason (ECB not available for X / Revolut snapshot missing / etc.)
+      - Suggestion: user pode (a) aguardar ECB catch up, (b) usar manual
+        rate, (c) skip permanente com flag
+    output:
+      - unavailable_report (markdown)
+
+  - id: phase_6_gate_and_close
+    name: Gate + Close with Audit
+    actor: ops-chief (+ quality-guardian if batch > 50 rows)
+    duration: 30s-2min
+    description: >
+      Para batch > 50 rows, chief delegates audit para quality-guardian
+      (INV-07 destructive batch trigger).
+      Gate valida:
+      - INV-CC-03: apenas NULL rows tocadas (not overwrite)
+      - INV-CC-04: dry-run shown before mutation
+      - INV-CC-05: per-row failures contained
+      - audit_trail preserved
+    output:
+      - changelog entry
+      - final summary: V updated, S skipped, F failed
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: monthly_ecb_reconciliation
+    trigger: "converter tx em USD e BRL deste mês usando taxas ECB"
+    trace:
+      - phase_1: 43 candidates identified (32 USD + 11 BRL, all abril/2026)
+      - phase_2: fetch ECB rates — 43 rates cached
+      - phase_3: dry-run shown, sum EUR equivalent ≈ €8,450
+      - phase_4: user confirma, 43 rows UPDATE (all successful)
+      - phase_5: 0 unavailable
+      - phase_6: gate PASS (>50? no, inline gate)
+    total: ~2min
+
+  - name: revolut_realtime_for_missing
+    trigger: "completar conversions das tx Revolut com rates reais do dia da tx"
+    trace:
+      - phase_1: 128 candidates (rate_source=revolut_snapshot)
+      - phase_2: revolut endpoint returns rates para 125 dates, 3 dates
+        sem snapshot (weekends legacy)
+      - phase_3: dry-run: 125 convertíveis, 3 skip
+      - phase_4: user confirma, 125 UPDATEs
+      - phase_5: report 3 rows sem rate (weekends) — suggestion manual rate
+      - phase_6: quality-guardian audit (batch > 50) → PASS
+    total: ~5min
+
+  - name: abort_dry_run
+    trigger: "converter 400 tx"
+    trace:
+      - phase_1-3: normal
+      - phase_3: user vê rates e realiza que ECB rate de data X está
+        weird (possible API error). User fala "não, abort"
+      - phase_4: skip
+      - phase_6: cycle closes sem UPDATEs (changelog notes dry-run abort)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+  - mode: hard_cap_exceeded
+    handling: phase_1 ESCALATE "split em batches menores (max 500/batch)"
+  - mode: edge_function_5xx
+    handling: phase_2 retry 1x, se persist → BLOCKED "FX service down"
+  - mode: rls_denial
+    handling: BLOCKED com has_finance_access explanation
+  - mode: partial_batch_failure
+    handling: per-row, logged + report em phase_5, not abort
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - agents/platform-specialist.md (Finance scope, identify candidates + UPDATE)
+  - agents/integration-specialist.md (fetch FX rates via edge function)
+  - agents/quality-guardian.md (audit >50 row batch)
+  - workflows/wf-platform-operation.yaml (pattern base)
+  - workflows/wf-finance-recurrence.yaml (pattern de dry-run + batch + confirmation)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════════════════════════
+notes:
+  why_workflow_not_atomic: |
+    Currency conversion em batch é: identify candidates → fetch external
+    rates → preview → apply. Multi-phase é inerente. Task atômica
+    (per-row) seria ineficiente + quebra de FX API quota.
+
+  fx_rate_cache_table: |
+    Workflow assume existência de `fx_rate_cache` (date, from_currency,
+    to_currency, rate, source) OU cria on-demand por row. Sprint 15+ pode
+    formalizar essa table com migration + indexes.
+
+  ecb_vs_revolut_trade_offs: |
+    - ECB (European Central Bank): official daily rates, trusted, but
+      latency 1d. Good for end-of-month reconciliation.
+    - Revolut snapshot: rate real used at Revolut's FX engine nearer to
+      transaction time. Good for actual-cost matching.
+    - Manual: user provides specific rate (rare, for specific one-off).
+
+  retroactive_conversion_caveat: |
+    If user does retroactive conversion (tx de meses atrás), accounting
+    implications: may change closed-period reports. Workflow warns em
+    dry-run + user confirma explicit para datas > 30 dias atrás.
+
+  non_eur_base_scenarios: |
+    Sprint 14 assume base é EUR (company operação Europe). Se base muda
+    (ex: subsidiária BRL), workflow precisa generalizar converted_currency
+    target. Sprint 15+ pode parameterize.

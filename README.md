@@ -65,16 +65,42 @@ git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git pr
 cd primeteam-ops
 ```
 
-### 2. Abrir no Claude Code
+### 2. Instalar deps da CLI de auth
 
 ```bash
-# Do dentro da pasta primeteam-ops
+npm install
+```
+
+### 3. Login Google OAuth
+
+```bash
+npm run login
+```
+
+O que acontece:
+- CLI abre servidor local em `http://localhost:54321/callback` (loopback, só sua máquina)
+- Navegador abre com tela de login Google (via Supabase OAuth PKCE)
+- Você faz login com seu e-mail `@archprime.io`
+- JWT salvo em `~/.primeteam/session.json` (chmod 600, fora do repo)
+- Servidor local fecha
+
+### 4. Confirmar sessão
+
+```bash
+npm run whoami
+```
+
+Mostra email + roles (`owner`, `financeiro`, `marketing`, `comercial`, `cs`) + expiração.
+
+### 5. Abrir no Claude Code
+
+```bash
 claude
 ```
 
 O Claude Code detecta automaticamente os slash commands em `.claude/commands/PrimeteamOps/` (symlinks para `agents/`, `tasks/`, `checklists/` do próprio repo).
 
-### 3. Ativar o chief
+### 6. Ativar o chief
 
 No Claude Code digite:
 
@@ -82,11 +108,19 @@ No Claude Code digite:
 /PrimeteamOps:agents:ops-chief
 ```
 
-O ops-chief faz triagem da sua demanda, verifica autenticação e roteia para o specialist correto.
+O ops-chief verifica auth (checa `~/.primeteam/session.json`) antes de rotear demandas que tocam o Supabase.
 
-### Fase 2+ — CLI de autenticação (em desenvolvimento)
+### Logout
 
-Na Fase 2 entra a CLI companheira (`npx primeteam-ops login/whoami/logout`) que faz o flow Google OAuth browser-callback e salva o JWT em `~/.primeteam/session.json`. Por enquanto (Fase 1), o squad opera documentação e planejamento — operações na plataforma vêm depois.
+```bash
+npm run logout
+```
+
+Remove a session local + invalida no Supabase (best-effort).
+
+---
+
+> **Admin (Pablo):** antes do primeiro login funcionar em qualquer máquina, precisa adicionar `http://localhost:54321/callback` na allowlist de Redirect URLs no dashboard do Supabase. Ver [SETUP-ADMIN.md](./SETUP-ADMIN.md) para o passo a passo completo.
 
 ---
 
@@ -134,7 +168,17 @@ Isso é o mesmo modelo de segurança que `primeteam.archprime.io` usa no browser
 
 ## Comandos principais
 
-### No Claude Code (Fase 1 — atual)
+### CLI de auth (terminal)
+
+```bash
+npm run login      # Login Google OAuth (browser-callback, PKCE)
+npm run whoami     # Mostra usuário + roles + expiração
+npm run logout     # Remove session local
+```
+
+Ver `cli/` para código-fonte e `SETUP-ADMIN.md` para config inicial.
+
+### No Claude Code
 
 ```
 /PrimeteamOps:agents:ops-chief            # Chief (orquestrador Tier 0)
@@ -145,14 +189,6 @@ Isso é o mesmo modelo de segurança que `primeteam.archprime.io` usa no browser
 
 Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 
-### CLI companheira (Fase 2+ — ainda não implementada)
-
-```bash
-npx primeteam-ops login              # Login Google OAuth (browser-callback)
-npx primeteam-ops whoami             # Mostra usuário + role
-npx primeteam-ops logout             # Limpa session local
-```
-
 ---
 
 ## Status atual e roadmap
@@ -161,19 +197,24 @@ npx primeteam-ops logout             # Limpa session local
 - PR #951 PrimeTeam: RLS em 5 tabelas + 3 policies permissivas removidas
 - PR #952 PrimeTeam: `verify_jwt` em chat-ai + get-revolut-balances
 
-### 🚧 Fase 1 — Foundation (em progresso)
+### ✅ Fase 1 — Foundation (completa)
 - [x] Estrutura de diretórios
 - [x] `config.yaml` com `handoff_protocol`
-- [ ] Central rules document (`data/primeteam-platform-rules.md`)
-- [ ] Handoff infrastructure (template, quality gate, smoke test)
-- [ ] `ops-chief` (Tier 0)
-- [ ] `auth-specialist` (Tier 1)
+- [x] Central rules document (`data/primeteam-platform-rules.md`, 870L)
+- [x] Handoff infrastructure (template, quality gate, smoke test)
+- [x] `ops-chief` (Tier 0, 725L)
+- [x] `auth-specialist` (Tier 1, 521L)
+- [x] Standalone workspace (`.claude/commands/PrimeteamOps/` symlinks)
 
-### ⏳ Fase 2 — Operational MVP
-- `platform-specialist` (tasks + finance + CS + admin + imports)
-- `sales-specialist`, `integration-specialist`, `quality-guardian`
-- `wf-platform-operation.yaml`
-- 4-5 tasks estruturadas
+### 🚧 Fase 2 — Operational MVP (em progresso)
+- [x] **Sprint 1:** CLI de auth (`npm run login/whoami/logout`) — PKCE OAuth Google via Supabase
+- [x] **Sprint 1:** `ops-chief` refinado com Auth Verification Protocol
+- [ ] `platform-specialist` (tasks + finance + CS + admin + imports + profile)
+- [ ] `sales-specialist` (CRM + leads + pipeline)
+- [ ] `integration-specialist` (Google Calendar + Meta sync + Revolut)
+- [ ] `quality-guardian` (i18n + lint + RLS validation)
+- [ ] `wf-platform-operation.yaml` (workflow principal)
+- [ ] 4-5 tasks estruturadas (create-finance-transaction, import-csv-data, etc.)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

@@ -6,6 +6,27 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.2.0] — 2026-04-22
+
+### Added — CLI de autenticação (Fase 2 Sprint 1)
+
+- `cli/index.ts` — entry point com roteamento de subcomandos
+- `cli/config.ts` — Supabase URL + anon key + callback port
+- `cli/session.ts` — load/save/clear de `~/.primeteam/session.json` (chmod 600)
+- `cli/supabase.ts` — factories de client PKCE e authenticated
+- `cli/login.ts` — OAuth Google via PKCE + servidor HTTP local + página de sucesso/erro
+- `cli/whoami.ts` — valida session + busca roles da tabela `user_roles` via Supabase
+- `cli/logout.ts` — invalida no Supabase + remove session local
+- `package.json` — scripts `npm run login/whoami/logout`, deps `@supabase/supabase-js` + `open`
+- `tsconfig.json` — strict mode, ES2022, módulo bundler
+- `ops-chief.md` — adicionado **Auth Verification Protocol** (decision tree) e step_1_receive com pre-check de session
+
+### Setup necessário (admin)
+
+Ver [`SETUP-ADMIN.md`](./SETUP-ADMIN.md) — configuração de Redirect URLs no dashboard do Supabase (bloqueante para o login funcionar).
+
+---
+
 ## [0.1.0] — 2026-04-22
 
 ### Added — Scaffold estrutural (Fase 1.1)
@@ -14,15 +35,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - `config.yaml` com `handoff_protocol` block (hub-and-spoke, V26 compliance)
 - `README.md` em português — onboarding do time, fluxo de auth, setup
 - `CHANGELOG.md` template
+- `data/primeteam-platform-rules.md` (870L) — Central reference
+- `data/handoff-card-template.md` — V18
+- `checklists/handoff-quality-gate.md` — V19
+- `tasks/test-handoff-flow.md` — V20
+- `agents/ops-chief.md` (725L) — Tier 0 orchestrator
+- `agents/auth-specialist.md` (521L) — Tier 1
 
-### Pending (próximas sub-fases)
+### [0.1.1] — 2026-04-22 (standalone workspace)
 
-- [ ] `data/primeteam-platform-rules.md` — Central reference (~900 linhas)
-- [ ] `data/handoff-card-template.md` — V18 obrigatório
-- [ ] `checklists/handoff-quality-gate.md` — V19 obrigatório
-- [ ] `tasks/test-handoff-flow.md` — V20 obrigatório
-- [ ] `agents/ops-chief.md` — Tier 0 orchestrator
-- [ ] `agents/auth-specialist.md` — Tier 1
+- `.claude/commands/PrimeteamOps/` — symlinks (120000) para `agents/`, `tasks/`, `checklists/` — repo auto-suficiente como workspace Claude Code
 
 ---
 

@@ -6,6 +6,27 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.3.0] — 2026-04-22
+
+### Added — platform-specialist com escopo Tasks (Fase 2 Sprint 2)
+
+- `agents/platform-specialist.md` (526L) — Tier 1 operational executor. Scope Sprint 2: **apenas módulo Tarefas** (8 tabelas: `tasks`, `task_projects`, `task_recurrences`, `task_completed_occurrences`, `task_history`, `task_date_change_requests`, `task_schedule_blocks`, `task_project_members`).
+  - Playbooks: create / list / update / complete / reopen / delete / classify Eisenhower / list overdue / list today
+  - Voice DNA em PT-BR com signature starters + vocabulário
+  - 3 output examples (happy path, listing com filtro, scope rejection)
+  - 8 anti-patterns específicos (never invent title, JWT-scoped writes, UTC-first, never hand off direct)
+  - 3 smoke tests obrigatórios (SC_AGT_001 — happy / RLS denial / scope rejection)
+  - Handoff ceremony compliant com V10 + V11 + V18
+  - `auto_rejects` para módulos fora de scope → ESCALATE de volta ao chief
+- `tasks/create-task.md` — task estruturada HO-TP-001 (8 campos): anatomia completa + 3 exemplos (happy path / title ausente / RLS denial). Serve como template para as próximas tasks.
+
+### Observações
+
+- Policies RLS atuais de `tasks` são permissivas (todos authenticated podem CRUD) — documentado nas `future_notes` do platform-specialist para auditoria pelo `quality-guardian` (Sprint 4).
+- Convenção Eisenhower adotada: priority/urgency 1..4 com 4 = mais alto. Validar no primeiro uso real contra a UI web.
+
+---
+
 ## [0.2.0] — 2026-04-22
 
 ### Added — CLI de autenticação (Fase 2 Sprint 1)

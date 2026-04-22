@@ -209,12 +209,15 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 ### 🚧 Fase 2 — Operational MVP (em progresso)
 - [x] **Sprint 1:** CLI de auth (`npm run login/whoami/logout`) — PKCE OAuth Google via Supabase
 - [x] **Sprint 1:** `ops-chief` refinado com Auth Verification Protocol
-- [ ] `platform-specialist` (tasks + finance + CS + admin + imports + profile)
-- [ ] `sales-specialist` (CRM + leads + pipeline)
-- [ ] `integration-specialist` (Google Calendar + Meta sync + Revolut)
-- [ ] `quality-guardian` (i18n + lint + RLS validation)
-- [ ] `wf-platform-operation.yaml` (workflow principal)
-- [ ] 4-5 tasks estruturadas (create-finance-transaction, import-csv-data, etc.)
+- [x] **Sprint 2:** `platform-specialist` (scope: Tasks module — 526L, 3 smoke tests, 3 output examples)
+- [x] **Sprint 2:** `tasks/create-task.md` (HO-TP-001 template — anatomia 8 campos + 3 exemplos)
+- [ ] **Sprint 3:** expandir `platform-specialist` para **Finance** module (transações, categorias, DRE, conciliação)
+- [ ] **Sprint 3:** mais tasks (list-tasks, complete-task, create-finance-transaction)
+- [ ] **Sprint 4:** `sales-specialist` (CRM + leads + pipeline)
+- [ ] **Sprint 4:** `quality-guardian` (i18n + lint + RLS audit — auditar policies permissivas de tasks/etc.)
+- [ ] **Sprint 5:** `integration-specialist` (Google Calendar + Meta sync + Revolut)
+- [ ] **Sprint 5:** `wf-platform-operation.yaml` (workflow principal)
+- [ ] **Sprint 6+:** CS, Admin, Imports, Profile
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

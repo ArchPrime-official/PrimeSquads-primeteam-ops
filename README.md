@@ -231,8 +231,8 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 12:** `automation-specialist` (Tier 2 — flows + email templates) + `tasks/list-automation-flows.md`
 - [x] **Sprint 13:** `admin-specialist` (Tier 3 OWNER-ONLY) + `imports-specialist` (Tier 3)
 - [x] **Sprint 14:** `wf-currency-convert.yaml` (multi-specialist: platform + integration + guardian)
-- [ ] **Sprint 15:** External mutations (pause Meta campaigns, Revolut transferências via 2FA, Calendar event creation) com dry-run + confirmation dupla
-- [ ] **Sprint 15+:** nodes/edges direct edit em automation_flows (requires schema alignment com frontend ReactFlow)
+- [x] **Sprint 15:** External mutations — Meta Ads (pause/resume/budget) + Google Calendar (create/update/delete event) + automation_flows nodes/edges edit. **Revolut transferências PERMANENTEMENTE OUT (by design)**.
+- [ ] **Sprint 16+:** A/B testing Meta, watch channel rotation, VAPI/Ringover integrations
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

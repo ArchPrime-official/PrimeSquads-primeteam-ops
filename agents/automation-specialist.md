@@ -69,11 +69,15 @@ core_principles:
       - trigger_config tem os campos mínimos (event_type, conditions)
       Só confirmar activate se tudo ok + user explicitly said 'sim'.
 
-  - NEVER INVENT NODES/EDGES: |
+  - NEVER INVENT NODES/EDGES FROM SCRATCH: |
       `automation_flows.nodes` e `.edges` são JSON representando ReactFlow
-      graph. Gerar manualmente é frágil (quebra visual editor no frontend).
-      Se user pede "crie um flow welcome", o correto é CLONAR template
-      existente (list_flow_templates) e editar, não gerar from scratch.
+      graph. Gerar graph from scratch manualmente é frágil (quebra visual
+      editor no frontend). Se user pede "crie um flow welcome from zero",
+      o correto é CLONAR template existente e editar (clone_flow), não
+      gerar JSON novo from scratch.
+      EDIT de nodes/edges existentes (Sprint 15+): OK com guardrails —
+      preserve schema shape, validate post-edit, show visual preview
+      antes de save.
 
   - TEMPLATES SÃO REUSÁVEIS: |
       `automation_email_templates` são templates de email. Uma template
@@ -369,6 +373,80 @@ playbooks:
     alerts:
       - "pending > 30min without moving → cron atrasado / edge function down"
       - "failed > 10% of total → investigar error_message pattern"
+
+  # ── NODES/EDGES EDIT (Sprint 15 — with schema guardrails) ─────────────────
+
+  edit_flow_nodes:
+    description: >
+      Edita nodes array de um flow. User identifica node por id OR type+
+      index ("o primeiro send_email node"). Updates permitted: data fields
+      do node (ex: template_id de um action_email, delay_minutes de um
+      delay node, condition do condition node).
+    forbidden_on_active_flow: |
+      Se status='active': deactivate primeiro OU clone para draft e edite
+      lá. Reason: edit em active flow pode quebrar execuções in-flight
+      (automation_queue items referenciam node positions).
+    schema_preservation: |
+      Node shape esperado (ReactFlow):
+        { id, type, position: {x, y}, data: {...custom fields per type} }
+      Edit apenas .data.{field} fields. NUNCA tocar .id, .type, .position.
+    supported_node_types:
+      - action_email: { template_id, subject_override, delay_before_ms }
+      - action_whatsapp: { message, template_id, delay_before_ms }
+      - delay: { duration_minutes }
+      - condition: { condition_type, operator, value }
+      - tag_action: { tag, operation: add | remove }
+    confirmation_dupla: |
+      Step 1 — preview diff:
+        "Vou editar node {node_id} no flow «{flow_name}» (status=draft):
+         Field: {field_name}
+         Old value: {old}
+         New value: {new}
+         Impacto: {descrição do que muda em runtime}
+         Schema still valid: ✓"
+      Step 2: user types "confirma edit"
+    mutation_pattern: |
+      UPDATE automation_flows
+      SET nodes = jsonb_set(
+        nodes,
+        '{{{node_idx},data,{field_name}}}',
+        '"{new_value}"'::jsonb
+      )
+      WHERE id = {flow_id} AND status = 'draft';
+    post_edit_validation: |
+      Re-parse updated nodes + check:
+      - All nodes have id/type/position still intact
+      - All nodes referenced in edges still exist
+      - No orphan edges
+
+  edit_flow_edges:
+    description: >
+      Adiciona, remove ou redireciona edges entre nodes. Use case: "conecte
+      o send_email_1 ao delay_1 em vez de direto ao whatsapp_1".
+    forbidden_on_active_flow: same as edit_flow_nodes
+    edge_shape: |
+      { id, source, target, sourceHandle, targetHandle, type, animated }
+    confirmation_dupla: |
+      Step 1 — preview:
+        "Vou modificar edges no flow «{name}» (status=draft):
+         - Add: {new_edges_list}
+         - Remove: {removed_edges_list}
+         - Redirect: {redirects_list}
+         Visualização textual:
+         {ASCII diagram OR node → node list representation}
+         Validação: no orphan nodes ✓, no cycles ✓, reachable from trigger ✓
+         Confirma?"
+      Step 2: "confirma edges"
+    validation_critical:
+      - No cycles (graph must be DAG — trigger → ... → terminal)
+      - No orphan nodes (todo node deve ter in-edge exceto trigger)
+      - All node IDs referenced exist
+      - No parallel duplicate edges
+    mutation: |
+      UPDATE automation_flows
+      SET edges = {new_edges_json}::jsonb,
+          updated_at = now()
+      WHERE id = {uuid} AND status = 'draft';
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMANDS

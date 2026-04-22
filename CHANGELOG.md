@@ -6,6 +6,45 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.16.0] — 2026-04-22
+
+### Added — External mutations (Meta + Calendar) + Automation nodes/edges edit (Fase 2 Sprint 15)
+
+Sprint de mutations externas — scope expandido para incluir operações que MUDAM estado externo, com guardrails rigorosos. **Revolut transferências/pagamentos PERMANENTEMENTE OUT OF SCOPE** (by design, não Sprint futuro — rationale documentado em core_principles).
+
+- `agents/integration-specialist.md` expandido com 6 novos playbooks:
+  - **Meta mutations (3):** pause_campaign (dupla confirmation + learning impact warning), resume_campaign, change_campaign_budget (hard guardrail 2x → ESCALATE para /metaAds:ralph-burns)
+  - **Google Calendar mutations (3):** create_calendar_event (bidirecional sync), update_calendar_event (diff preview), delete_calendar_event (confirmation destrutiva com attendees warning)
+  - Core principle novo: **REVOLUT TRANSFERS PERMANENTLY OUT OF SCOPE (BY DESIGN)** — decisão arquitetural permanente; movimentações bancárias sempre via UI web + 2FA
+  - Core principle novo: **SELECTED EXTERNAL MUTATIONS ALLOWED (Sprint 15+)** — lista exatamente o que é in-scope com guardrails
+  - 4 novos smoke tests: pause_dupla_confirmation / budget_2x_escalated / revolut_transfer_permanent_reject / calendar_event_create_happy
+  - negative_reject_back_to_chief reestruturada com categoria "PERMANENTLY OUT OF SCOPE (by design, not Sprint futuro)"
+
+- `agents/automation-specialist.md` expandido com 2 novos playbooks:
+  - **edit_flow_nodes:** edit data fields em nodes específicos (template_id, delay_minutes, condition, etc.) com schema preservation + dupla confirmation
+  - **edit_flow_edges:** add/remove/redirect edges com DAG validation (no cycles, no orphans, reachability check)
+  - Forbidden on active flow: deactivate ou clone primeiro (evita quebrar execuções in-flight)
+  - Core principle NEVER INVENT NODES/EDGES refinado: edit OK com guardrails, creation from scratch ainda requer template clone
+
+### Total playbooks no squad após Sprint 15
+
+- integration-specialist: **31 playbooks** (Calendar 10 + Revolut 8 + Meta 13) em 1 agent 1570L+
+- automation-specialist: **15 playbooks** (flows 9 + templates 4 + monitoring 2)
+- platform-specialist: **26 playbooks** (Tasks 9 + Finance 8 + CS 9)
+- sales-specialist: 10 playbooks (CRM)
+- content-builder: 10 playbooks (LPs)
+
+### Estado do squad após Sprint 15
+
+- 10 agents (specialists expandidos, não adicionados)
+- 5 workflows
+- 12 tasks HO-TP-001
+- CLI auth
+
+**Total componentes:** mesma contagem (10+5+12+1 = 28) mas cada specialist muito mais capaz.
+
+---
+
 ## [0.15.0] — 2026-04-22
 
 ### Added — wf-currency-convert workflow (Fase 2 Sprint 14)

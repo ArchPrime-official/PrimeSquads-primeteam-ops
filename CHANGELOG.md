@@ -6,6 +6,39 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.13.0] — 2026-04-22
+
+### Added — automation-specialist + list-automation-flows (Fase 2 Sprint 12)
+
+- `agents/automation-specialist.md` — **Tier 2** automation flows + email templates executor
+  - Scope: CRUD em `automation_flows` + `automation_email_templates` + monitoring de `automation_queue` e `automation_executions`
+  - 13 playbooks: list_flows, get_flow_details, activate_flow (pre-flight check robusto), deactivate_flow, clone_flow, update_flow_metadata, delete_flow, list_email_templates, create_email_template, update_email_template, delete_email_template (com usage check), list_executions, list_queue
+  - 8 core_principles: ACTIVATE CAREFULLY (pre-flight obrigatório — flow ativo dispara a leads reais), NEVER INVENT NODES/EDGES (schema-sensitive), TEMPLATES SÃO REUSÁVEIS (usage check antes de DELETE), DEACTIVATE BEFORE DELETE, TRIGGER_TYPE IS IMMUTABLE, UAZAPI CONTEXT awareness, QUEUE MONITORING READ-ONLY, AUTO-REJECT CONTENT GENERATION
+  - 3 output examples: activate happy (com warnings side effects) / content generation rejected / delete template blocked
+  - 8 anti-patterns + 3 smoke tests
+  - Voice DNA bem delimitada: flow/trigger/template/nodes terminology
+  - future_notes: nodes/edges direct edit (Sprint 13+), flow creation via chat, WhatsApp direct integration, A/B testing
+
+- `tasks/list-automation-flows.md` (HO-TP-001):
+  - Read-only com execution stats 7d computed (subquery)
+  - Health signals automáticos (flow ativo sem triggers, high failure rate)
+  - NO full nodes/edges JSON dump (summary only — schema-sensitive)
+  - Aggregate stats: total_active, total_draft, executions_7d, failure_rate
+  - 4 exemplos: happy / high failure warning / empty / search term
+
+### Cobertura de roles expandida
+
+Marketing (Sandra) agora tem specialist dedicado para automation (além do content-builder para LPs).
+
+### Estado do squad após Sprint 12
+
+- **8 agents**: ops-chief (T0), auth (T1), platform (T1), sales (T2), content-builder (T2), automation-specialist (T2 ← NOVO), integration-specialist (T3), quality-guardian (T3)
+- **4 workflows**: wf-platform-operation + 3 dedicados
+- **12 tasks HO-TP-001**
+- CLI auth funcional
+
+---
+
 ## [0.12.0] — 2026-04-22
 
 ### Added — 3 workflows dedicados (Fase 2 Sprint 11)

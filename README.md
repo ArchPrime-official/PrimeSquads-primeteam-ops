@@ -228,10 +228,10 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 10:** `integration-specialist` expandido com **Meta Ads** — 25 playbooks total, 8 smoke tests, trindade de boundaries completa
 - [x] **Sprint 10:** `tasks/list-meta-campaigns.md` (HO-TP-001 com aggregates + underperformer flags)
 - [x] **Sprint 11:** 3 workflows dedicados — `wf-finance-recurrence.yaml` + `wf-onboarding-approval.yaml` + `wf-customer-churn.yaml`
-- [ ] **Sprint 12:** `admin-specialist` (users/roles — owner-only)
-- [ ] **Sprint 12:** `automation-specialist` (email templates + flows — Sandra)
-- [ ] **Sprint 12:** `imports-specialist` (CSV imports)
-- [ ] **Sprint 13+:** Currency auto-convert workflow + External mutations (pause Meta campaigns, Revolut transferências via 2FA)
+- [x] **Sprint 12:** `automation-specialist` (Tier 2 — flows + email templates) + `tasks/list-automation-flows.md`
+- [ ] **Sprint 13:** `admin-specialist` (users/roles — owner-only)
+- [ ] **Sprint 13:** `imports-specialist` (CSV imports)
+- [ ] **Sprint 14+:** Currency auto-convert workflow + External mutations (pause Meta campaigns, Revolut transferências via 2FA)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

@@ -6,6 +6,48 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.10.0] — 2026-04-22
+
+### Added — integration-specialist expandido com Revolut (Fase 2 Sprint 9)
+
+- `agents/integration-specialist.md` expandido de 632L → **963L**:
+  - Novo scope_in_sprint_9: Google Calendar (preserved) + **Revolut** (NEW)
+  - 8 novos playbooks Revolut: list_revolut_balances, list_revolut_discrepancies, check_revolut_sync_status, check_revolut_connection, trigger_revolut_sync, trigger_revolut_balance_check, list_revolut_webhooks, reconciliation_report
+  - Novo core_principle implicit: `revolut_rls_requirement` — RLS has_finance_access() (owner/financeiro only), honest BLOCKED se role inadequada
+  - **Staleness threshold mais estrito** para Revolut: 15min (FRESH) vs 2h (VERY_STALE) — mais crítico financeiramente que Calendar
+  - **Privacy strict**: access_token/refresh_token NUNCA selecionados em queries, mesmo que schema permita. Enforcement por código, não confiança no RLS.
+  - 1 novo output example: happy path + STALE warning + discrepancy flagged
+  - 3 novos smoke tests: revolut_balances_happy / revolut_discrepancy_flag / revolut_wrong_role_rejected
+  - Anti-patterns Revolut-specific: nunca chamar API direto, nunca SELECT access_token, nunca transferir (UI+2FA), diferenciação Revolut API value vs calculated de finance_transactions
+  - future_notes: sprint 9 feature set summary + reconhece transactions Revolut vivem em finance_transactions (territory = platform-specialist Finance, não integration-specialist)
+
+- `tasks/list-revolut-balances.md` (HO-TP-001):
+  - DISTINCT ON por conta (latest balance_check)
+  - Pre-check: connection + sync_status
+  - Discrepancy flagging (is_matching=false ⚠)
+  - Privacy: user_id scoped, access_token never selected
+  - 5 exemplos: happy FRESH / STALE+discrepancy / DISCONNECTED BLOCKED / RLS denial (cs role) / filter só discrepâncias
+
+### Tabelas Revolut documentadas
+
+- `revolut_balance_checks` — primary (histórico comparison Revolut API vs calculated)
+- `revolut_sync_logs` — histórico syncs (status, errors, timing)
+- `revolut_credentials` — LIMITED read (apenas expires_at/id, NUNCA tokens)
+- `revolut_webhooks` — config webhooks
+- `finance_bank_accounts` — cross-reference (Revolut accounts têm revolut_account_id)
+
+### Edge functions referenciadas
+
+- `sync-revolut-transactions` — invocado via trigger_revolut_sync (escreve em finance_transactions)
+- `get-revolut-balances` — invocado via trigger_revolut_balance_check (escreve em revolut_balance_checks)
+
+### Separação de territórios clarificada
+
+- **Transactions Revolut** → platform-specialist Finance (tabela `finance_transactions` com `bank_transaction_id`)
+- **Balances / Sync / Discrepancies** → integration-specialist (tabelas `revolut_*`)
+
+---
+
 ## [0.9.0] — 2026-04-22
 
 ### Added — integration-specialist (Google Calendar boundary) + list-calendar-events (Fase 2 Sprint 8)

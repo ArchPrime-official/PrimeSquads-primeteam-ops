@@ -1,0 +1,195 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# primeteam-ops — Squad Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+pack:
+  name: primeteam-ops
+  version: 0.1.0
+  description: >
+    CLI squad que opera a plataforma PrimeTeam via Claude Code. Execution layer
+    que substitui editores visuais (LP, Automação, Radar) e acelera operações
+    rotineiras. Respeita RLS via JWT de usuário (Google OAuth browser-callback).
+  icon: "⚙️"
+  slash_prefix: ptOps
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Agents registry
+# ─────────────────────────────────────────────────────────────────────────────
+agents:
+  - id: ops-chief
+    file: agents/ops-chief.md
+    tier: 0
+    role: orchestrator
+    description: >
+      Hub único de orquestração. Recebe demandas, tria, roteia para specialists,
+      valida output via handoff-quality-gate, decide próximo passo ou fecha ciclo.
+      Conhece toda a plataforma (18 módulos, 226 tabelas, 195 Edge Functions,
+      8 integrações). Todos specialists retornam para cá.
+
+  - id: auth-specialist
+    file: agents/auth-specialist.md
+    tier: 1
+    role: authentication
+    description: >
+      Google OAuth via browser-callback (mesmo client ID que primeteam.archprime.io
+      usa). Salva JWT em ~/.primeteam/session.json (chmod 600, gitignored).
+      Refresh token automático. Commands: *login, *logout, *whoami, *refresh.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tasks registry
+# ─────────────────────────────────────────────────────────────────────────────
+tasks:
+  - id: test-handoff-flow
+    file: tasks/test-handoff-flow.md
+    purpose: Smoke test da topologia hub-and-spoke (V20 obrigatório)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Workflows registry (populado nas próximas fases)
+# ─────────────────────────────────────────────────────────────────────────────
+workflows: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Checklists registry
+# ─────────────────────────────────────────────────────────────────────────────
+checklists:
+  - id: handoff-quality-gate
+    file: checklists/handoff-quality-gate.md
+    purpose: Gate blocker rodado pelo chief em cada retorno de specialist (V19)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Templates registry (populado na Fase 3 — editores CLI)
+# ─────────────────────────────────────────────────────────────────────────────
+templates: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Data files registry
+# ─────────────────────────────────────────────────────────────────────────────
+data:
+  - id: primeteam-platform-rules
+    file: data/primeteam-platform-rules.md
+    purpose: CENTRAL REFERENCE — regras invioláveis (design, code, DB, i18n, handoff, RBAC)
+
+  - id: handoff-card-template
+    file: data/handoff-card-template.md
+    purpose: Template de handoff entre specialists e chief (V18)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Hub-and-spoke handoff protocol (V26 obrigatório)
+# ═══════════════════════════════════════════════════════════════════════════════
+handoff_protocol:
+  topology: hub_and_spoke
+  chief_agent_id: ops-chief
+
+  # Caminhos PROIBIDOS (anti-mesh)
+  forbidden_paths:
+    - "specialist → specialist (sem passar pelo chief)"
+    - "specialist deliver without announcement"
+    - "skip handoff-quality-gate after receive"
+
+  # Cerimônia obrigatória de retorno (V10)
+  return_announcement_regex: "^Retornando ao @ops-chief\\. .{3,80} concluíd[oa]\\.$"
+
+  # Pacote de output padronizado (V11)
+  output_package_required:
+    - file_list
+    - change_log
+    - convention_verification
+    - deploy_flag
+    - suggested_next
+
+  # Status machine obrigatório (6 estados)
+  status_machine:
+    - Triaged
+    - Routed
+    - InProgress
+    - Returned
+    - Validated
+    - Done
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tier validation (V7 obrigatório)
+# ═══════════════════════════════════════════════════════════════════════════════
+tier_validation:
+  tier_0_count: 1                  # EXATAMENTE 1 orchestrator
+  tier_distribution_required: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Auth configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+auth:
+  flow: google_oauth_browser_callback
+  provider: google
+  callback_port_range: [54321, 54400]  # localhost callback
+  session_storage: ~/.primeteam/session.json
+  session_permissions: "600"           # read/write por owner apenas
+  supabase_url_env: VITE_SUPABASE_URL  # público por design (ja no site web)
+  supabase_anon_key_env: VITE_SUPABASE_ANON_KEY  # público por design
+
+  forbidden:
+    - SUPABASE_SERVICE_ROLE_KEY  # NUNCA no código do squad
+    - hardcoded_urls
+    - hardcoded_tokens
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Platform reference
+# ═══════════════════════════════════════════════════════════════════════════════
+platform:
+  name: PrimeTeam
+  url: primeteam.archprime.io
+  supabase_project_ref: xmqmuxwlecjbpubjdkoj
+  stack:
+    - React 18 + TypeScript + Vite
+    - Supabase (Auth, DB, Realtime, Storage, Edge Functions)
+    - Tailwind CSS + shadcn/ui
+    - TanStack Query v5
+    - i18next (IT primary + PT-BR secondary)
+
+  integrations:
+    - supabase
+    - meta_ads
+    - google_calendar
+    - ringover
+    - whatsapp
+    - stripe
+    - vapi
+    - revolut
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Integration with expertise squads (consultive handoffs)
+# ═══════════════════════════════════════════════════════════════════════════════
+consultive_handoffs:
+  - when: "copy autoral, sales page strategy, Meta Ads strategy"
+    squad: "/metaAds"
+    example_agents: [ryan-deiss, ralph-burns, perry-marshall]
+
+  - when: "business strategy, positioning, financial analysis"
+    squad: "/stratMgmt"
+    example_agents: [seth-godin, peter-drucker, aswath-damodaran]
+
+  - when: "refactor/improve the platform (code, design, schema)"
+    squad: "/ptImprove"
+    example_agents: [design-architect, frontend-architect, data-architect]
+
+  - when: "vídeo, storytelling, screenwriting"
+    squad: "/videoCreative"
+    example_agents: [screenwriter, creative-chief]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Team users (reference)
+# ═══════════════════════════════════════════════════════════════════════════════
+team:
+  owner:
+    - pablo@archprime.io
+  financeiro:
+    - joyce@archprime.io
+    - larissa@archprime.io
+    - adriana@archprime.io  # contadora
+  marketing:
+    - sandra@archprime.io
+  comercial:
+    - miriam@archprime.io
+    - daniel@archprime.io
+    - yuri@archprime.io
+  cs:
+    - jessica@archprime.io
+    - andrea@archprime.io

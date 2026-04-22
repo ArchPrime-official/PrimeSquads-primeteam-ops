@@ -1,0 +1,22 @@
+# Session local (per-user)
+.primeteam/
+session.json
+*.session.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node/Deno
+node_modules/
+.deno/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

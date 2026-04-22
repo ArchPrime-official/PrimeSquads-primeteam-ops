@@ -48,50 +48,45 @@ O resultado aparece imediatamente na plataforma web (LP publicada, transação l
 
 **Regra:** "Os squads de expertise pensam. O `/ptOps` faz."
 
-Decision tree completo: [`docs/platform-analysis/SQUAD-DECISION-TREE-2026-04-22.md`](../../docs/platform-analysis/SQUAD-DECISION-TREE-2026-04-22.md) no repo PrimeTeam.
+Decision tree completo: [`docs/platform-analysis/SQUAD-DECISION-TREE-2026-04-22.md`](https://github.com/ByPabloRuanL/primeteam/blob/main/docs/platform-analysis/SQUAD-DECISION-TREE-2026-04-22.md) no repo PrimeTeam.
 
 ---
 
 ## Setup inicial (cada colaborador faz UMA vez)
 
+> Este repo é **standalone**: ele NÃO é submodule do `primeteam`. Cada colaborador clona este repo direto na sua máquina e abre o Claude Code nele — o workspace do squad é o próprio repo.
+
 ### 1. Clone do repo
 
 ```bash
-git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git
+# Escolha onde clonar — sugestão: ~/archprime/primeteam-ops
+mkdir -p ~/archprime && cd ~/archprime
+git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git primeteam-ops
+cd primeteam-ops
 ```
 
-### 2. Instalar dependências
+### 2. Abrir no Claude Code
 
 ```bash
-cd PrimeSquads-primeteam-ops
-npm install
+# Do dentro da pasta primeteam-ops
+claude
 ```
 
-### 3. Login com sua conta Google ArchPrime
+O Claude Code detecta automaticamente os slash commands em `.claude/commands/PrimeteamOps/` (symlinks para `agents/`, `tasks/`, `checklists/` do próprio repo).
 
-```bash
-npx primeteam-ops login
+### 3. Ativar o chief
+
+No Claude Code digite:
+
+```
+/PrimeteamOps:agents:ops-chief
 ```
 
-O que vai acontecer:
-- CLI abre um servidor local em `http://localhost:54321`
-- Seu browser abre automaticamente com a tela de login Google
-- Você faz login com seu e-mail `@archprime.io` (mesmo que você usa no `primeteam.archprime.io`)
-- Google redireciona para o callback → CLI captura o JWT
-- JWT salvo em `~/.primeteam/session.json` (chmod 600, não versionado)
-- Servidor local fecha
+O ops-chief faz triagem da sua demanda, verifica autenticação e roteia para o specialist correto.
 
-### 4. Confirmar login
+### Fase 2+ — CLI de autenticação (em desenvolvimento)
 
-```bash
-npx primeteam-ops whoami
-```
-
-Deve mostrar seu e-mail e sua role (`owner`, `financeiro`, `marketing`, `comercial`, ou `cs`).
-
-### 5. Ativar no Claude Code
-
-Depois do login, use o slash command `/ptOps` no Claude Code para ativar o chief. Ele tria sua demanda e roteia.
+Na Fase 2 entra a CLI companheira (`npx primeteam-ops login/whoami/logout`) que faz o flow Google OAuth browser-callback e salva o JWT em `~/.primeteam/session.json`. Por enquanto (Fase 1), o squad opera documentação e planejamento — operações na plataforma vêm depois.
 
 ---
 
@@ -139,16 +134,23 @@ Isso é o mesmo modelo de segurança que `primeteam.archprime.io` usa no browser
 
 ## Comandos principais
 
+### No Claude Code (Fase 1 — atual)
+
+```
+/PrimeteamOps:agents:ops-chief            # Chief (orquestrador Tier 0)
+/PrimeteamOps:agents:auth-specialist      # Auth specialist direto
+/PrimeteamOps:checklists:handoff-quality-gate
+/PrimeteamOps:tasks:test-handoff-flow
+```
+
+Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
+
+### CLI companheira (Fase 2+ — ainda não implementada)
+
 ```bash
-# Autenticação
-npx primeteam-ops login              # Login Google OAuth
+npx primeteam-ops login              # Login Google OAuth (browser-callback)
 npx primeteam-ops whoami             # Mostra usuário + role
 npx primeteam-ops logout             # Limpa session local
-
-# Ativação no Claude Code
-/ptOps                               # Chief (orquestrador)
-/ptOps:auth                          # Auth specialist direto
-/ptOps:<outro-specialist>            # Quando os outros agents forem adicionados
 ```
 
 ---
@@ -186,28 +188,35 @@ npx primeteam-ops logout             # Limpa session local
 
 ## Contribuindo
 
-Este squad é um **submodule git** apontando para este repo source-of-truth.
-
-Para contribuir:
+Este repo é **standalone e self-contained** — o colaborador clonou uma vez, trabalha direto nele. Qualquer mudança nos agents/tasks/etc. é commit + PR neste repo.
 
 ```bash
-# 1. Clone local do squad (não do submodule dentro do PrimeTeam)
-git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops
-
-# 2. Branch para mudanças
-cd PrimeSquads-primeteam-ops
+# Dentro da cópia local (ex: ~/archprime/primeteam-ops)
 git checkout -b feat/minha-melhoria
 
-# 3. Desenvolver + commitar
+# Desenvolver + commitar normalmente
+git add agents/ops-chief.md
+git commit -m "feat: melhorar routing map do ops-chief"
 
-# 4. Push + PR no repo do squad
+# Push + PR
 git push -u origin feat/minha-melhoria
 gh pr create --fill
-
-# 5. Após merge, propagar para os projetos que consomem o submodule
-cd /Users/pablo/PrimeTeam
-bump-all-squads.sh --auto-merge
 ```
+
+Após merge no main, cada colaborador faz `git pull` na sua cópia local.
+
+### Estrutura `.claude/commands/PrimeteamOps/`
+
+Os slash commands são **symlinks** para os diretórios raiz do repo:
+
+```
+.claude/commands/PrimeteamOps/
+├── agents       -> ../../../agents
+├── tasks        -> ../../../tasks
+└── checklists   -> ../../../checklists
+```
+
+Isso elimina duplicação — ao editar `agents/ops-chief.md`, o slash command `/PrimeteamOps:agents:ops-chief` automaticamente reflete a mudança. Windows: habilitar symlinks git com `git config --global core.symlinks true` e `git config --global core.longpaths true`.
 
 ---
 
@@ -215,7 +224,7 @@ bump-all-squads.sh --auto-merge
 
 Uso interno ArchPrime. Dúvidas: **pablo@archprime.io**
 
-**Documentação completa:**
-- Decision tree: `docs/platform-analysis/SQUAD-DECISION-TREE-2026-04-22.md` (no repo PrimeTeam)
-- Arquitetura: `docs/platform-analysis/PRIMETEAM-OPS-PLAN-VALIDATION-2026-04-22.md`
-- Auditoria CLI: `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md`
+**Documentação completa (repo PrimeTeam):**
+- [Decision tree — qual squad usar](https://github.com/ByPabloRuanL/primeteam/blob/main/docs/platform-analysis/SQUAD-DECISION-TREE-2026-04-22.md)
+- [Plan validation — arquitetura detalhada](https://github.com/ByPabloRuanL/primeteam/blob/main/docs/platform-analysis/PRIMETEAM-OPS-PLAN-VALIDATION-2026-04-22.md)
+- [CLI feasibility audit](https://github.com/ByPabloRuanL/primeteam/blob/main/docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md)

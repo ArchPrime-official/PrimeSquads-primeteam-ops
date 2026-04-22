@@ -6,6 +6,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.0.0] — 2026-04-23 — Sprint 19: Handoff docs (primeteam-side infrastructure)
+
+### Added — Documentação de handoff para team primeteam
+
+- `data/edge-functions-required.md` — lista completa de 15 edge functions referenciadas pelos specialists, com specs (body, retorno, verify_jwt, segredos, comportamento) + priority ordering P0/P1/P2/P3:
+  - P0 (já existem): sync-meta-billing, get-revolut-balances, sync-revolut-transactions, sync-google-calendar
+  - P1 (bloqueiam primeiros testes reais): update-meta-campaign, create-google-event, trigger-vapi-call, update-google-event, delete-google-event
+  - P2 (workflows específicos): rotate-google-watch, fetch-ecb-rates, fetch-revolut-rate, send-welcome-email, refresh-google-token
+  - P3 (nice-to-have): calculate-ab-significance
+
+- `data/migrations-required.md` — 4 migrations pendentes (P2/P3) com DDL completo + RLS policies:
+  - `fx_rate_cache` (wf-currency-convert cache) — P2 low complexity
+  - `ab_test_results` (wf-meta-ab-test) — P3 medium
+  - `finance_transactions_audit` trigger (future_notes platform-specialist) — P3 medium
+  - `edge_function_audit_log` (security best practice) — P3 low
+
+### Atualizações de outros docs
+
+- `FINAL-STATE.md` — version bump v1.0.0 (remove rc2); "O que NÃO foi testado" seção atualizada para referenciar os dois novos docs de handoff
+
+### v1.0.0 — Fase 2 squad-side COMPLETA
+
+**Contexto:** Pablo já executou primeiro login real com sucesso em 2026-04-22 (PR #19 Sprint 18 merged). Squad está funcional para cycles read-only + primeiros writes. Todas as dependências externas (edge functions + migrations) estão **documentadas e priorizadas** para implementação no lado primeteam conforme demanda real surgir.
+
+### Squad final
+
+- 10 agents (~7500L spec)
+- 7 workflows YAML
+- 12 tasks HO-TP-001
+- CLI auth funcional (postinstall banner + auto-offer login em background)
+- 4 boundaries externas mapeadas (Calendar + Revolut + Meta + Phone)
+- 2 docs de handoff primeteam-side
+- ~15000 linhas totais de squad spec + infra code
+
+---
+
 ## [1.0.0-rc2] — 2026-04-22 — UX Polish (Sprint 18)
 
 ### Fixed — UX friction no primeiro login (feedback real do Pablo)

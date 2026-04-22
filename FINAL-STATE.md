@@ -1,12 +1,12 @@
-# primeteam-ops — Final State (Sprint 17, 2026-04-22)
+# primeteam-ops — Final State (Sprint 19, 2026-04-22)
 
-> Documento consolidando o estado final do squad após Fase 2 completa (17 sprints). Use como referência única para entender o que está pronto, o que falta validar, e como operar.
+> Documento consolidando o estado final do squad após Fase 2 completa (19 sprints). Use como referência única para entender o que está pronto, o que falta validar, e como operar.
 
 ---
 
 ## TL;DR
 
-- **Status:** v1.0.0-rc1 — Fase 2 scope completo, **aguardando validação end-to-end com colaborador real**
+- **Status:** v1.0.0 — Fase 2 squad-side COMPLETA. **Primeiro login real já executado com sucesso** (Pablo testou em 2026-04-22). Sprint 18 UX polish + Sprint 19 handoff docs.
 - **Arquivos:** 10 agents (~7000L spec) + 7 workflows + 12 tasks + CLI auth
 - **Bloqueante imediato:** admin config Supabase (`SETUP-ADMIN.md`) + primeiro login real
 - **NÃO testado ainda:** nenhum colaborador rodou `npm run login` de verdade; edge functions referenciadas (update-meta-campaign, trigger-vapi-call, rotate-google-watch, sync-meta-billing, get-revolut-balances, create-google-event, fetch-ecb-rates, etc.) podem ainda não existir — precisam ser criadas em paralelo
@@ -146,17 +146,9 @@ PrimeSquads-primeteam-ops/
    - Google OAuth app permite provider (já está configurado em primeteam.archprime.io)
    - PKCE flow completa sem edge cases
 
-2. **Edge functions referenciadas** — muitas provavelmente não existem ainda:
-   - `update-meta-campaign` (Sprint 15 — pause/resume/budget)
-   - `trigger-vapi-call` (Sprint 16 — AI calls)
-   - `rotate-google-watch` (Sprint 16 — watch rotation)
-   - `fetch-ecb-rates` (Sprint 14 — currency)
-   - `create-google-event`, `update-google-event`, `delete-google-event` (Sprint 15)
-   - `sync-meta-billing`, `get-revolut-balances`, `sync-revolut-transactions` — **estas existem** (Fase 0-3 do primeteam)
+2. **Edge functions referenciadas** — **documentadas em `data/edge-functions-required.md`** (Sprint 19). Lista de 15 edge functions com specs + priority ordering. ~4 P1 (update-meta-campaign, trigger-vapi-call, create/update/delete-google-event) bloqueiam primeiros testes reais.
 
-3. **Auxiliary tables pressupostas:**
-   - `fx_rate_cache` (wf-currency-convert) — precisa migration
-   - `ab_test_results` (wf-meta-ab-test) — precisa migration OU in-memory only
+3. **Auxiliary tables pressupostas:** **documentadas em `data/migrations-required.md`** (Sprint 19). `fx_rate_cache` + `ab_test_results` + opcionais (`finance_transactions_audit` + `edge_function_audit_log`). Schema DDL completo + RLS policies prontos.
 
 4. **Slash commands** — symlinks `.claude/commands/PrimeteamOps/` apontam corretamente? Validar primeiro clone.
 

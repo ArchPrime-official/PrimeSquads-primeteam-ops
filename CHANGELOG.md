@@ -6,6 +6,30 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.6.0] — 2026-04-22
+
+### Added — wf-platform-operation + quality-guardian (Fase 2 Sprint 5)
+
+- `workflows/wf-platform-operation.yaml` (408L) — workflow YAML formalizando o Orchestration Protocol 5-step do ops-chief. 7 phases (Receive → Auth Check → Triage → Route → Specialist Work → Gate → Next/Close), 8 INVARIANTS (INV-01 a INV-08), 4 exemplos end-to-end (simple create_task / multi-specialist won→finance / scope rejection / gate REJECT+retry), 5 failure modes documentados. Primeiro workflow YAML do squad.
+
+- `agents/quality-guardian.md` (571L) — **Tier 3** audit specialist. NÃO invocado em todo cycle — apenas quando chief detecta cycle complexo (multi-specialist, destructive op, first-run, anomaly signal). Executa 5 seções canônicas do gate (V10 regex, V11 package, V18 card, convention_check, coherence) + 5 extensões (destructive confirmation, RLS clarity, security leak scan, INV compliance, drift detection). NEVER mutates — pure read/audit. Returns PASS | REJECT (with how_to_fix) | ESCALATE | WAIVE.
+
+- `agents/ops-chief.md` — step_4 expandido para mencionar delegação ao quality-guardian em cycles complexos. routing_map.quality_validation agora aponta para agent real (não placeholder).
+
+### Arquitetura atingida
+
+Com Sprint 5, o squad tem:
+- 1 orquestrador (ops-chief, Tier 0)
+- 3 executores (auth T1, platform T1, sales T2)
+- 1 auditor (quality-guardian T3)
+- 1 workflow canônico (wf-platform-operation)
+- 6 tasks HO-TP-001 (test-handoff-flow, create-task, list-tasks, complete-task, create-finance-transaction, create-lead, move-opportunity-stage)
+- CLI de auth funcional (login/whoami/logout)
+
+Topologia hub-and-spoke completa. Pronto para testes end-to-end após config Supabase admin.
+
+---
+
 ## [0.5.0] — 2026-04-22
 
 ### Added — sales-specialist (CRM) + 2 tasks (Fase 2 Sprint 4)

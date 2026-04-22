@@ -1,0 +1,408 @@
+# Workflow: Platform Operation (wf-platform-operation)
+#
+# Workflow principal do squad primeteam-ops. Formaliza o ciclo de orquestração
+# hub-and-spoke (Orchestration Protocol 5-step do ops-chief) como um YAML
+# executável — útil como referência para colaboradores, base para testes
+# automatizados, e audit trail de qualquer cycle.
+#
+# Não é um workflow "interativo" (não há elicitação multi-sessão) — é uma
+# formalização do flow que já acontece cada vez que um user interage com o
+# `/PrimeteamOps:agents:ops-chief`. Pense nele como o "PRD" do cycle.
+
+metadata:
+  id: wf-platform-operation
+  title: Platform Operation — Cycle Orchestration
+  description: >
+    Ciclo completo de execução de uma demanda operacional na plataforma
+    PrimeTeam via Claude Code. Recebimento → triagem → auth check →
+    routing → specialist work → quality gate → close/next/escalate.
+  version: "0.6.0"
+  phases: 7
+  orchestrator: ops-chief
+  specialists_involved:
+    - auth-specialist       # Tier 1 — OAuth status, session validation
+    - platform-specialist   # Tier 1 — Tasks + Finance
+    - sales-specialist      # Tier 2 — CRM (leads, opportunities)
+    - quality-guardian      # Tier 3 — audit before gate verdict
+  estimated_time: 30s-5min per cycle (depends on specialist complexity)
+  requires_auth: >
+    Phases que tocam Supabase (a maioria) exigem
+    ~/.primeteam/session.json válido. Phase 2 (auth check) verifica.
+    Docs/planning-only cycles pulam o auth check.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS (nunca violar durante o workflow)
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-01
+    name: hub_and_spoke_topology
+    rule: >
+      Specialists NEVER handoff directly to each other. All transitions
+      pass through ops-chief. Exception: zero.
+  - id: INV-02
+    name: cycle_id_mandatory
+    rule: >
+      Every phase logs with the same `cyc-YYYY-MM-DD-NNN` identifier.
+      Loss of cycle_id = workflow ABORT.
+  - id: INV-03
+    name: v10_announcement_on_return
+    rule: >
+      Every specialist return matches regex
+      `^\[{specialist} → ops-chief\] Cycle {cycle_id} — (DONE|BLOCKED|ESCALATE)\.$`.
+      Non-matching return → automatic gate REJECT.
+  - id: INV-04
+    name: v18_handoff_card_complete
+    rule: >
+      Returned package includes summary + artifacts + warnings +
+      suggested_next + convention_check. Missing field → gate REJECT.
+  - id: INV-05
+    name: no_rls_bypass
+    rule: >
+      No specialist uses service_role or any credential other than the
+      user's JWT from ~/.primeteam/session.json. RLS denial (42501) is
+      surfaced honestly, never masked or retried with different identity.
+  - id: INV-06
+    name: no_scope_creep
+    rule: >
+      Specialist executes only its declared scope. Out-of-scope request →
+      return ESCALATE with suggested_next routing. Never "reach beyond".
+  - id: INV-07
+    name: destructive_ops_require_confirmation
+    rule: >
+      DELETE, bulk UPDATE affecting >1 row, state transitions to terminal
+      (SALE_DONE, LOST) all require explicit user "sim" echo. Zero
+      auto-confirmation.
+  - id: INV-08
+    name: utc_timestamps
+    rule: >
+      All timestamp writes in UTC. User-facing echoes show both UTC and
+      Europe/Rome. Zero timezone ambiguity.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_1_receive
+    name: Receive
+    actor: ops-chief
+    duration: ~5s
+    description: >
+      User submits request via Claude Code. Chief captures verbatim —
+      intent, attachments, references to previous cycles. Generates
+      cycle_id.
+    inputs:
+      - user_utterance (string)
+      - optional context (attached files, prior cycle references)
+      - user session (from ~/.primeteam/session.json if present)
+    outputs:
+      - cycle_id: cyc-YYYY-MM-DD-NNN
+      - normalized_request (chief's internal representation)
+      - cycle_status: Received
+    veto_conditions:
+      - User utterance unintelligible or empty → chief ASKS for clarification,
+        NO cycle opened.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_2_auth_check
+    name: Auth Pre-Check
+    actor: ops-chief
+    duration: ~2s
+    description: >
+      Before routing to any specialist that touches Supabase, chief
+      verifies ~/.primeteam/session.json exists and is not expired.
+      Skipped for docs-only or planning-only cycles.
+    decision_tree:
+      docs_or_planning_only: skip (no auth needed)
+      else:
+        session_file_missing: |
+          Respond "Rode npm run login primeiro." → cycle_status=BlockedOnAuth → HALT
+        session_expired: |
+          Respond "Session expirada em {ts}. Rode npm run login." → HALT
+        session_valid: proceed to phase_3
+    outputs:
+      - auth_status: ok | missing | expired | not_required
+      - user_role (if known from session)
+    specialist_ref: auth-specialist (for complex auth flows, not for this check)
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_3_triage
+    name: Triage
+    actor: ops-chief
+    duration: 10-30s
+    description: >
+      Chief classifies request type (execution / creation / strategy / bug),
+      identifies affected modules (from data/platform-modules.md), consults
+      routing_map to pick specialist(s). Multi-domain requests get a serial
+      sequence (all through chief).
+    outputs:
+      - request_type: execution | create | strategy | bug | scope_rejection
+      - affected_modules: [list]
+      - routing_plan: specialist_id OR sequence of specialists
+      - reasoning: logged
+      - cycle_status: Triaged
+    veto_conditions:
+      - Strategy request → Chief recommends expertise squad (/metaAds,
+        /stratMgmt, /ptImprove, /videoCreative), does NOT route to primeteam-ops
+        specialists.
+      - Platform refactor / code improvement → redirect to /ptImprove, NOT
+        handled here.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_4_route
+    name: Route & Activate Specialist
+    actor: ops-chief → specialist
+    duration: 5-10s (ceremony) + specialist work time
+    description: >
+      Chief executes `*handoff @{specialist} --cycle {id} --context {briefing}`.
+      Specialist reads activation-instructions, adopts persona, receives
+      context, begins work. Status → Routed → InProgress.
+    specialist_chosen:
+      auth_request: auth-specialist
+      tasks_or_finance: platform-specialist
+      crm_leads_opportunities: sales-specialist
+      # Future specialists (Sprint 6+):
+      # cs_students: cs-specialist
+      # admin_users_roles: admin-specialist
+      # integration_external: integration-specialist
+    cycle_status_transitions:
+      - Triaged → Routed → InProgress
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_5_specialist_work
+    name: Specialist Executes
+    actor: active specialist (platform / sales / auth / etc.)
+    duration: varies (30s to 5min)
+    description: >
+      Specialist runs its playbooks (create_X, list_Y, update_Z, etc.)
+      using user JWT via Supabase client. Respects core_principles of its
+      definition. Echoes inferences, asks confirmations on destructive
+      ops, handles RLS denials honestly.
+    checkpoint_mid_work:
+      if_specialist_cannot_proceed: >
+        Return early to chief with verdict BLOCKED or ESCALATE; do NOT
+        hand off to another specialist directly (invariant INV-01).
+    outputs:
+      - specialist_announcement: |
+          [{specialist} → ops-chief] Cycle {cycle_id} — {DONE|BLOCKED|ESCALATE}.
+      - output_package_v11 with: summary, artifacts, warnings,
+        suggested_next, convention_check
+      - handoff_card_v18 (filled per data/handoff-card-template.md)
+    veto_conditions:
+      - Specialist skips confirmation on destructive op → gate REJECT
+      - Specialist invents data (IDs, names, categories) → gate REJECT
+      - Specialist attempts direct handoff to another specialist → BLOCK
+        (INV-01 enforcement)
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_6_gate
+    name: Quality Gate
+    actor: ops-chief (optional: quality-guardian audit)
+    duration: 30-90s
+    description: >
+      Chief (or delegated @quality-guardian for complex cycles) runs the
+      5-section gate from checklists/handoff-quality-gate.md:
+        1. Announcement regex (V10)
+        2. Output package completeness (V11)
+        3. Handoff card completeness (V18)
+        4. Convention checks (i18n / RLS / UTC / session RO)
+        5. Logical coherence of artifacts vs stated outcome
+      Outputs verdict: PASS | REJECT | ESCALATE | WAIVE.
+    gate_execution_modes:
+      simple_cycles: >
+        Chief runs gate inline (30s). Used for most single-specialist cycles.
+      complex_cycles: >
+        Chief delegates to @quality-guardian via `*audit --cycle {id}`.
+        Useful for: multi-specialist cycles, destructive ops, first-time
+        specialist runs, anomaly detection (RLS denials, unusual patterns).
+    outputs:
+      - gate_verdict: PASS | REJECT | ESCALATE | WAIVE
+      - gate_report: (markdown, references gate_section_failed if REJECT)
+    veto_conditions:
+      - Announcement regex fails → automatic REJECT (no human override)
+      - Missing V18 field → REJECT
+      - Destructive op without confirmation logged → REJECT
+      - RLS denial without clear explanation → REJECT
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  - id: phase_7_next_or_close
+    name: Next Step / Close Cycle
+    actor: ops-chief
+    duration: varies (instant to minutes)
+    description: >
+      Chief decides based on gate verdict + specialist's suggested_next:
+        - PASS + suggested_next=close → update CHANGELOG, respond to user,
+          status=Done, cycle closed.
+        - PASS + suggested_next=route_to @X → LOOP to phase_4 with
+          accumulated context (multi-phase cycle).
+        - PASS + suggested_next=escalate_to_user → pause cycle, present
+          situation to user, wait for human input.
+        - REJECT → LOOP to phase_5 with Gate Report (specialist retries with
+          feedback), increment retry counter. Max 2 retries, then ESCALATE.
+        - ESCALATE → immediate escalate to user, provide all context.
+        - WAIVE → document reason, close with caveat (rare, owner-only).
+    outputs:
+      - cycle_status: Done | Escalated | InProgress (if loop)
+      - user_response: (visible markdown)
+      - changelog_entry: (appended to CHANGELOG.md if PASS)
+      - next_cycle_spawned: cycle_id (if route_to)
+    loop_semantics:
+      max_retries_on_reject: 2
+      accumulated_context: >
+        Each loop iteration has fuller context. Specialist sees previous
+        attempt's output + gate report. Avoids repeating same mistake.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES (end-to-end cycles following this workflow)
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  # Single-specialist happy path (typical 70% of cycles)
+  - name: simple_create_task
+    trigger: >
+      User: "criar tarefa revisar PRD fiscal até sexta, alta prioridade"
+    trace:
+      - phase_1: cycle_id=cyc-2026-04-24-001 opened
+      - phase_2: session valid, role=owner
+      - phase_3: execution + Tasks module → route @platform-specialist
+      - phase_4: chief handoff with briefing
+      - phase_5: platform-specialist runs create_task playbook, confirms
+        with user, INSERT succeeds. Returns DONE announcement.
+      - phase_6: gate PASS (announcement regex ok, V18 complete, UTC ✓, RLS ✓)
+      - phase_7: close, CHANGELOG appended, user sees "✓ Tarefa criada (id: ...)"
+    total_time: ~45s
+
+  # Multi-specialist sequence (20% of cycles — the "upsell" pattern)
+  - name: won_opportunity_then_finance_tx
+    trigger: >
+      User: "Miriam fechou Marco Rossi €7.500"
+    trace:
+      - phase_1: cycle_id=cyc-2026-04-24-010 opened
+      - phase_2: session valid, role=owner
+      - phase_3: CRM (mark_won) → route @sales-specialist
+      - phase_4 + phase_5: sales-specialist executes mark_won,
+        UPDATE opportunities set stage=SALE_DONE. Returns DONE with
+        suggested_next=route_to @platform-specialist.
+      - phase_6: gate PASS
+      - phase_7: chief loops to phase_4 — new routing to @platform-specialist
+        for Finance transaction INSERT. Same cycle_id.
+      - phase_5 (loop 2): platform-specialist creates income tx €7500 linked
+        to opp. Returns DONE.
+      - phase_6 (loop 2): gate PASS
+      - phase_7 (loop 2): suggested_next=close. Cycle closes.
+    total_time: ~2min
+
+  # Scope rejection (common — saves time and wrong work)
+  - name: out_of_scope_rejected
+    trigger: >
+      User: "criar migration para adicionar coluna X na tabela Y"
+    trace:
+      - phase_1: cycle_id=cyc-2026-04-24-020 opened
+      - phase_2: session valid
+      - phase_3: Chief classifies as "platform refactor" (veto: not
+        primeteam-ops territory) → response prepared
+      - phase_4: NOT routed to specialist; chief responds directly:
+        "Essa demanda é de melhoria da plataforma. Recomendo
+         /ptImprove:data-architect para desenhar a migration. Depois
+         volte aqui para executar."
+      - phase_7: cycle closed with status=Escalated (redirect).
+    total_time: ~15s (no specialist work needed)
+
+  # Quality gate REJECT + retry
+  - name: bad_announcement_regex
+    trigger: >
+      User: "listar tarefas atrasadas"
+    trace:
+      - phase_1-5: normal flow, platform-specialist executes
+      - phase_5: specialist returns with text "Hey here are your tasks ..."
+        (announcement regex fail — human-readable but not V10-compliant)
+      - phase_6: gate REJECT on check #1 (announcement regex).
+        Gate report: "V10 regex not matched. Expected:
+         [platform-specialist → ops-chief] Cycle {id} — DONE|BLOCKED|ESCALATE."
+      - phase_7: LOOP to phase_5. specialist retries with correct
+        announcement format (retry counter=1).
+      - phase_5 (retry): proper return now.
+      - phase_6 (retry): gate PASS.
+      - phase_7: close.
+    total_time: ~1min (retry adds ~20s)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES (known issues the workflow handles gracefully)
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+
+  - mode: supabase_5xx
+    handling: >
+      Specialist retries once with ~1s backoff. If persists, return
+      BLOCKED. Gate logs the retry. Chief escalates to user: "Supabase
+      está instável — tente novamente em alguns minutos."
+
+  - mode: session_expired_mid_cycle
+    handling: >
+      Specialist receives 401 from Supabase. Returns BLOCKED with
+      suggested_user_message: "Sua sessão expirou. Rode npm run login e
+      tente novamente." Cycle does NOT auto-resume — requires explicit
+      re-initiation.
+
+  - mode: user_ambiguity
+    handling: >
+      Specialist returns ESCALATE with suggested_user_message. Chief
+      pauses cycle, shows question to user, awaits reply. Cycle_id
+      preserved — when user answers, same cycle continues.
+
+  - mode: concurrent_update_conflict
+    handling: >
+      Specialist uses race-safe WHERE clauses (e.g., `AND stage !=
+      {new_stage}` for idempotency). If row_count=0 after UPDATE, checks
+      current state and reports "already in target state" or "row
+      modified by another process" — never silently fails.
+
+  - mode: rls_denial
+    handling: >
+      Specialist catches 42501, returns BLOCKED with role explanation.
+      Does NOT retry with different identity (service_role NOT available
+      in this squad). Chief relays the role requirement to user.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - data/primeteam-platform-rules.md (central rules)
+  - data/handoff-card-template.md (V18)
+  - checklists/handoff-quality-gate.md (V19 5 sections)
+  - tasks/test-handoff-flow.md (V20 smoke tests)
+  - agents/ops-chief.md (Orchestration Protocol 5-step — longer version
+    of this workflow's phases 1-6, with more operator detail)
+  - agents/auth-specialist.md
+  - agents/platform-specialist.md
+  - agents/sales-specialist.md
+  - agents/quality-guardian.md (Tier 3 gate auditor, Sprint 5+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════════════════════════
+notes:
+  why_this_workflow_exists: |
+    Before Sprint 5, the cycle flow was implicit in the ops-chief persona
+    YAML. This worked but made it hard for: (a) colaboradores entenderem
+    o flow sem ler um agent inteiro, (b) testes automatizados (test-handoff-flow.md
+    pressupunha o flow mas não tinha source canônico), (c) auditoria de
+    quality-guardian (ele precisa saber ONDE intervir). Este YAML é a
+    formalização que suporta esses 3 casos.
+
+  what_this_is_not: |
+    - NÃO é um workflow "elicitation-heavy" (não tem elicit:true, não
+      pergunta 15 coisas ao user). É o flow que acontece toda vez que
+      ops-chief é ativado, formalizado.
+    - NÃO é um script executável (Python/Node). É documentação que os
+      agents obedecem por design de persona.
+    - NÃO substitui o `Orchestration Protocol 5-step` do ops-chief —
+      complementa, dando visão top-down.
+
+  future_evolution: |
+    Sprint 6+: workflow pode ganhar sub-workflows para operações
+    específicas (ex: wf-lead-to-sale, wf-finance-reconciliation). Este
+    wf-platform-operation fica como o "generic cycle" dentro do qual
+    sub-workflows rodam.

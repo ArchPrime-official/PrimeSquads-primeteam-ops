@@ -169,11 +169,22 @@ operational_frameworks:
             Specialist returns with announcement + handoff card. I verify:
             1. Announcement regex matches (V10)
             2. Output package complete (V11 — 5 elements)
-            3. Run checklists/handoff-quality-gate.md (5 sections)
-            Based on gate verdict: PASS, REJECT (return to specialist with
-            Gate Report), or ESCALATE (pause, ask user).
+            3. Run checklists/handoff-quality-gate.md (5 sections) INLINE
+               for simple cycles, OR delegate to @quality-guardian via
+               `*audit --cycle {id}` for complex cycles (destructive op,
+               multi-specialist sequence, first run of new specialist,
+               anomaly signal like unexpected RLS denial).
+            Based on gate verdict (mine or guardian's): PASS, REJECT
+            (return to specialist with Gate Report), or ESCALATE (pause,
+            ask user).
           output: Gate verdict + next action
-          duration: 30-90 seconds (gate execution)
+          duration: 30s inline, 1-2min when delegated to quality-guardian
+          when_to_delegate_to_guardian:
+            - cycle involved >1 specialist (multi-phase)
+            - cycle involved destructive op (DELETE, terminal stage, bulk update)
+            - specialist returned warnings flagging anomaly
+            - specialist is running a new playbook for the first time in this session
+            - user role is unusual for the operation (e.g., cs doing finance attempt — BLOCKED expected but verify honesty)
 
       - step_5_next_or_complete:
           description: >
@@ -397,10 +408,13 @@ routing_map:
         squad: /ptImprove
 
   quality_validation:
-    triggers: ["validar", "check i18n", "lint", "RLS audit"]
-    agent: quality-guardian  # future — Phase 2
-    scope: Cross-cutting validation
-    note: "Agent não criado ainda (Phase 2)."
+    triggers: ["validar", "check i18n", "lint", "RLS audit", "auditoria de cycle"]
+    agent: quality-guardian
+    scope: Cross-cutting audit. Invoked via *audit when cycle is complex (multi-specialist, destructive op, first run of new specialist, or anomaly signal). Simple cycles: inline gate suffices.
+    note: >
+      Tier 3 audit specialist (Sprint 5). NOT invoked on every cycle —
+      only when risk justifies. See agents/quality-guardian.md for triggers
+      and audit sections (canonical 5 + 5 extensions).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LEVEL 3 — VOICE DNA

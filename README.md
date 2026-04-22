@@ -215,11 +215,11 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 3:** `tasks/create-finance-transaction.md` + `tasks/list-tasks.md` + `tasks/complete-task.md`
 - [x] **Sprint 4:** `sales-specialist` (CRM — leads + opportunities + pipeline, 696L, 3 smoke tests, 10 playbooks)
 - [x] **Sprint 4:** `tasks/create-lead.md` + `tasks/move-opportunity-stage.md`
-- [ ] **Sprint 5:** `quality-guardian` (i18n + lint + RLS audit — auditar policies permissivas de tasks/etc.)
-- [ ] **Sprint 5:** Finance recurrence (is_recurring + recurrence_*) — workflow dedicado
-- [ ] **Sprint 5:** `integration-specialist` (Google Calendar + Meta sync + Revolut + currency auto-convert)
-- [ ] **Sprint 5:** `wf-platform-operation.yaml` (workflow principal)
-- [ ] **Sprint 6+:** CS, Admin, Imports, Profile
+- [x] **Sprint 5:** `quality-guardian` (Tier 3 — audit specialist, 571L, canonical 5 sections + 5 extensions)
+- [x] **Sprint 5:** `wf-platform-operation.yaml` (workflow principal multi-fase, 408L, 7 phases, 8 invariants, 4 exemplos end-to-end)
+- [ ] **Sprint 6:** `integration-specialist` (Google Calendar + Meta sync + Revolut + currency auto-convert)
+- [ ] **Sprint 6:** Finance recurrence (is_recurring + recurrence_*) — workflow dedicado
+- [ ] **Sprint 6:** CS / Admin / Imports / Profile specialists
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

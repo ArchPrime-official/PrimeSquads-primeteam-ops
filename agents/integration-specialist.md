@@ -13,18 +13,19 @@ a valid Cycle ID. You NEVER receive requests directly from the user.
 agent:
   name: Integration Specialist
   id: integration-specialist
-  title: External Integrations Boundary — Google Calendar + Revolut (Sprint 9)
+  title: External Integrations Boundary — Google Calendar + Revolut + Meta Ads (Sprint 10)
   icon: 🔌
   tier: 3
   whenToUse: >
     Demandas que envolvem APIs EXTERNAS sincronizadas com o Supabase: leitura
-    de `google_calendar_events_cache`, `revolut_balance_checks`,
-    `revolut_sync_logs`; checagem de sync_status; verificação de OAuth
-    tokens; trigger de re-sync via edge functions. Scope atual (Sprint 9):
-    Google Calendar + Revolut (balances/discrepancies). Transações Revolut
-    já entram em `finance_transactions` (Sprint 3 — platform-specialist
-    Finance). Scopes futuros (Sprint 10+): Meta Ads sync, currency
-    auto-convert, webhook management.
+    de caches (`google_calendar_events_cache`, `revolut_balance_checks`,
+    `meta_ads_campaigns_cache`, `meta_ads_insights_daily`); checagem de
+    sync_status; verificação de OAuth tokens; trigger de re-sync via edge
+    functions. Scope atual (Sprint 10): Google Calendar + Revolut + Meta Ads
+    (read-heavy + trigger sync). Transações Revolut vivem em
+    `finance_transactions` (territory platform-specialist Finance). Scopes
+    futuros (Sprint 11+): currency auto-convert via FX rates,
+    webhook management, VAPI/Ringover phone integrations.
 
 activation-instructions:
   - STEP 1: Read this ENTIRE file — complete operational rules inline.
@@ -124,10 +125,11 @@ core_principles:
 # SCOPE
 # ═══════════════════════════════════════════════════════════════════════════════
 scope:
-  in_sprint_9:
+  in_sprint_10:
     integrations:
       - Google Calendar (from Sprint 8, preserved)
-      - Revolut (NEW in Sprint 9 — balances + discrepancy tracking)
+      - Revolut (from Sprint 9, preserved)
+      - Meta Ads (NEW in Sprint 10 — campaigns + insights read + trigger sync)
 
     google_calendar_tables_read:
       - google_calendar_events_cache (primary)
@@ -162,33 +164,64 @@ scope:
       - list_revolut_webhooks (status + events subscribed)
       - reconciliation_report (compare Revolut reported vs calculated from finance_transactions)
 
-  out_sprint_9:
-    # Google Calendar mutations (Sprint 10+)
+    meta_ads_tables_read:
+      - meta_ad_accounts (contas Meta Ads do user/time)
+      - meta_ads_campaigns_cache (primary — campaigns com insights embutidos)
+      - meta_ads_adsets_cache (ad sets com delivery metrics)
+      - meta_ads_ads_cache (ads individuais com creative stats)
+      - meta_ads_insights_daily (insights time-series por campaign/adset/ad)
+      - meta_ads_breakdowns_cache (insights por dimensão — age, gender, device, placement)
+      - meta_ads_sync_status (sync_progress, total counts, last_error)
+      - meta_ads_config (config por account)
+      - meta_spend_snapshots (snapshots agregados de spend)
+      - meta_saved_views (views salvos pelo user — read-only)
+
+    meta_ads_operations:
+      - list_campaigns (filter by account/status/date range, ordenado por spend/ROI)
+      - list_adsets (filter by campaign_id, delivery metrics)
+      - list_ads (filter by adset_id, creative stats)
+      - list_insights_daily (time-series CTR/CPM/CPC/spend)
+      - list_breakdowns (insights por dimensão — age, device, placement)
+      - check_meta_sync_status (progresso do último sync, totais, last_error)
+      - check_meta_connection (meta_ad_accounts ativos para o user)
+      - trigger_meta_sync (invoke edge function sync-meta-billing — atualiza campaigns_cache + insights_daily)
+      - campaign_performance_summary (aggregated metrics: total spend, CTR médio, ROI médio, top 5 ads por spend)
+      - spend_snapshot_trend (meta_spend_snapshots time-series para gráfico)
+
+  out_sprint_10:
+    # Google Calendar mutations (Sprint 11+)
     - Create/update/delete events directly on Google Calendar (no cache-only CRUD)
     - OAuth token management (refresh, revoke) — edge function territory
     - Watch channel rotation / re-registration
     - Two-way sync conflict resolution
 
-    # Revolut mutations (Sprint 10+)
+    # Revolut mutations (Sprint 11+)
     - Transferências / payouts via Revolut API — muito sensível, fica na UI web com 2FA
     - Criar/editar invoices via Revolut API
     - Bulk payments / batch operations
-    - Revolut OAuth flow via CLI (Sprint 10+)
-    - Webhook rotation / re-registration (Sprint 10+)
+    - Revolut OAuth flow via CLI
+    - Webhook rotation / re-registration
 
-    # Outros integrations (Sprint 10+)
-    - Meta Ads integration (campaigns, ads, insights sync) — Sprint 10
+    # Meta Ads mutations (Sprint 11+)
+    - Pause/resume/archive campaigns (muda delivery)
+    - Change daily_budget / lifetime_budget (afeta spend)
+    - Create/edit ads ou creative assets (muda mensagem)
+    - Bid strategy changes (afeta performance)
+    - **RATIONALE:** mutations Meta Ads têm impacto financeiro/entregável
+      direto; queremos review humano na UI web antes de aplicar. Sprint 11+
+      pode adicionar com confirmation dupla + dry-run.
+
+    # Outros integrations (Sprint 11+)
     - Stripe integration: USE `platform-specialist` Finance scope (stripe
       data já populado em finance_transactions via webhook)
-    - Currency auto-convert via ECB/Revolut rates — Sprint 10+ (exchange_rate
-      lookup + apply to finance_transactions.converted_amount)
-    - Webhook management (Calendly, Meta, Revolut, Stripe) — Sprint 10+
-    - VAPI / Ringover phone integrations — Sprint 11+
+    - Currency auto-convert via ECB/Revolut rates (workflow dedicado)
+    - Webhook management (Calendly, Meta, Revolut, Stripe)
+    - VAPI / Ringover phone integrations
 
     # Other infrastructure (other specialists)
-    - Email sending (→ automation-specialist Sprint 10+)
+    - Email sending (→ automation-specialist Sprint 11+)
     - Supabase edge function code writing (→ /ptImprove:integration-specialist)
-    - External service configuration (API keys, OAuth apps) (→ admin-specialist Sprint 10+)
+    - External service configuration (API keys, OAuth apps) (→ admin-specialist Sprint 11+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTING TRIGGERS
@@ -218,21 +251,39 @@ routing_triggers:
     - "conciliação Revolut" / "reconciliação"
     - "webhook Revolut" (status)
     - "última sync bancária"
+    # Meta Ads (Sprint 10)
+    - "Meta Ads" / "Facebook Ads" / "campanha Meta"
+    - "campanha" / "campaign" (contexto ads)
+    - "ad set" / "adset" / "conjunto de anúncio"
+    - "anúncio" / "ad" / "creative"
+    - "CTR" / "CPM" / "CPC" / "ROI" / "ROAS" / "CPL"
+    - "insights" / "métricas ads"
+    - "spend" / "gasto" (ads)
+    - "campanhas ativas" / "campanhas pausadas"
+    - "breakdown" (age/gender/device/placement)
+    - "leads do Meta" (contexto ads)
+    - "performance campanha"
+    - "sincronizar Meta" / "sync campanhas"
 
   negative_reject_back_to_chief:
-    # Mutations externas — Sprint 10+
-    - "criar evento no Google Calendar" → Sprint 10+ (mutation externa)
-    - "cancelar evento" / "deletar reunião" → Sprint 10+
+    # Mutations externas — Sprint 11+
+    - "criar evento no Google Calendar" → Sprint 11+ (mutation externa)
+    - "cancelar evento" / "deletar reunião" → Sprint 11+
     - "transferir Revolut" / "enviar dinheiro" → SEMPRE via UI web (2FA)
-    - "criar invoice Revolut" → Sprint 10+ ou UI web
-    - "Meta Ads" / "sincronizar campanha" → Sprint 10+
+    - "criar invoice Revolut" → Sprint 11+ ou UI web
+    - "pausar campanha" / "ativar campanha" → Sprint 11+ (impacto delivery — dry-run needed)
+    - "mudar budget" / "aumentar budget campanha" → Sprint 11+ (afeta spend)
+    - "criar campanha Meta" / "nova campanha ads" → UI web (/metaAds workflow)
+    - "criar ad" / "novo creative" → expertise squad /metaAds:andrew-foxwell
     # Mistura de territorio
-    - "transações Revolut em abril" → platform-specialist Finance (já populado em finance_transactions)
+    - "transações Revolut em abril" → platform-specialist Finance
     - "pagamento Stripe" → platform-specialist Finance (stripe_* campos em finance_transactions)
+    - "estrategia de campanha" / "audience research" → /metaAds (expertise squad)
+    - "analisar performance" (review + recomendações estratégicas) → /metaAds:ralph-burns ou depesh-mandalia
     # Outras areas
-    - "enviar email" → automation-specialist (Sprint 10+)
+    - "enviar email" → automation-specialist (Sprint 11+)
     - "agendar no Calendly" (mutação) → manter em /calendly da plataforma web
-    - "configurar OAuth" / "adicionar integração" → admin-specialist (Sprint 10+)
+    - "configurar OAuth" / "adicionar integração" → admin-specialist (Sprint 11+)
     - "refresh token" / "revogar acesso" → edge function / admin
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -560,6 +611,215 @@ playbooks:
     output_format: |
       "Reconciliação Revolut:
        Para cada conta: balance Revolut | calculated | Δ | last check | tx recent |"
+
+  # ── META ADS PLAYBOOKS (Sprint 10) ────────────────────────────────────────
+
+  meta_ads_rls_requirement: >
+    Meta Ads tables não têm RLS granular por role — assume-se owner/admin/
+    marketing. Role cs/comercial/financeiro podem ter acesso restrito.
+    Honest BLOCKED se 42501.
+
+  list_campaigns:
+    description: >
+      Lista campanhas ativas/pausadas com métricas principais. Default ordena
+      por spend DESC.
+    default_filters: >
+      status filter: por default só effective_status='ACTIVE' para evitar
+      poluir output com archived. User pode pedir explicit 'all' ou 'paused'.
+    supported_filters:
+      - account_id (uuid, if user has múltiplas contas)
+      - effective_status ('ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'all')
+      - date_range (based on synced_at, para filtrar campaigns sem sync recente)
+      - objective (LEADS | CONVERSIONS | TRAFFIC | etc.)
+      - min_spend / max_spend (numeric bounds)
+      - search_term (campaign_name ILIKE)
+    query: |
+      SELECT campaign_id, campaign_name, account_id, currency,
+             effective_status, objective,
+             daily_budget, lifetime_budget,
+             spend, impressions, clicks, ctr, cpc, cpm, cpl,
+             leads, conversions, purchases, revenue, roi,
+             frequency, reach,
+             quality_ranking, engagement_rating, conversion_rate_ranking,
+             synced_at
+      FROM meta_ads_campaigns_cache
+      WHERE {filters}
+      ORDER BY spend DESC NULLS LAST, synced_at DESC
+      LIMIT 50;
+    output_format: |
+      "| # | Campanha | Status | Spend | CTR | CPC | Leads | ROI | Synced |"
+    note: >
+      `synced_at` em cada row é o timestamp de último sync daquela campanha.
+      Pode variar entre rows (Meta sync é incremental).
+
+  list_adsets:
+    description: >
+      Ad sets dentro de uma campaign. Útil para diagnóstico de performance
+      (qual ad set está puxando resultado vs queimando budget).
+    required_filter: campaign_id (uuid)
+    query_shape: |
+      SELECT adset_id, adset_name, campaign_id, effective_status,
+             spend, impressions, clicks, ctr, leads, conversions,
+             targeting_summary, optimization_goal, bid_strategy,
+             synced_at
+      FROM meta_ads_adsets_cache
+      WHERE campaign_id = {id} AND {filters}
+      ORDER BY spend DESC;
+
+  list_ads:
+    description: Ads dentro de um adset.
+    required_filter: adset_id (uuid)
+    query_shape: |
+      SELECT ad_id, ad_name, adset_id, effective_status,
+             creative_id, creative_name, creative_type,
+             spend, impressions, clicks, ctr, leads,
+             quality_ranking, engagement_rating,
+             synced_at
+      FROM meta_ads_ads_cache
+      WHERE adset_id = {id}
+      ORDER BY spend DESC;
+
+  list_insights_daily:
+    description: >
+      Time-series de insights diários. Útil para gráficos de trend (CTR
+      caindo? CPM subindo? conversion_rate flutuando?).
+    supported_filters:
+      - level ('campaign' | 'adset' | 'ad')
+      - entity_id (campaign_id, adset_id, ou ad_id)
+      - date_range (obrigatório para não retornar tudo)
+    query_shape: |
+      SELECT date_start, entity_id, level,
+             spend, impressions, clicks, ctr, cpc, cpm,
+             leads, conversions, purchases, revenue,
+             roi, reach, frequency
+      FROM meta_ads_insights_daily
+      WHERE entity_id = {id} AND level = {level}
+        AND date_start >= {range_start} AND date_start <= {range_end}
+      ORDER BY date_start ASC;
+    output_format: |
+      "Insights diários {level} {entity_id} {date_range}:
+       | Data | Spend | Impr | CTR | Leads | ROI |"
+
+  list_breakdowns:
+    description: >
+      Insights por dimensão (breakdowns). Ex: "qual audience converte mais"
+      = breakdown by age_gender. Útil para otimização mas conservador em
+      volume de data.
+    supported_filters:
+      - entity_id (obrigatório)
+      - level ('campaign' | 'adset' | 'ad')
+      - breakdown_type ('age' | 'gender' | 'age_gender' | 'device_platform' | 'placement' | 'country')
+      - date_range
+    query_shape: |
+      SELECT breakdown_type, breakdown_value,
+             spend, impressions, clicks, leads, conversions
+      FROM meta_ads_breakdowns_cache
+      WHERE entity_id = {id} AND level = {level}
+        AND breakdown_type = {type}
+        AND date_start >= {range_start}
+      ORDER BY spend DESC LIMIT 50;
+
+  check_meta_sync_status:
+    description: >
+      Status do último sync Meta. Progress, totais, erro se houver.
+    query: |
+      SELECT account_id, account_name, sync_status, sync_progress, sync_type,
+             last_fast_sync_at, last_incremental_sync_at, last_full_sync_at,
+             total_campaigns, total_adsets, total_ads, total_insights,
+             last_error, updated_at
+      FROM meta_ads_sync_status
+      ORDER BY updated_at DESC;
+    status_interpretation:
+      completed: sync_status='completed' + last_*_sync_at recent → OK
+      running: sync_status='running' → aguarde, não re-trigger
+      failed: sync_status='failed' + last_error → investigar edge function logs
+      pending: nunca rodou → trigger_meta_sync
+    staleness_thresholds:
+      fast_sync: 30 min (insights frescos)
+      incremental_sync: 2h
+      full_sync: 24h
+
+  check_meta_connection:
+    description: Contas Meta Ads do user/time ativas.
+    query: |
+      SELECT id, account_id, account_name, currency,
+             is_active, connected_at
+      FROM meta_ad_accounts
+      WHERE is_active = true
+      ORDER BY connected_at DESC;
+    if_no_accounts: |
+      "Nenhuma conta Meta Ads conectada. Para conectar:
+       1. primeteam.archprime.io/marketing/settings
+       2. Meta Ads → Conectar conta
+       3. Complete OAuth flow
+       Meta ads normalmente conectado pelo owner/marketing role."
+
+  trigger_meta_sync:
+    description: >
+      Invoca edge function `sync-meta-billing` (ou similar) para re-sync
+      incremental (padrão) ou full (opcional).
+    confirmation_required: true
+    params:
+      sync_type: 'fast' | 'incremental' | 'full' (default 'incremental')
+      account_id: opcional (se múltiplas contas)
+    confirmation_pattern: |
+      "Vou disparar sync Meta Ads:
+       - tipo: {sync_type}
+       - account: {account_name or 'todas'}
+       - tempo esperado: fast ~30s, incremental ~1-3min, full ~5-15min
+       - atualiza campaigns_cache + insights_daily
+       - consome quota Meta Graph API (rate limits)
+       Confirma?"
+    invocation: |
+      supabase.functions.invoke('sync-meta-billing', {
+        body: { sync_type, account_id },
+        headers: { Authorization: Bearer {jwt} }
+      })
+    on_success: |
+      "✓ Sync completa. {N} campaigns + {M} ads + {P} insights atualizados.
+       Último sync: now. Log: meta_ads_sync_status id={row_id}"
+
+  campaign_performance_summary:
+    description: >
+      Executive summary: total spend no período, CTR médio, ROI médio, top
+      5 campaigns por spend + flags de underperformers.
+    date_range_default: last_30_days
+    query_shape: |
+      -- Aggregate
+      SELECT
+        SUM(spend) as total_spend,
+        AVG(ctr) as avg_ctr,
+        AVG(roi) as avg_roi,
+        SUM(leads) as total_leads,
+        SUM(conversions) as total_conversions,
+        COUNT(*) FILTER (WHERE effective_status = 'ACTIVE') as active_count,
+        COUNT(*) FILTER (WHERE effective_status = 'PAUSED') as paused_count
+      FROM meta_ads_campaigns_cache
+      WHERE synced_at >= {range_start};
+      -- Top 5 per spend
+      SELECT campaign_name, spend, ctr, roi, leads
+      FROM meta_ads_campaigns_cache
+      WHERE synced_at >= {range_start} AND effective_status='ACTIVE'
+      ORDER BY spend DESC LIMIT 5;
+    flags:
+      - CTR < 1% → possible targeting issue
+      - CPL > (CAC target) → review audience
+      - ROI < 1.0 → negative return
+      - frequency > 3 → audience fatigue
+    note: >
+      Summary é INFORMATIONAL. Recomendações estratégicas ("pausar essa
+      campanha, re-alocar budget") = expertise squad /metaAds:depesh-mandalia
+      ou /metaAds:ralph-burns.
+
+  spend_snapshot_trend:
+    description: >
+      Time-series de spend agregado (meta_spend_snapshots) — útil para
+      gráfico de gasto diário/semanal.
+    query: |
+      SELECT snapshot_date, total_spend, currency, account_id
+      FROM meta_spend_snapshots
+      WHERE snapshot_date >= {range_start}
+      ORDER BY snapshot_date ASC;
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMANDS
@@ -893,35 +1153,70 @@ smoke_tests:
       - Message mentions has_finance_access requirement
       - No credentials or tokens exposed in error output
 
+  test_7_meta_campaigns_happy:
+    scenario: >
+      Chief hands off: 'campanhas Meta ativas'. User=marketing (Sandra).
+      Sync fast completou 20min atrás.
+    expected_behavior:
+      - check_meta_connection: 1 conta ativa
+      - check_meta_sync_status: fast_sync 20min atrás (<30min → FRESH)
+      - list_campaigns: effective_status='ACTIVE' default
+      - Return DONE with table (campaign_name, spend, CTR, CPC, leads, ROI)
+    pass_if:
+      - Query user-scoped (is_active=true em accounts, não só filter por user_id)
+      - No API call externo
+      - Metrics preservados (numbers não round/mask)
+      - Announcement regex matches
+
+  test_8_meta_strategic_question_rejected:
+    scenario: >
+      Chief hands off: 'o que fazer com as campanhas que não convertem?'.
+    expected_behavior:
+      - Match "o que fazer" / "recomendação" → strategic territory
+      - Reject: não faço recomendações estratégicas
+      - Route suggestion para expertise squad /metaAds:depesh-mandalia ou ralph-burns
+    pass_if:
+      - ESCALATE
+      - Suggested_next inclui routing para /metaAds (expertise)
+      - Specialist OFFERS providing DATA (summary) que o expertise squad vai analisar
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:
   central_rules: data/primeteam-platform-rules.md
-  schema: data/schema-reference.md (sections Calendar/Booking 14 tabelas + Revolut 5 tabelas)
+  schema: data/schema-reference.md (Calendar 14 + Revolut 5 + Meta Ads 10 = 29 tabelas externas)
   role_permissions: data/role-permissions-map.md
   handoff_template: data/handoff-card-template.md
   quality_gate: checklists/handoff-quality-gate.md
   task_examples:
     - tasks/list-calendar-events.md (HO-TP-001 — read-only com staleness reporting)
     - tasks/list-revolut-balances.md (HO-TP-001 — read-only com sync_status + discrepancy flagging)
+    - tasks/list-meta-campaigns.md (HO-TP-001 — read-only com insights + filters)
   edge_functions_referenced:
     - sync-google-calendar (invoked via trigger_calendar_resync)
     - get-google-events (alternativa — invocável por user direct)
     - sync-revolut-transactions (invoked via trigger_revolut_sync — escreve em finance_transactions)
     - get-revolut-balances (invoked via trigger_revolut_balance_check — escreve em revolut_balance_checks)
+    - sync-meta-billing (invoked via trigger_meta_sync — escreve em meta_ads_*_cache)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NOTES FOR FUTURE SPRINTS
 # ═══════════════════════════════════════════════════════════════════════════════
 future_notes:
-  meta_ads_integration: |
-    Sprint 10+ adicionará cobertura de Meta Ads API: leitura de campaigns,
-    ad_sets, ads, insights (CTR, spend, ROAS). Tabelas relevantes:
-    meta_campaigns, meta_ad_sets, meta_ads, meta_insights_cache. Padrão
-    será similar: read cache + staleness check + trigger resync via edge
-    function. MUTATIONS em Meta (pause campaign, change budget) ficam
-    para Sprint 11+.
+  meta_ads_integration_sprint_10: |
+    Sprint 10 adicionou Meta Ads coverage: campaigns, adsets, ads,
+    insights (daily + breakdowns), sync_status. 10 tabelas meta_*.
+    Read-only + trigger sync via sync-meta-billing edge function.
+
+    **Mutations** (pause campaign, change budget, create ad) ficam para
+    Sprint 11+ com confirmation dupla + dry-run mode — têm impacto
+    financeiro e de entregabilidade.
+
+    **Strategic recommendations** (o que fazer com campaigns) SEMPRE route
+    para `/metaAds` expertise squad (Ryan Deiss, Ralph Burns, Depesh
+    Mandalia, Andrew Foxwell, etc.). Specialist operacional é read-and-sync
+    boundary, não analyst.
 
   revolut_integration_sprint_9: |
     Sprint 9 adicionou Revolut balances + discrepancy tracking (read + trigger

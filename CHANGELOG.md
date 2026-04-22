@@ -6,6 +6,40 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.5.0] — 2026-04-22
+
+### Added — sales-specialist (CRM) + 2 tasks (Fase 2 Sprint 4)
+
+- `agents/sales-specialist.md` (696L) — **Tier 2** CRM executor cobrindo leads + opportunities + campaigns (read-only). Foco em stage transitions rigorosas, validação de enum, e terminal stages com required fields (SALE_DONE precisa value+currency, LOST precisa reason).
+  - 10 playbooks: `create_lead`, `list_leads`, `qualify_lead`, `create_opportunity`, `move_stage`, `mark_won`, `mark_lost`, `list_opportunities`, `assign_user`, `delete_opportunity`
+  - 8 core_principles específicos de CRM: stage validation, lead_id imutável, WIN/LOST require fields, time-sensitive fields, idempotent transitions, presales vs sales handoff disambiguation
+  - 3 output examples (mark_won happy path + list com RLS filtering + scope rejection para Tasks)
+  - 10 anti-patterns específicos (nunca aceitar stage fora do enum, nunca ASK presales/sales ambiguous, preservar campos não-especificados, etc.)
+  - 3 smoke tests (mark_won happy, invalid stage, scope rejection)
+  - Enum source-of-truth referenciado: `src/hooks/useAutomationOptions.ts` do primeteam (LEAD_STATUSES, OPPORTUNITY_STAGES, LEAD_SOURCES, PIPELINES)
+  - future_notes: lead.status vs opp.stage sync (não auto), product_id migration, stripe linking via webhook (não manual), atypical stage transitions com warning
+
+- `tasks/create-lead.md` (HO-TP-001):
+  - Validação full_name + email regex
+  - Campaign resolution por nome (0/1/>1 match handling)
+  - Duplicate detection (warning não blocking)
+  - 4 exemplos: happy / duplicate warning / campanha ambígua / email inválido
+
+- `tasks/move-opportunity-stage.md` (HO-TP-001):
+  - Validação enum rígida + terminal requirements (SALE_DONE value, LOST reason)
+  - closed_at auto-set em terminais, clear em reopens
+  - Idempotency race-safe (`AND stage != {new_stage}`)
+  - Atypical transitions permitted com warning (LOST → LEAD_OPPORTUNITY etc.)
+  - 5 exemplos: SALE_DONE happy / LOST sem motivo ESCALATE / idempotent / stage inválido / atypical reopen
+
+### Observações CRM
+
+- Policies RLS de `opportunities` pós-Fase 0 (PR #951 do primeteam) são role-based (owner/admin/marketing = all) ou assignment-based (presales_user_id, sales_user_id). Role `cs` não vê mais opportunities.
+- Sem tabela dedicada de pipelines/stages — valores são strings free-form validados contra enum em source code do primeteam (`useAutomationOptions.ts`). Specialist trata como source-of-truth canônica.
+- `lead.status` e `opp.stage` são conceitos independentes no DB. Convenção de negócio mantém sync manual (WON lead = SALE_DONE opp), mas não há trigger enforçando.
+
+---
+
 ## [0.4.0] — 2026-04-22
 
 ### Added — platform-specialist Finance module + 3 tasks (Fase 2 Sprint 3)

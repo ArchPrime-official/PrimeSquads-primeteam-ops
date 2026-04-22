@@ -1,6 +1,6 @@
 {
   "name": "primeteam-ops-cli",
-  "version": "1.0.0-rc2",
+  "version": "1.0.0",
   "description": "CLI companheira do squad primeteam-ops: auth Google OAuth para operar a plataforma PrimeTeam via Claude Code.",
   "private": true,
   "type": "module",

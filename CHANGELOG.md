@@ -6,6 +6,54 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.9.0] — 2026-04-22
+
+### Added — integration-specialist (Google Calendar boundary) + list-calendar-events (Fase 2 Sprint 8)
+
+- `agents/integration-specialist.md` (632L) — **Tier 3** external integrations boundary specialist. Sprint 8 cobre **apenas Google Calendar**. Meta Ads + Revolut + currency auto-convert ficam para Sprints 9-10+.
+  - Scope: read-only em 5 tabelas de cache (`google_calendar_events_cache`, `google_calendar_sync_status`, `google_calendar_watch_channels`, `google_event_overrides`, `booking_events`)
+  - 7 playbooks: list_calendar_events, check_sync_status, check_connection_status, trigger_resync (único com mutation), list_watch_channels, find_event, list_overrides
+  - 9 core_principles cuidadosamente formulados:
+    - Cache is source of truth (for reads — never direct API call)
+    - Staleness must be flagged (30min threshold para Google Calendar)
+    - No direct external API calls (boundary layer respeitada)
+    - Trigger re-sync is explicit (consome quota, pede confirmation)
+    - Token state is read-only (lifecycle = edge function territory)
+    - Watch channels are critical infra (expirado = cache stale silenciosamente)
+    - User isolation (even owner não vê eventos de outros — privacy)
+    - Meet_link is sensitive (só expor ao próprio user)
+    - Auto-reject external mutations (criar evento direto = Sprint 9+)
+  - 3 output examples: happy path (FRESH cache) + STALE cache warning + external mutation rejected
+  - 8 anti-patterns (never call external API direct, never expose meet_link of others, never skip staleness check)
+  - 3 smoke tests (list events FRESH, STALE cache warning, external mutation rejected)
+  - future_notes: Meta Ads integration (Sprint 9+), Revolut integration (Sprint 9+), currency conversion auto, OAuth CLI flow, watch channel rotation, Stripe pertence platform-specialist
+
+- `tasks/list-calendar-events.md` (HO-TP-001):
+  - Read-only no cache com user_id scoped (privacy)
+  - Pre-check de connection (user conectado?) + sync_status (staleness)
+  - Staleness thresholds: <30min FRESH, 30min-24h STALE, >24h VERY_STALE
+  - Date range keywords: today/tomorrow/this_week/next_week/this_month (convertidos Europe/Rome → UTC)
+  - Overrides optional merge (include_overrides=false default)
+  - 5 exemplos: happy FRESH / STALE warning / DISCONNECTED BLOCKED / search por título / empty result DONE
+
+### Arquitetura atingida
+
+7 agents no squad (5 executors + 1 chief + 1 auditor):
+
+| Tier | Agent | Cobertura |
+|------|-------|-----------|
+| T0 | ops-chief | Orchestrator |
+| T1 | auth-specialist | OAuth + session |
+| T1 | platform-specialist | Tasks + Finance + CS (1177L) |
+| T2 | sales-specialist | CRM (leads, opportunities) |
+| T2 | content-builder | Landing Pages |
+| T3 | integration-specialist | Google Calendar (Sprint 9+ expand Meta/Revolut) |
+| T3 | quality-guardian | Handoff audit |
+
+9 tasks HO-TP-001 + 1 workflow + CLI auth.
+
+---
+
 ## [0.8.0] — 2026-04-22
 
 ### Added — content-builder (marketing specialist) + create-landing-page (Fase 2 Sprint 7)

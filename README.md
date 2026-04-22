@@ -221,9 +221,11 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 6:** `tasks/list-students.md` (HO-TP-001 CS read-only — filtros health/manager/onboarding/check-in, 5 exemplos)
 - [x] **Sprint 7:** `content-builder` (Tier 2 — marketing specialist, LPs) — 659L, 10 playbooks, 3 smoke tests. **Cobre role marketing (Sandra)**
 - [x] **Sprint 7:** `tasks/create-landing-page.md` (HO-TP-001 — slug validation, uniqueness, always active=false)
-- [ ] **Sprint 8:** `integration-specialist` (Google Calendar + Meta sync + Revolut + currency auto-convert)
-- [ ] **Sprint 8:** Finance recurrence + Onboarding approval + customer churn workflows
-- [ ] **Sprint 8+:** Admin / Imports / Profile / automation-specialist (email templates + flows)
+- [x] **Sprint 8:** `integration-specialist` (Tier 3 — external boundary) — 632L, 7 playbooks, 3 smoke tests. Escopo Sprint 8: **Google Calendar** (read cache + staleness + trigger re-sync)
+- [x] **Sprint 8:** `tasks/list-calendar-events.md` (HO-TP-001 read-only com sync_status pre-check)
+- [ ] **Sprint 9:** Expandir `integration-specialist`: Meta Ads sync + Revolut balances/transactions + currency auto-convert
+- [ ] **Sprint 9:** Finance recurrence + Onboarding approval + customer churn workflows
+- [ ] **Sprint 9+:** `admin-specialist` (users/roles) / `automation-specialist` (email templates + flows) / `imports-specialist` (CSV)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

@@ -1,0 +1,258 @@
+# Workflow: Meta Ads A/B Test (wf-meta-ab-test)
+#
+# Configura + monitora A/B test em Meta Ads: 2+ variants de uma campanha
+# (ou 2 campanhas clones com diff criativos/audiences), traffic split
+# controlado, tracking de performance por variant, decisão de winner.
+#
+# Scope Sprint 17: SETUP + MONITORING. Decisão de winner + auto-pause
+# loser = humano (via /metaAds:ralph-burns ou similar expertise).
+
+metadata:
+  id: wf-meta-ab-test
+  title: Meta Ads A/B Test — Setup + Monitoring + Winner Decision
+  description: >
+    Multi-phase workflow para rodar A/B test em Meta Ads. Specialist
+    fornece infra + data; decisão estratégica de winner é humana via
+    expertise squad.
+  version: "1.0.0"
+  phases: 6
+  orchestrator: ops-chief
+  specialists_involved:
+    - integration-specialist  # Meta Ads mutations + insights read
+    - quality-guardian        # audit (Sprint 15 mutations are destrutivas)
+  estimated_time: setup ~5min + monitoring ongoing (dias) + decision ~10min
+  requires_auth: true
+  rls_requirement: role marketing OR owner OR admin
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-AB-01
+    name: minimum_sample_size_before_decision
+    rule: >
+      Decision de winner NUNCA antes de: (a) 7 dias de rodagem OR
+      (b) 1000 impressions per variant OR (c) 95% confidence interval
+      em CTR/conversion rate. Workflow enforce este gate em phase 5.
+
+  - id: INV-AB-02
+    name: only_one_variable_per_test
+    rule: >
+      A/B test = UMA variável diferente entre variants (ex: creative,
+      ou audience, ou headline). Multi-variable = não é A/B, é
+      multivariate (out of scope Sprint 17). Specialist ASK se user
+      tenta setup múltiplas variables simultâneas.
+
+  - id: INV-AB-03
+    name: budget_split_equal_default
+    rule: >
+      Default budget split 50/50 (Meta balance automático). User pode
+      override se tiver justificativa (ex: 70% em variant arriscada
+      para accelerate learning), mas DEFAULT é igual.
+
+  - id: INV-AB-04
+    name: no_auto_winner_action
+    rule: >
+      Workflow IDENTIFICA winner estatisticamente, mas NUNCA
+      automaticamente pausa o loser OR aumenta budget do winner. Decision
+      + action é humana (phase 6 presents data, user decides).
+
+  - id: INV-AB-05
+    name: guardian_audit_on_setup
+    rule: >
+      Phase 2 (setup mutations) obrigatoriamente auditada por
+      quality-guardian (cria 1-2 campanhas duplicadas com budget real).
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_define_test
+    name: Define Test Hypothesis + Variables
+    actor: ops-chief (elicit)
+    duration: 3-5 min (user input heavy)
+    description: >
+      Chief coleta do user:
+      - Hypothesis: "esperamos que variant B (creative novo) aumente CTR
+        em 20%+ vs variant A (creative atual)"
+      - Variable being tested: ONE entre [creative, audience, headline,
+        budget, placement, bid_strategy]
+      - Source campaign (que será clonada): campaign_id
+      - Variant B differences: specifics (ex: new creative_id)
+      - Success metric: CTR | CPL | ROI | CPA (user picks 1)
+      - Test duration: 7 | 14 | 30 dias
+      - Budget split: default 50/50 OR custom
+    veto_conditions:
+      - Multiple variables → INV-AB-02 violation, ESCALATE
+      - Budget total < €100 → warning "pequeno, sample pode não convergir"
+
+  - id: phase_2_setup_variants
+    name: Setup Variant Campaigns
+    actor: integration-specialist
+    duration: 2-5 min
+    description: >
+      1. Clone source campaign (variant A): identical copy com
+         effective_status='PAUSED' initially
+      2. Clone again para variant B: apply variable changes per user
+         specification
+      3. Name convention: "{orig_name} — A/B Test Variant A (control)"
+         e "... Variant B (new creative)"
+      4. Set budgets per split rule
+      5. Tag both campaigns com ab_test_id custom field (metadata JSON)
+      6. Both activate simultaneamente
+    mutations: |
+      Invocations via edge function update-meta-campaign (Sprint 15):
+      - clone_campaign + set variant_metadata
+      - set_budget per split
+      - activate both
+    quality_guardian_audit: MANDATORY (INV-AB-05)
+
+  - id: phase_3_track_performance
+    name: Track Performance Per Variant (ongoing)
+    actor: integration-specialist
+    duration: days (não single-session)
+    description: >
+      Daily (via cron OR manual check): query insights por variant.
+      Cache em custom table `ab_test_results` (Sprint 17 assumes exists
+      OR uses in-memory aggregation). Track:
+      - Spend per variant
+      - Impressions, clicks, CTR per variant
+      - Conversions, CPL, ROI per variant
+      - Statistical significance calculation
+    note: >
+      Phase 3 é long-running (dias). User volta periodicamente via chief
+      pedindo "como está o A/B test X?" → specialist recomputa +
+      apresenta progresso.
+
+  - id: phase_4_check_significance
+    name: Statistical Significance Check
+    actor: integration-specialist
+    duration: 10s computation
+    description: >
+      Com insights acumulados:
+      - Chi-square test OR z-test entre CTR/conversion rates
+      - Calcula confidence interval
+      - Decision threshold: 95% confidence + minimum_sample_size
+    gate_conditions:
+      NOT_YET:
+        - dias rodados < 7
+        - impressions per variant < 1000
+        - confidence < 95%
+      → continue monitoring (phase_3 loop)
+      CONCLUSIVE:
+        → proceed phase_5 with winner declared
+      INCONCLUSIVE_AFTER_DURATION:
+        - tempo passou (user's test_duration) mas stats não convergiram
+      → ESCALATE with "no clear winner, user decide"
+
+  - id: phase_5_present_decision
+    name: Present Winner + Decision Options
+    actor: ops-chief (elicit)
+    duration: 5-10 min human review
+    description: >
+      Chief apresenta para user:
+      "A/B test «{hypothesis}» — Resultado ({dias} dias):
+
+       Variant A (control):
+       - Spend: €{a_spend} | Impressions: {a_impr}
+       - CTR: {a_ctr}% | CPL: €{a_cpl} | ROI: {a_roi}
+
+       Variant B (new):
+       - Spend: €{b_spend} | Impressions: {b_impr}
+       - CTR: {b_ctr}% | CPL: €{b_cpl} | ROI: {b_roi}
+
+       Winner (statistically): {A_or_B_or_INCONCLUSIVE}
+       Confidence: {X}%
+       Uplift in {metric}: {Y}%
+
+       Options:
+       a) Pausar loser + redirecionar budget para winner
+          (route to integration-specialist pause_campaign + change_budget)
+       b) Route para /metaAds:ralph-burns para scaling strategy
+       c) Extender test (se inconclusive)
+       d) Documentar learning e fechar (sem action)"
+    rationale_no_auto_action: INV-AB-04 — winner action = human decision
+
+  - id: phase_6_execute_choice_and_close
+    name: Execute User Choice + Close Test
+    actor: varies by choice
+    duration: 1-5 min
+    description: >
+      Baseado em escolha:
+      a) Chief routes to integration-specialist:
+         - pause_campaign(loser_id) com INV-15 dupla confirmation
+         - change_campaign_budget(winner_id, novo_budget = total_orig)
+      b) Chief escalates to /metaAds:ralph-burns (expertise)
+      c) Continuar monitoring (loop back phase_3)
+      d) Changelog entry + close
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: creative_ab_test_14d
+    trigger: >
+      "testar novo creative Immersione Roma contra o atual, 14 dias,
+       ver qual converte mais"
+    trace:
+      - phase_1: hypothesis defined, variable=creative, metric=CPL
+      - phase_2: clone campaign + swap creative + activate (guardian audit PASS)
+      - phase_3: dias 1-14 monitoring (user checks dia 7: "ainda não conclusivo")
+      - phase_4: dia 14 — variant B CPL €8 vs A CPL €12, 97% confidence
+      - phase_5: winner = B
+      - phase_6: user picks option (a) — pause A + move budget para B
+    total: 2.5 weeks
+
+  - name: inconclusive_test
+    trigger: audience A vs B, 14 days
+    trace:
+      - phase_1-3: normal
+      - phase_4: dia 14, confidence 62% (not 95%)
+      - phase_5: ESCALATE INCONCLUSIVE com dados; chief asks user
+      - phase_6: user picks (c) extend 7 dias more
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+  - mode: clone_campaign_failed
+    handling: phase_2 BLOCKED, rollback partial if variant A created but B failed
+  - mode: ab_test_id_tagging_lost
+    handling: metadata JSON pode ser sobrescrita por user manual; warn se detectado
+  - mode: imbalanced_traffic
+    handling: phase_3 warn se variant A recebe 3x variant B (Meta learning quirk) — user decide restart
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - agents/integration-specialist.md (Meta Ads mutations + insights playbooks)
+  - agents/quality-guardian.md (audit phase_2 mandatory)
+  - workflows/wf-platform-operation.yaml (base pattern)
+  - /metaAds (expertise squad — routing target phase_6 opção b)
+
+notes:
+  scope_sprint_17_is_infra_not_strategy: |
+    Workflow fornece infrastructure para A/B test + statistical analysis.
+    Decisão estratégica (qual hypothesis testar, qual variant é melhor
+    estrategicamente mesmo que stats inconclusive) = /metaAds expertise
+    territory.
+
+  statistical_significance_simplified: |
+    Sprint 17 uses chi-square para proportional metrics (CTR, conversion
+    rate). Para metrics absolutos (CPL em EUR), z-test com variance.
+    Edge function `calculate-ab-significance` pode centralizar OR specialist
+    usa lib simple no edge function runtime.
+
+  no_multivariate_testing: |
+    Multi-variate (MVT) = múltiplas variables simultaneamente + Taguchi
+    matrix ou similar. Fora de scope Sprint 17. Se user quer MVT, sugerir
+    series de A/B tests sequenciais OR /metaAds:depesh-mandalia para
+    advanced testing methodology.
+
+  ab_test_results_table: |
+    Sprint 17 assume existência de `ab_test_results` OR aggregation
+    em-memória no workflow. Sprint 18+ pode formalizar migration + index.

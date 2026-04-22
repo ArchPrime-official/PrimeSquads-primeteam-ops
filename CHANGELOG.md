@@ -6,6 +6,47 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [0.8.0] — 2026-04-22
+
+### Added — content-builder (marketing specialist) + create-landing-page (Fase 2 Sprint 7)
+
+- `agents/content-builder.md` (659L) — **Tier 2** marketing specialist focado em Landing Pages. Complementa role `marketing` (Sandra) no squad — última role sem cobertura.
+  - Scope Sprint 7: CRUD em `landing_pages` + read-only em campaigns/booking_events
+  - 10 playbooks: create_lp, list_lps, update_lp_content, update_lp_slug (safe rename), activate_lp (pre-flight check), deactivate_lp, delete_lp, link_to_campaign, link_to_booking_event, list_analytics
+  - 9 core_principles CRM-specific: slug is sacred (immutable after publish), kebab-case validation, slug uniqueness, activate carefully, never invent HTML, redirect_to_slug for renames, tracking pixels per-campaign, thank_you_page is toggle, auto-reject scope creep
+  - 3 output examples: create LP happy ESCALATE (pede html), publish LP, reject content generation request
+  - 10 anti-patterns específicos (nunca inventar html, nunca rename slug ativa sem warning, etc.)
+  - 3 smoke tests (create happy, slug collision, content generation rejection)
+  - Voice DNA PT-BR com URL pattern `lp.archprime.io/{slug}`
+  - future_notes: blocks JSON editor (Sprint 8+), template library (pre-existente), lesson_pages multi-step, automation linkage (Sprint 8+), analytics DB-computed, redirect workflow
+
+- `tasks/create-landing-page.md` (HO-TP-001):
+  - **SEMPRE active=false** na criação — publicação é separate cycle
+  - Slug regex validation + auto-conversion echo (se user deu formato inválido)
+  - Slug uniqueness check obrigatório antes de INSERT
+  - Campaign/booking_event resolution por nome
+  - Pixel format validation (meta=numeric, google_ads=AW-XXX, tiktok=alphanumeric)
+  - Thank_you flow coerência (use_thank_you_page=true requer thank_you_html_content)
+  - 5 exemplos: happy / slug inválido ESCALATE com conversion / slug colisão ESCALATE com 3 opções / html placeholder ESCALATE / RLS denial (cs role) BLOCKED
+
+### Cobertura de roles após Sprint 7
+
+Todas as 5 roles do time ArchPrime têm cobertura no squad:
+- `owner` (Pablo) — acesso total a todos os agents
+- `financeiro` (Joyce, Larissa, Adriana) — platform-specialist (Finance)
+- `comercial` (Miriam, Daniel, Yuri) — sales-specialist
+- `cs` (Jessica, Andrea) — platform-specialist (CS module)
+- `marketing` (Sandra) — content-builder **NOVO**
+
+### Estado do squad após Sprint 7
+
+- **6 agents**: ops-chief (T0), auth (T1), platform (T1 — Tasks+Finance+CS, 1177L), sales (T2 — CRM), content-builder (T2 — LPs), quality-guardian (T3)
+- **1 workflow**: wf-platform-operation.yaml
+- **8 tasks HO-TP-001**
+- CLI auth funcional
+
+---
+
 ## [0.7.0] — 2026-04-22
 
 ### Added — platform-specialist CS module + list-students task (Fase 2 Sprint 6)

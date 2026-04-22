@@ -219,10 +219,11 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 5:** `wf-platform-operation.yaml` (workflow principal multi-fase, 408L, 7 phases, 8 invariants, 4 exemplos end-to-end)
 - [x] **Sprint 6:** `platform-specialist` expandido com **CS module** — 1177L, 9 playbooks CS, 2 novos smoke tests, 2 novos output examples
 - [x] **Sprint 6:** `tasks/list-students.md` (HO-TP-001 CS read-only — filtros health/manager/onboarding/check-in, 5 exemplos)
-- [ ] **Sprint 7:** `integration-specialist` (Google Calendar + Meta sync + Revolut + currency auto-convert)
-- [ ] **Sprint 7:** Finance recurrence (is_recurring + recurrence_*) — workflow dedicado
-- [ ] **Sprint 7:** Onboarding approval workflow + customer churn workflow
-- [ ] **Sprint 7+:** Admin / Imports / Profile specialists
+- [x] **Sprint 7:** `content-builder` (Tier 2 — marketing specialist, LPs) — 659L, 10 playbooks, 3 smoke tests. **Cobre role marketing (Sandra)**
+- [x] **Sprint 7:** `tasks/create-landing-page.md` (HO-TP-001 — slug validation, uniqueness, always active=false)
+- [ ] **Sprint 8:** `integration-specialist` (Google Calendar + Meta sync + Revolut + currency auto-convert)
+- [ ] **Sprint 8:** Finance recurrence + Onboarding approval + customer churn workflows
+- [ ] **Sprint 8+:** Admin / Imports / Profile / automation-specialist (email templates + flows)
 
 ### ⏳ Fase 3 — Builder capability
 - `content-builder`, `design-guardian`

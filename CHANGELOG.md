@@ -6,6 +6,59 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.2.0-dev] — 2026-04-23 — CLI DX base (Sprint 22)
+
+### Added — 5 novos comandos + bin global `pto`
+
+Sprint 22 começa a Fase 3 ("CLI para humanos"). Foundation para Sprints 23-26 (linguagem humana → i18n → session hygiene → onboarding guiado).
+
+Pablo identificou 5 dores quando pensou na adoção pelo time (10 pessoas, não-devs):
+1. Setup manual demais (6 comandos sequenciais)
+2. Zero i18n (tudo pt-BR hardcoded)
+3. Jargão técnico (JWT, PKCE, RLS, chmod 600)
+4. Sem pull automático — clone fica desatualizado sem aviso
+5. Sem avisos de sessão longa
+
+Sprint 22 endereça #1 (setup wizard) e #4 (pull automático). Também corrige gap de auto-refresh (token expirava sem relogar automático).
+
+**Novos comandos:**
+
+| Comando | O que faz |
+|---------|-----------|
+| `pto` / `pto start` | Rotina diária: fetch silencioso + refresh de session se perto de expirar + briefing 1-tela |
+| `pto setup` | Wizard @clack/prompts idempotente (node check → git check → npm install → npm link → login → confirmação) |
+| `pto doctor` | Healthcheck: node/git/gh/porta 54321/conectividade Supabase/sessão/repo status — saída copiável |
+| `pto update` | `git fetch` + `git pull --ff-only` no main + reinstala deps se `package.json`/lock mudaram; respeita `--dry-run` |
+| `pto refresh` | Usa refresh_token para renovar access_token sem precisar relogar |
+
+**Bin global `pto`:** `package.json` ganha `"bin": { "pto": "./dist/index.js" }`. O wizard `pto setup` oferece `npm link` para instalar globalmente.
+
+**Refatorações:**
+- `cli/index.ts` agora usa `commander` — subcomandos tipados + `--help` rico por comando
+- `cli/supabase.ts` ganha `createRefreshClient()` (cliente minimalista para refresh)
+- `cli/session.ts` ganha `readSessionHealth()` (diagnóstico estruturado), `refreshStoredSession()`, `maybeRefresh()`, `isExpiringSoon()`
+- `cli/config.ts` separado de `cli/paths.ts` (endpoints vs. paths)
+- `cli/paths.ts` (NOVO) — usa `env-paths` para XDG config (~/.config/primeteam-ops)
+- `cli/state.ts` (NOVO) — state persistente para wizard + last-start
+- `cli/ui.ts` (NOVO) — helpers de saída (picocolors, boxen, relative time)
+- `cli/git.ts` (NOVO) — wrappers sobre git (status, fetch, pull, count-behind)
+
+**Deps novas:**
+- `@clack/prompts` (wizard)
+- `commander` (CLI framework)
+- `picocolors` (cores zero-dep)
+- `ora` (spinners)
+- `boxen` (boxes)
+- `env-paths` (XDG config path cross-platform)
+
+**O que NÃO mudou ainda (próximos sprints):**
+- Linguagem ainda tem jargão — Sprint 23 reescreve todo copy sem JWT/PKCE/RLS/chmod
+- Sem i18n — Sprint 24 traz PT-BR + IT + EN + runtime switching
+- Sem hygiene de sessão longa — Sprint 25 adiciona hook Claude Code
+- Sem tour guiado — Sprint 26 (opcional)
+
+---
+
 ## [1.1.0] — 2026-04-23 — Activity Logging (Sprint 20)
 
 ### Added — Observability: todo cycle + mutation gravada em `activity_logs`

@@ -12,7 +12,12 @@
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "types": ["node"]
+    "types": ["node"],
+    "outDir": "dist",
+    "rootDir": "cli",
+    "declaration": false,
+    "sourceMap": false
   },
-  "include": ["cli/**/*"]
+  "include": ["cli/**/*.ts"],
+  "exclude": ["cli/**/*.mjs", "node_modules", "dist"]
 }

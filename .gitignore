@@ -12,6 +12,9 @@ session.json
 node_modules/
 .deno/
 
+# Build output
+dist/
+
 # IDE
 .vscode/
 .idea/

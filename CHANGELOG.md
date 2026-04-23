@@ -6,6 +6,90 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.2.0-dev] — 2026-04-23 — i18n PT-BR + IT + EN (Sprint 24)
+
+### Added — Internacionalização completa do CLI em 3 idiomas
+
+Endereça a dor #2 do Pablo: time tem pessoas de idiomas diferentes (contexto: mercado italiano — evento Immersione Roma 2026). Agora o CLI detecta, persiste e permite trocar idioma em runtime.
+
+**3 idiomas suportados:**
+- **pt-BR** (Português do Brasil)
+- **it** (Italiano)
+- **en** (English)
+
+Comandos permanecem em inglês — regra universal de CLIs (gh, docker, npm, git): copy-paste de tutorial não pode quebrar. **Agents Claude Code** ficam canônicos em inglês também (slashes `/PrimeteamOps:agents:ops-chief`), **mas respondem no idioma do usuário** baseado em `~/.config/primeteam-ops/preferences.json`.
+
+### Novos arquivos
+
+- **`cli/i18n/detect.ts`** — detecção cascata POSIX: `LC_ALL > LC_MESSAGES > LANG > LANGUAGE > Intl > 'en'` com normalização para pt-BR/it/en
+- **`cli/i18n/index.ts`** — init i18next com `i18next-fs-backend`, namespaces `['cli','errors','html','agent']`, fallback `en`, helper `t()` + `currentLocale()` + `changeLocale()`
+- **`cli/preferences.ts`** — gerencia `~/.config/primeteam-ops/preferences.json` (via `env-paths` XDG). Precedência: `--lang` flag > `PTOPS_LANG` env > file > autodetect > 'en'
+- **`cli/lang.ts`** — comando `pto lang` + subcomandos `set <locale>`, `auto`, `reset`. First-run picker multilíngue ("Escolha o idioma / Scegli la lingua / Choose language")
+- **`locales/{en,it,pt-BR}/{cli,errors,html}.json`** — 9 arquivos de tradução (~900 linhas total):
+  - `cli.json` — todas mensagens de login/whoami/logout/refresh/doctor/update/setup/start/lang + roles localizados
+  - `errors.json` — 15 códigos de erro no template {title, why, what} canônico
+  - `html.json` — copy do HTML de callback (success + error) com `lang_attr` correto
+
+### Migrações de strings
+
+Todo arquivo do CLI migrou de strings literais para `t('namespace:key')`:
+- `cli/login.ts` — HTML de callback gerado dinamicamente via `t()`
+- `cli/whoami.ts`, `cli/logout.ts`, `cli/refresh.ts`, `cli/doctor.ts`
+- `cli/update.ts`, `cli/start.ts`, `cli/setup.ts`
+- `cli/ui.ts` — `translateError()` renomeada para `classifyError()` (retorna código do erro), `userError({title, why, what})` continua, novo `userErrorByCode(code, {detail})` que resolve via `t()`
+- `formatRelativeTime()` passa a usar `Intl.RelativeTimeFormat(currentLocale())` — "em 43 minutos" / "tra 43 minuti" / "in 43 minutes" nativamente
+
+### Comando `pto lang`
+
+- **`pto lang`** — mostra idioma atual + origem (flag, env, file, auto)
+- **`pto lang set <pt-BR|it|en>`** — persiste escolha explícita
+- **`pto lang set`** (sem valor) — prompt interativo com `@clack/prompts`
+- **`pto lang auto`** — re-detecta do sistema
+- **`pto lang reset`** — apaga preferência (próxima execução redetecta)
+- **`--lang=<locale>`** — flag global para override pontual em qualquer comando
+
+### Integração com setup wizard
+
+`pto setup` agora, no primeiro run, roda `firstRunPickLocale()` **antes** dos outros steps. Mostra prompt trilíngue para não assumir qual idioma o usuário lê. Persiste a escolha em `preferences.json` com `chosen_by_user: true`.
+
+### Integração com ops-chief
+
+`agents/ops-chief.md` ganha:
+- **STEP 4 de activation** — lê `~/.config/primeteam-ops/preferences.json`, detecta locale, usa para toda a conversa
+- **3 variantes de greeting** — `greeting_pt_BR`, `greeting_it`, `greeting_en` com exemplos contextualizados por idioma
+- **3 variantes de fallback** (quando sem sessão) — `greeting_fallback_no_session_pt_BR`, `_it`, `_en`
+
+### Validação
+
+Smoke tests em 3 idiomas com mesmo comando:
+
+```
+$ pto --lang=pt-BR whoami
+  ✓ Logada/o como pablo
+  Email      pablo@archprime.io
+  Papéis     Dona/dono do time (acesso total)
+  Expira     em 43 minutos (23/04/2026, 11:11)
+
+$ pto --lang=it whoami
+  ✓ Accesso come pablo
+  Email      pablo@archprime.io
+  Ruoli      Proprietaria/o del team (accesso completo)
+  Scade      tra 42 minuti (23/04/2026, 11:11)
+
+$ pto --lang=en whoami
+  ✓ Signed in as pablo
+  Email      pablo@archprime.io
+  Roles      Team owner (full access)
+  Expires    in 42 minutes (23/04/2026, 11:11)
+```
+
+### Não mudou (próximos sprints)
+
+- Sprint 25: session hygiene (hook Claude Code)
+- Sprint 26 (opcional): tour guiado no ops-chief
+
+---
+
 ## [1.2.0-dev] — 2026-04-23 — Humanização de copy (Sprint 23)
 
 ### Changed — Toda comunicação user-facing reescrita sem jargão

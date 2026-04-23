@@ -1,0 +1,81 @@
+{
+  "session_expired": {
+    "title": "la tua sessione è scaduta",
+    "why": "succede dopo qualche ora — sicurezza standard",
+    "what": "esegui: pto refresh (o pto login se il refresh fallisce)"
+  },
+  "not_logged": {
+    "title": "non sei collegata/o",
+    "why": "non ho trovato la tua sessione su questo computer",
+    "what": "esegui: pto login"
+  },
+  "session_invalid": {
+    "title": "la tua sessione sembra non valida",
+    "why": "il server non ha riconosciuto il tuo accesso",
+    "what": "esegui: pto login"
+  },
+  "refresh_invalid": {
+    "title": "il tuo accesso deve essere rinnovato",
+    "why": "il permesso di rinnovo è scaduto o sei uscita/o da un altro posto",
+    "what": "esegui: pto login (richiede 30 secondi)"
+  },
+  "network_offline": {
+    "title": "non sono riuscito a connettermi",
+    "why": "il server non ha risposto",
+    "what": "controlla la tua internet. Se persiste, avvisa Pablo"
+  },
+  "host_not_found": {
+    "title": "non sono riuscito a raggiungere il server",
+    "why": "la tua internet è caduta o il server è offline",
+    "what": "controlla la connessione e riprova tra 1 minuto"
+  },
+  "timeout": {
+    "title": "l'operazione ha impiegato troppo tempo",
+    "why": "internet lenta o server bloccato",
+    "what": "riprova tra 1 minuto"
+  },
+  "port_busy": {
+    "title": "la porta di login è occupata",
+    "why": "un altro programma (o un'altra finestra di pto) sta usando la porta 54321",
+    "what": "chiudi altre finestre di pto e riprova"
+  },
+  "no_permission_fs": {
+    "title": "nessun permesso per questo file",
+    "why": "il sistema ha bloccato l'operazione",
+    "what": "prova a eseguire come admin (sudo) o avvisa Pablo"
+  },
+  "oauth_state_mismatch": {
+    "title": "il login dal browser non si è completato in tempo",
+    "why": "la pagina è rimasta aperta troppo a lungo, o in più schede",
+    "what": "chiudi tutte le schede di login e esegui: pto login"
+  },
+  "forbidden": {
+    "title": "non hai il permesso per questo",
+    "why": "questa area è riservata al tuo ruolo nel team",
+    "what": "se pensi di dover avere accesso, parla con Pablo"
+  },
+  "server_error": {
+    "title": "problema sul nostro server",
+    "why": "qualcosa è andato storto dal lato Supabase",
+    "what": "riprova tra 1 minuto. Se persiste, avvisa Pablo"
+  },
+  "pkce_failed": {
+    "title": "il login è stato interrotto",
+    "why": "è iniziato in un altro terminale o è stato annullato nel browser",
+    "what": "esegui: pto login"
+  },
+  "callback_incomplete": {
+    "title": "il browser è tornato senza completare il login",
+    "why": "potresti aver chiuso la scheda prima di autorizzare",
+    "what": "esegui: pto login e completa l'autorizzazione"
+  },
+  "generic": {
+    "title": "qualcosa è andato storto",
+    "why": "errore inaspettato"
+  },
+  "labels": {
+    "detail": "Dettaglio tecnico:",
+    "why": "Perché:",
+    "what": "Fai: "
+  }
+}

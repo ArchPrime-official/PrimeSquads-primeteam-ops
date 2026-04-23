@@ -1,0 +1,81 @@
+{
+  "session_expired": {
+    "title": "your session expired",
+    "why": "happens after a few hours — standard security",
+    "what": "run: pto refresh (or pto login if refresh fails)"
+  },
+  "not_logged": {
+    "title": "you're not signed in",
+    "why": "I couldn't find your session on this computer",
+    "what": "run: pto login"
+  },
+  "session_invalid": {
+    "title": "your session looks invalid",
+    "why": "the server didn't recognize your access",
+    "what": "run: pto login"
+  },
+  "refresh_invalid": {
+    "title": "your access needs to be renewed",
+    "why": "your renewal permission expired or you signed out elsewhere",
+    "what": "run: pto login (takes 30 seconds)"
+  },
+  "network_offline": {
+    "title": "couldn't connect",
+    "why": "the server didn't respond",
+    "what": "check your internet. If it persists, message Pablo"
+  },
+  "host_not_found": {
+    "title": "couldn't reach the server",
+    "why": "your internet is down or the server is offline",
+    "what": "check your connection and try again in 1 minute"
+  },
+  "timeout": {
+    "title": "the operation took too long",
+    "why": "internet is slow or the server stalled",
+    "what": "try again in 1 minute"
+  },
+  "port_busy": {
+    "title": "the login port is busy",
+    "why": "another program (or another pto tab) is using port 54321",
+    "what": "close other pto windows and try again"
+  },
+  "no_permission_fs": {
+    "title": "no permission for this file",
+    "why": "the system blocked the operation",
+    "what": "try running as admin (sudo) or message Pablo"
+  },
+  "oauth_state_mismatch": {
+    "title": "the browser login didn't complete in time",
+    "why": "the page stayed open too long, or was opened in more than one tab",
+    "what": "close all login tabs and run: pto login"
+  },
+  "forbidden": {
+    "title": "you don't have permission for this",
+    "why": "this area is restricted to your role on the team",
+    "what": "if you think you should have access, talk to Pablo"
+  },
+  "server_error": {
+    "title": "problem on our server",
+    "why": "something went wrong on the Supabase side",
+    "what": "try again in 1 minute. If it persists, message Pablo"
+  },
+  "pkce_failed": {
+    "title": "the login was interrupted",
+    "why": "it started in another terminal or was cancelled in the browser",
+    "what": "run: pto login"
+  },
+  "callback_incomplete": {
+    "title": "the browser came back without completing the login",
+    "why": "you might have closed the tab before authorizing",
+    "what": "run: pto login and complete the authorization"
+  },
+  "generic": {
+    "title": "something went wrong",
+    "why": "unexpected error"
+  },
+  "labels": {
+    "detail": "Technical detail:",
+    "why": "Why:",
+    "what": "Do: "
+  }
+}

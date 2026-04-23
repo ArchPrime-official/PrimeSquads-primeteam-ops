@@ -1,15 +1,15 @@
 import { clearSession, loadSession } from './session.js';
 import { createAuthenticatedClient } from './supabase.js';
 import { success, info } from './ui.js';
+import { t } from './i18n/index.js';
 
 export async function logout(): Promise<void> {
   const session = loadSession();
   if (!session) {
-    info('Você já está desconectada/o — nada a fazer.');
+    info(t('cli:logout.already_out'));
     return;
   }
 
-  // Best-effort: sinaliza a saída no Supabase. Se falhar, segue com a limpeza local.
   try {
     const supabase = createAuthenticatedClient(session.access_token, session.refresh_token);
     await supabase.auth.signOut({ scope: 'local' });
@@ -18,5 +18,5 @@ export async function logout(): Promise<void> {
   }
 
   clearSession();
-  success(`Tchau, ${session.email.split('@')[0]} — acesso removido deste computador.`);
+  success(t('cli:logout.goodbye', { name: session.email.split('@')[0] }));
 }

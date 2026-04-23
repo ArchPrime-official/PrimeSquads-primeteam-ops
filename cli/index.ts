@@ -13,6 +13,7 @@ import { update } from './update.js';
 import { start } from './start.js';
 import { setup } from './setup.js';
 import { lang } from './lang.js';
+import { onboarding } from './onboarding.js';
 import { initI18n } from './i18n/index.js';
 import { resolveLocale } from './preferences.js';
 import { isSupportedLocale } from './i18n/detect.js';
@@ -135,6 +136,13 @@ async function main(): Promise<void> {
     .description('mostra ou muda o idioma do CLI (set, auto, reset)')
     .action(async (action, value) => {
       await lang(action, value);
+    });
+
+  program
+    .command('onboarding [action] [role]')
+    .description('controla o tour de primeiro uso (status | done | reset)')
+    .action((action, role) => {
+      onboarding(action, role);
     });
 
   await program.parseAsync(process.argv);

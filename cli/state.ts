@@ -20,6 +20,8 @@ export interface AppState {
   setup_started_at: string | null;
   setup_completed_at: string | null;
   setup_steps: Partial<Record<SetupStepName, SetupStepStatus>>;
+  onboarding_completed_at: string | null;
+  onboarding_tour_seen_for_role: string | null;
 }
 
 const DEFAULT_STATE: AppState = {
@@ -30,6 +32,8 @@ const DEFAULT_STATE: AppState = {
   setup_started_at: null,
   setup_completed_at: null,
   setup_steps: {},
+  onboarding_completed_at: null,
+  onboarding_tour_seen_for_role: null,
 };
 
 export function loadState(): AppState {
@@ -78,4 +82,22 @@ export function recordStart(headSha: string | null, version: string | null): voi
     last_start_head_sha: headSha,
     last_start_version: version,
   });
+}
+
+export function markOnboardingDone(role?: string | null): void {
+  updateState({
+    onboarding_completed_at: new Date().toISOString(),
+    onboarding_tour_seen_for_role: role ?? null,
+  });
+}
+
+export function resetOnboarding(): void {
+  updateState({
+    onboarding_completed_at: null,
+    onboarding_tour_seen_for_role: null,
+  });
+}
+
+export function isOnboardingDone(): boolean {
+  return loadState().onboarding_completed_at !== null;
 }

@@ -1,36 +1,38 @@
 import ora from 'ora';
 import pc from 'picocolors';
-import { formatRelativeTime } from './ui.js';
+import { formatRelativeTime, userError, handleError } from './ui.js';
 import { refreshStoredSession, loadSession } from './session.js';
 
 /**
- * Comando `pto refresh` — renova manualmente o access_token usando o
- * refresh_token armazenado. Útil quando o usuário sabe que vai executar
- * operações longas e quer garantir que a session aguenta.
+ * Comando `pto refresh` — renova manualmente o acesso usando o token de
+ * renovação armazenado. Útil antes de operações longas ou quando o acesso
+ * está prestes a expirar.
  *
- * Automaticamente chamado por `pto start` quando a session está prestes
- * a expirar (janela default: 10 min).
+ * Automaticamente chamado por `pto start` quando a sessão está perto de
+ * expirar (janela default: 10 min).
  */
 export async function refresh(): Promise<void> {
   const current = loadSession();
   if (!current) {
-    console.error(
-      `${pc.red('✗')} Você não está logado.\n` +
-        `  ${pc.cyan('→')} rode ${pc.cyan('pto login')} primeiro.`,
-    );
+    userError({
+      title: 'você não está logada/o',
+      why: 'não encontrei sua sessão neste computador',
+      what: 'rode: pto login',
+    });
     process.exit(1);
   }
 
-  const spinner = ora('Renovando sua sessão...').start();
+  const spinner = ora('Renovando seu acesso...').start();
   try {
     const fresh = await refreshStoredSession();
     spinner.succeed(
-      `Sessão renovada — logada como ${pc.bold(fresh.email)} ` +
-        pc.dim(`(expira ${formatRelativeTime(fresh.expires_at)})`),
+      `Acesso renovado — ${pc.bold(fresh.email)} ${pc.dim(
+        `(expira ${formatRelativeTime(fresh.expires_at)})`,
+      )}`,
     );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    spinner.fail(msg);
+    spinner.stop();
+    handleError(err, 'rode: pto login para entrar de novo');
     process.exit(1);
   }
 }

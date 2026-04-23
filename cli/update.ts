@@ -50,41 +50,43 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   };
 
   if (!branch) {
-    result.skippedReason = 'não é um repo git';
-    if (!silent) console.error(`${pc.red('✗')} Este diretório não é um repositório git.`);
+    result.skippedReason = 'esta pasta não é um clone do squad';
+    if (!silent)
+      console.error(`${pc.red('✗')} Esta pasta não é um clone do squad primeteam-ops.`);
     return result;
   }
 
   if (branch !== 'main') {
-    result.skippedReason = `em branch ${branch} (só atualiza no main)`;
+    result.skippedReason = `você está no canal ${branch} (só atualiza no principal)`;
     if (!silent) {
       console.log(
-        `${pc.yellow('⚠')} Você está no branch ${pc.bold(branch)} — update pula por segurança.\n` +
-          `  ${pc.cyan('→')} volte para main: ${pc.cyan('git checkout main')}`,
+        `${pc.yellow('⚠')} Você está num canal alternativo (${pc.bold(branch)}) — update pulei por segurança.\n` +
+          `  ${pc.cyan('→')} volte para o canal principal: ${pc.cyan('git checkout main')}`,
       );
     }
     return result;
   }
 
   if (hasUncommittedChanges(repoRoot)) {
-    result.skippedReason = 'mudanças locais pendentes';
+    result.skippedReason = 'você tem alterações não salvas no clone';
     if (!silent) {
       console.log(
-        `${pc.yellow('⚠')} Você tem mudanças locais não commitadas — update pula por segurança.\n` +
-          `  ${pc.cyan('→')} commite ou faça stash: ${pc.cyan('git status')}`,
+        `${pc.yellow('⚠')} Você tem alterações não salvas no clone — update pulei por segurança.\n` +
+          `  ${pc.cyan('→')} se você não lembra do que modificou, rode ${pc.cyan('pto doctor')} e avise o Pablo.`,
       );
     }
     return result;
   }
 
-  // Fetch do remoto
   const spinner = silent ? null : ora('Verificando atualizações do squad...').start();
   try {
     await fetchRemote('origin', { cwd: repoRoot, timeoutMs: 15_000 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (spinner) spinner.fail(`Não consegui falar com o GitHub: ${pc.dim(msg)}`);
-    result.skippedReason = 'falha no fetch';
+    if (spinner)
+      spinner.fail(`Não consegui conectar ao GitHub agora. ${pc.dim('Verifique sua internet.')}`);
+    result.skippedReason = 'sem conexão com GitHub';
+    if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
     return result;
   }
 
@@ -92,7 +94,7 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   result.checked = true;
 
   if (behind === null || behind === 0) {
-    if (spinner) spinner.succeed('Seu squad está em dia.');
+    if (spinner) spinner.succeed('Seu squad está em dia — nenhuma novidade.');
     return result;
   }
 
@@ -106,7 +108,7 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
 
   if (spinner) {
     spinner.succeed(
-      `${pc.bold(String(behind))} atualizaç${behind === 1 ? 'ão' : 'ões'} disponível${
+      `${pc.bold(String(behind))} nov${behind === 1 ? 'a' : 'as'} atualizaç${behind === 1 ? 'ão' : 'ões'} disponível${
         behind === 1 ? '' : 'eis'
       }:`,
     );
@@ -126,39 +128,44 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   if (dryRun) {
     if (!silent) {
       console.log(
-        `${pc.cyan('→')} Modo dry-run — rode ${pc.cyan('pto update')} sem --dry-run para aplicar.`,
+        `${pc.cyan('→')} Só verifiquei — rode ${pc.cyan('pto update')} para aplicar.`,
       );
     }
     return result;
   }
 
-  // Pull
-  const pullSpin = silent ? null : ora('Aplicando atualizações...').start();
+  const pullSpin = silent ? null : ora('Aplicando as atualizações...').start();
   try {
     await pullFastForward('origin', 'main', { cwd: repoRoot, timeoutMs: 60_000 });
     result.pulled = true;
     result.commitsApplied = behind;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (pullSpin) pullSpin.fail(`Pull falhou: ${pc.dim(msg)}`);
+    if (pullSpin)
+      pullSpin.fail(
+        `Não consegui aplicar as atualizações. ${pc.dim('Avise o Pablo com o output de pto doctor.')}`,
+      );
+    if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
     return result;
   }
 
   if (pullSpin) pullSpin.succeed('Atualizações aplicadas.');
 
-  // Se package.json/lock mudou, reinstala
   if (shaBefore && packageLockChanged(shaBefore, 'HEAD', repoRoot)) {
-    const npmSpin = silent ? null : ora('Deps mudaram — reinstalando...').start();
+    const npmSpin = silent
+      ? null
+      : ora('Algumas dependências mudaram — atualizando...').start();
     try {
       await runNpmInstall(repoRoot);
       result.depsReinstalled = true;
-      if (npmSpin) npmSpin.succeed('Deps atualizadas.');
+      if (npmSpin) npmSpin.succeed('Dependências atualizadas.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (npmSpin)
         npmSpin.fail(
-          `npm install falhou: ${pc.dim(msg)} — rode ${pc.cyan('npm install')} manualmente.`,
+          `Não consegui atualizar as dependências. ${pc.dim('Rode npm install manualmente, ou avise o Pablo.')}`,
         );
+      if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
     }
   }
 

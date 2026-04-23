@@ -1,6 +1,6 @@
 {
   "name": "primeteam-ops-cli",
-  "version": "1.2.0-dev",
+  "version": "1.2.0",
   "description": "CLI do squad primeteam-ops: opere a plataforma PrimeTeam via Claude Code com um único comando diário.",
   "private": true,
   "type": "module",

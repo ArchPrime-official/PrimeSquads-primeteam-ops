@@ -6,6 +6,79 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.2.0] — 2026-04-23 — Onboarding guiado (Sprint 26 — fecha Fase 3)
+
+### Added — Tour interativo de primeiro uso no ops-chief
+
+Polish final da Fase 3. O ops-chief agora detecta "primeira vez" e oferece um tour de 2 minutos contextualizado por papel.
+
+**Fluxo:**
+
+1. Na ativação, STEP 7 lê `~/.config/primeteam-ops/state.json` campo `onboarding_completed_at`.
+2. Se `null` → oferece tour: *"Vi que é sua primeira vez por aqui. Posso te dar um tour rápido de 2 minutos?"*
+3. Se aceita → pergunta (ou detecta) a role → dá um **exemplo contextualizado por role**:
+   - Marketing → criar LP de evento
+   - Financeiro → lançar pagamento
+   - Comercial → criar lead
+   - CS → listar estudantes em risco
+   - Owner → ver activity log
+4. Explica o princípio ("fala em português normal, eu traduzo pra ação") e os limites (Revolut transferências OUT, estratégia vai pra expertise squads).
+5. Executa `pto onboarding done <role>` — marca como feito, não repete.
+
+**Se user declina:** também marca como feito para não persistir (pode reativar com `pto onboarding reset`).
+
+**Owner (Pablo) skip:** se role detectada = `owner`, skip automático — Pablo já conhece o sistema.
+
+**Max 5 turns:** se usuário fizer pergunta real durante o tour, ABANDONA gracefully e responde — tour não é prisão.
+
+### Novo comando
+
+- `pto onboarding` — status atual
+- `pto onboarding done [role]` — marca como feito (chamado pelo ops-chief)
+- `pto onboarding reset` — reseta para aparecer de novo no próximo ativar
+- `pto onboarding status` — alias de sem argumento
+
+### Novo arquivo
+
+- `cli/onboarding.ts` — comandos + helpers
+
+### Mudanças
+
+- `cli/state.ts` — adiciona `onboarding_completed_at` + `onboarding_tour_seen_for_role`; funções `markOnboardingDone()`, `resetOnboarding()`, `isOnboardingDone()`
+- `cli/index.ts` — registra `pto onboarding`
+- `agents/ops-chief.md` — STEP 7 novo + `tour_script` com diálogos contextualizados por role (~80 linhas de prompt)
+
+### Princípios seguidos no tour
+
+- Zero jargão (respeita Sprint 23)
+- No idioma do usuário (respeita Sprint 24)
+- Non-invasive — perguntar antes de agir
+- Exemplo concreto > descrição abstrata
+
+---
+
+## Fase 3 (v1.2.0) — Completa
+
+Todas as 5 dores originais do Pablo resolvidas em 5 sprints:
+
+| Dor | Sprint | Resolvido em |
+|-----|:------:|--------------|
+| #1 Setup manual (6 comandos sequenciais) | 22 | `pto setup` wizard idempotente |
+| #2 Sem multi-idioma (pt-BR hardcoded) | 24 | i18n PT-BR + IT + EN + `pto lang` |
+| #3 Jargão técnico (JWT, PKCE, RLS) | 23 | Copy humanizada + template erro / HOW-TO.md |
+| #4 Pull não-automático | 22 | `pto start` rotina diária + `pto update` |
+| #5 Sem avisos sessão longa | 25 | Hook Claude Code (2h/4h/23h/0h) |
+
+**Plus:** Sprint 26 (este) — onboarding guiado contextualizado por papel.
+
+**Total Fase 3:** ~5500 linhas de código + ~900 de JSON traduzido + ~280 de HOW-TO.md + ~250 de docs de changelog = ~6930 linhas novas ou reescritas em 5-6 sessões.
+
+Próxima fase (Fase 4 — Strategic):
+- AI chat agent
+- `wf-platform-audit.yaml`
+
+---
+
 ## [1.2.0-dev] — 2026-04-23 — Session hygiene (Sprint 25)
 
 ### Added — Avisos de sessão longa + absence detection

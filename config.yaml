@@ -4,16 +4,18 @@
 
 pack:
   name: primeteam-ops
-  version: 0.1.0
+  version: 1.2.0
   description: >
     CLI squad que opera a plataforma PrimeTeam via Claude Code. Execution layer
     que substitui editores visuais (LP, Automação, Radar) e acelera operações
     rotineiras. Respeita RLS via JWT de usuário (Google OAuth browser-callback).
+    Fase 3 (v1.2.0) deixou o CLI usável por não-devs (setup wizard, i18n 3 idiomas,
+    copy humanizada, session hygiene hook, onboarding guiado).
   icon: "⚙️"
-  slash_prefix: ptOps
+  slash_prefix: PrimeteamOps
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Agents registry
+# Agents registry (10 agents — v1.2.0)
 # ─────────────────────────────────────────────────────────────────────────────
 agents:
   - id: ops-chief
@@ -31,22 +33,181 @@ agents:
     tier: 1
     role: authentication
     description: >
-      Google OAuth via browser-callback (mesmo client ID que primeteam.archprime.io
-      usa). Salva JWT em ~/.primeteam/session.json (chmod 600, gitignored).
-      Refresh token automático. Commands: *login, *logout, *whoami, *refresh.
+      Google OAuth via browser-callback. Salva JWT em ~/.primeteam/session.json
+      (chmod 600). Refresh token automático via maybeRefresh (Sprint 22).
+      Commands expostos pelo CLI: pto login/logout/whoami/refresh.
+
+  - id: platform-specialist
+    file: agents/platform-specialist.md
+    tier: 1
+    role: execution
+    description: >
+      Executa CRUD de 3 módulos core: Tasks (todo list + eisenhower + project),
+      Finance (transactions + recurring + invoices) e CS (students + tickets +
+      onboarding). 9 playbooks CS + 6 Finance + 3 Tasks (~380L playbooks).
+
+  - id: sales-specialist
+    file: agents/sales-specialist.md
+    tier: 2
+    role: execution
+    description: >
+      Módulo Comercial — leads, opportunities, pipeline Kanban. 10 playbooks
+      cobrindo criação, movimentação de stages, atribuição a campanhas e
+      consolidação de contato multi-canal (email + phone + WhatsApp).
+
+  - id: content-builder
+    file: agents/content-builder.md
+    tier: 2
+    role: execution
+    description: >
+      Landing Pages via templates self-contained HTML. Valida slug uniqueness,
+      sempre cria com active=false (sandbox). 10 playbooks. NÃO escreve copy
+      autoral — consulta /videoCreative ou /metaAds para isso.
+
+  - id: automation-specialist
+    file: agents/automation-specialist.md
+    tier: 2
+    role: execution
+    description: >
+      Flows de automação + email templates. Sprint 15 autorizou edit de
+      nodes/edges em flows inativos. Flows ativos: deactivate ou clone primeiro.
+
+  - id: integration-specialist
+    file: agents/integration-specialist.md
+    tier: 3
+    role: external_boundary
+    description: >
+      4 boundaries externas: Google Calendar (read + watch channel),
+      Revolut (balances/tx — NUNCA transfers), Meta Ads (read + pause/resume/
+      budget + A/B tests), Phone/VAPI (outbound AI calls). 25 playbooks,
+      8 smoke tests. Revolut transferências PERMANENTEMENTE OUT (by design).
+
+  - id: quality-guardian
+    file: agents/quality-guardian.md
+    tier: 3
+    role: audit
+    description: >
+      Audit specialist — roda handoff-quality-gate a cada retorno ao chief.
+      5 seções + 5 extensões (activity_log, external_mutation, cost, etc.).
+      Verdicts: PASS / REJECT / ESCALATE / WAIVED com how_to_fix.
+
+  - id: admin-specialist
+    file: agents/admin-specialist.md
+    tier: 3
+    role: owner_only
+    description: >
+      OWNER-ONLY operations — grant/revoke roles, criar users, ver activity log
+      completo. Failure mode STRICT em activity_logs (se log write falha, ABORT
+      a mutation). Único specialist com escalation mandatório.
+
+  - id: imports-specialist
+    file: agents/imports-specialist.md
+    tier: 3
+    role: execution
+    description: >
+      Bulk import CSV — sempre dry-run mode primeiro (não grava nada),
+      usuário aprova sample, depois commit. 1 entry em activity_logs por batch
+      (não per-row). Aceita inputs de finance, leads, students.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tasks registry
+# Tasks registry (13 tasks HO-TP-001)
 # ─────────────────────────────────────────────────────────────────────────────
 tasks:
   - id: test-handoff-flow
     file: tasks/test-handoff-flow.md
     purpose: Smoke test da topologia hub-and-spoke (V20 obrigatório)
 
+  - id: create-task
+    file: tasks/create-task.md
+    purpose: Criar tarefa no módulo Tasks (eisenhower + project assignment)
+    agent: platform-specialist
+
+  - id: list-tasks
+    file: tasks/list-tasks.md
+    purpose: Listar tarefas com filtros (urgent, project, status, due date)
+    agent: platform-specialist
+
+  - id: complete-task
+    file: tasks/complete-task.md
+    purpose: Marcar tarefa como completa + atualizar project rollup
+    agent: platform-specialist
+
+  - id: create-finance-transaction
+    file: tasks/create-finance-transaction.md
+    purpose: Lançar transação financeira (income/expense) com categoria
+    agent: platform-specialist
+
+  - id: create-lead
+    file: tasks/create-lead.md
+    purpose: Criar novo lead + atribuir campanha de origem
+    agent: sales-specialist
+
+  - id: move-opportunity-stage
+    file: tasks/move-opportunity-stage.md
+    purpose: Mover oportunidade no pipeline Kanban
+    agent: sales-specialist
+
+  - id: list-students
+    file: tasks/list-students.md
+    purpose: Listar estudantes CS com filtros (health/manager/onboarding)
+    agent: platform-specialist
+
+  - id: create-landing-page
+    file: tasks/create-landing-page.md
+    purpose: Criar LP (sempre active=false) validando slug uniqueness
+    agent: content-builder
+
+  - id: list-automation-flows
+    file: tasks/list-automation-flows.md
+    purpose: Listar flows ativos/inativos com node count + template refs
+    agent: automation-specialist
+
+  - id: list-calendar-events
+    file: tasks/list-calendar-events.md
+    purpose: Read events do cache local com staleness check + trigger re-sync
+    agent: integration-specialist
+
+  - id: list-revolut-balances
+    file: tasks/list-revolut-balances.md
+    purpose: Read balances com discrepancy flagging + 15min staleness
+    agent: integration-specialist
+
+  - id: list-meta-campaigns
+    file: tasks/list-meta-campaigns.md
+    purpose: Read campanhas Meta com aggregates + underperformer flags
+    agent: integration-specialist
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Workflows registry (populado nas próximas fases)
+# Workflows registry (7 workflows multi-fase)
 # ─────────────────────────────────────────────────────────────────────────────
-workflows: []
+workflows:
+  - id: wf-platform-operation
+    file: workflows/wf-platform-operation.yaml
+    purpose: Workflow canônico 7 phases 8 invariants (todo cycle passa por aqui)
+
+  - id: wf-finance-recurrence
+    file: workflows/wf-finance-recurrence.yaml
+    purpose: Recurring transactions + installments (monthly/weekly)
+
+  - id: wf-onboarding-approval
+    file: workflows/wf-onboarding-approval.yaml
+    purpose: Submission de onboarding → customer ativo (approve path)
+
+  - id: wf-customer-churn
+    file: workflows/wf-customer-churn.yaml
+    purpose: Detect churn + surface context — NO auto-retention (expertise decide)
+
+  - id: wf-currency-convert
+    file: workflows/wf-currency-convert.yaml
+    purpose: FX multi-specialist (ECB/Revolut rate → finance_transactions)
+
+  - id: wf-watch-channel-rotation
+    file: workflows/wf-watch-channel-rotation.yaml
+    purpose: Google Calendar watch channels (7-day expiration cycle)
+
+  - id: wf-meta-ab-test
+    file: workflows/wf-meta-ab-test.yaml
+    purpose: A/B test infra (setup variants, stats) — winner decisão = humano
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Checklists registry
@@ -57,12 +218,12 @@ checklists:
     purpose: Gate blocker rodado pelo chief em cada retorno de specialist (V19)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Templates registry (populado na Fase 3 — editores CLI)
+# Templates registry (inline em tasks/workflows — padrão HO-TP-001)
 # ─────────────────────────────────────────────────────────────────────────────
 templates: []
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Data files registry
+# Data files registry (10 arquivos de referência)
 # ─────────────────────────────────────────────────────────────────────────────
 data:
   - id: primeteam-platform-rules
@@ -72,6 +233,62 @@ data:
   - id: handoff-card-template
     file: data/handoff-card-template.md
     purpose: Template de handoff entre specialists e chief (V18)
+
+  - id: activity-logging
+    file: data/activity-logging.md
+    purpose: Padrão canônico de observability — 4 tipos de entries em activity_logs (Sprint 20)
+
+  - id: platform-modules
+    file: data/platform-modules.md
+    purpose: Inventário de 18 módulos da plataforma — IDs, tabelas principais, hooks
+
+  - id: schema-reference
+    file: data/schema-reference.md
+    purpose: Schema Supabase (226 tabelas) — FKs, índices, RLS policies resumidas
+
+  - id: team-roles-reference
+    file: data/team-roles-reference.md
+    purpose: 10 colaboradores + roles + módulos que cada um acessa
+
+  - id: role-permissions-map
+    file: data/role-permissions-map.md
+    purpose: Matrix role × módulo × CRUD — consultado pelo chief antes de rotear
+
+  - id: integration-inventory
+    file: data/integration-inventory.md
+    purpose: 8 integrações externas — tabelas cache, edge functions, rate limits
+
+  - id: edge-functions-required
+    file: data/edge-functions-required.md
+    purpose: 15 edge functions documentadas para primeteam team implementar (Sprint 19)
+
+  - id: migrations-required
+    file: data/migrations-required.md
+    purpose: 4 migrations pendentes (fx_rate_cache, ab_test_results, etc.)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI (TypeScript — Fase 3 v1.2.0)
+# ─────────────────────────────────────────────────────────────────────────────
+cli:
+  bin: pto
+  entrypoint: cli/index.ts → dist/index.js
+  commands:
+    - start              # rotina diária (default)
+    - setup              # wizard first-run idempotente
+    - login / logout / whoami / refresh
+    - doctor             # healthcheck copiável
+    - update             # git pull + npm install condicional
+    - lang               # PT-BR / IT / EN + runtime switching
+    - onboarding         # tour contextualizado por role
+  i18n:
+    locales: [pt-BR, it, en]
+    namespaces: [cli, errors, html, agent]
+    precedence: "--lang > PTOPS_LANG env > preferences.json > autodetect LANG > 'en'"
+  hooks:
+    session_hygiene:
+      file: hooks/session-hygiene.sh
+      trigger: UserPromptSubmit (via .claude/settings.json)
+      warnings: [2h, 4h, 23h local, 0-5h madrugada, date rollover]
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Hub-and-spoke handoff protocol (V26 obrigatório)
@@ -97,6 +314,12 @@ handoff_protocol:
     - deploy_flag
     - suggested_next
 
+  # Activity log obrigatório para mutations (Sprint 20 — v1.1.0)
+  activity_log_required:
+    applies_to: "specialists with mutation scope"
+    field: "activity_log_id in handoff card"
+    failure_mode: "warning + activity_log_write_failed=true; ABORT only in admin-specialist"
+
   # Status machine obrigatório (6 estados)
   status_machine:
     - Triaged
@@ -112,6 +335,11 @@ handoff_protocol:
 tier_validation:
   tier_0_count: 1                  # EXATAMENTE 1 orchestrator
   tier_distribution_required: true
+  distribution:
+    tier_0: 1                      # ops-chief
+    tier_1: 2                      # auth-specialist, platform-specialist
+    tier_2: 3                      # sales, content-builder, automation
+    tier_3: 4                      # integration, quality-guardian, admin, imports
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Auth configuration
@@ -119,16 +347,17 @@ tier_validation:
 auth:
   flow: google_oauth_browser_callback
   provider: google
-  callback_port_range: [54321, 54400]  # localhost callback
+  callback_port: 54321
   session_storage: ~/.primeteam/session.json
-  session_permissions: "600"           # read/write por owner apenas
-  supabase_url_env: VITE_SUPABASE_URL  # público por design (ja no site web)
-  supabase_anon_key_env: VITE_SUPABASE_ANON_KEY  # público por design
+  session_permissions: "600"
+  supabase_url: "https://xmqmuxwlecjbpubjdkoj.supabase.co"
+  supabase_anon_key: public_by_design  # RLS protects; matches browser usage
+  preferences_storage: ~/.config/primeteam-ops/preferences.json
 
   forbidden:
     - SUPABASE_SERVICE_ROLE_KEY  # NUNCA no código do squad
-    - hardcoded_urls
-    - hardcoded_tokens
+    - hardcoded_secrets
+    - service role operations
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Platform reference

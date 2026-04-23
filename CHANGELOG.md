@@ -6,6 +6,89 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.2.1] — 2026-04-23 — Quality correction (Sprint 27)
+
+### Fixed — 4 issues P0/P1 encontrados em auditoria cruzada vs squads de referência
+
+Auditoria profunda comparou o squad com `primeteam-improve` e `lovarch-platform` (usados como baselines "bem feitos"). Veredicto: squad APROVADO (score 4.0/5) mas com gaps de **sincronia entre declaração e realidade**. Sprint 27 corrige.
+
+### 1. `config.yaml` regenerado com registry completo
+
+Antes só tinha 2/10 agents, 1/13 tasks, 0/7 workflows, 2/10 data files registrados. Agora registra **todos** os 40 recursos:
+
+- 10 agents (ops-chief, auth, platform, sales, content-builder, automation, integration, quality-guardian, admin, imports)
+- 13 tasks (com `agent:` assignment para tooling de discovery)
+- 7 workflows (wf-platform-operation + wf-finance-recurrence + wf-onboarding-approval + wf-customer-churn + wf-currency-convert + wf-watch-channel-rotation + wf-meta-ab-test)
+- 10 data files com descrição de cada
+- Nova seção `cli:` documentando bin/commands/i18n/hooks (Fase 3)
+- `handoff_protocol.activity_log_required` adicionado (Sprint 20)
+- `tier_validation.distribution` detalhada
+
+**Impacto:** tooling de discovery/bump/refresh-registry passa a ver o squad correto. Parsers externos podem navegar a topologia real.
+
+### 2. `ops-chief.md` routing_map limpo
+
+Removidas **11 menções stale** a "Fase 2/3/4 — não criado" para agents que já existem (sales-specialist, content-builder, automation-specialist). Removidos **3 agents fantasmas** (marketing-specialist, calendar-specialist, radar-specialist) que foram consolidados em platform/content-builder/integration ou ficaram fora de escopo.
+
+**`routing_map` agora cobre todos os 10 specialists reais** + casos edge:
+- `phone` → integration-specialist (VAPI/Ringover)
+- `external_finance` → integration-specialist (Revolut/Stripe reads)
+- `imports` → imports-specialist
+- `audit` → quality-guardian
+- `radar` → explicitamente out-of-scope com fallback
+
+**`handoff_to` do ops-chief expandido** de 2 para 9 entradas (um por specialist).
+
+### 3. Smoke tests em ops-chief + auth-specialist (SC_AGT_001)
+
+SC_AGT_001 exige 3 cenários de comportamento real. Ambos tinham 0. Agora:
+
+- **ops-chief:** (1) triage-and-route happy path, (2) role-mismatch refusal com mensagem humanizada, (3) mesh violation block (VC_002)
+- **auth-specialist:** (1) login happy path, (2) expired refresh silent, (3) refresh_invalid escalate com `BlockedOnAuth`
+
+`imports-specialist` já tinha 3 (audit inicial errou na contagem).
+
+### 4. `handoff-quality-gate.md` enforça activity_log_id
+
+Adicionado **check 2.6** na Seção 2 (Output Completeness). Verifica que handoff cards de specialists com scope de mutation têm `activity_log_id` populado (Sprint 20 obrigatório). Distingue:
+
+- **Mutation scope** (HIGH block): platform, sales, content-builder, automation, integration-mutations, admin, imports
+- **Read-only / non-mutation scope** (N/A): auth (refresh), quality-guardian (audit), integration-reads
+
+**Caso especial STRICT admin-specialist:** se `activity_log_write_failed=true` e specialist gravou mutation mesmo assim → REJECT imediato (Sprint 20 STRICT mode exigia abort).
+
+### 5. integration-specialist activity logging — já OK
+
+Auditoria inicial errou: o agent já tinha `ACTIVITY LOG OBLIGATORY` como core principle desde Sprint 20, com schema correto + failure tolerante + privacy rules (access_tokens / api keys / recording_url NUNCA em details).
+
+### Score depois das correções
+
+| Dimensão | Antes | Depois |
+|----------|:-----:|:------:|
+| Accuracy | 3.5 | 4.5 (routing_map agora reflete realidade) |
+| Coherence | 3.5 | 4.5 (config sincronizado com disco) |
+| Operational Excellence | 4.5 | 4.5 (mantido — CLI já era 5/5) |
+| Strategic Alignment | 4.5 | 4.5 (mantido) |
+| **Média** | **4.0** | **4.5** |
+
+**Veredicto:** squad **APROVADO LIMPO**. Pronto para uso pelo time.
+
+### Validação
+
+- `npx tsc --noEmit` passa sem erros
+- `python yaml.safe_load config.yaml` passa
+- `pto doctor` reporta squad v1.2.0
+- Grep stale references em `ops-chief.md`: **0**
+
+### Não corrigido (P2 cosméticos — deixei para depois)
+
+- `ops-chief.md` sem key top-level `scope:` (implícito via routing_map)
+- `.claude/commands/PrimeteamOps/` mirror falta `data/` e `workflows/`
+- `auth-specialist.md` `handoff_to` nested dentro de `integration:` (parsing hint)
+- Nenhum desses bloqueia uso real — cosmético.
+
+---
+
 ## [1.2.0] — 2026-04-23 — Onboarding guiado (Sprint 26 — fecha Fase 3)
 
 ### Added — Tour interativo de primeiro uso no ops-chief

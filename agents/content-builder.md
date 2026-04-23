@@ -113,6 +113,14 @@ core_principles:
       user vai para a thank_you_html_content (mesma row) OU redirect_to.
       Este é um toggle, não um page separate.
 
+  - ACTIVITY LOG OBLIGATORY: |
+      Após cada mutation em landing_pages (create/update/activate/delete),
+      INSERT em activity_logs. action='content-builder.{playbook}',
+      details inclui slug + cycle_id + before/after + side_effects_warned
+      (ex: 'publishes to public traffic' quando activate_lp). Failure
+      tolerante. Privacy: html_content NÃO vai em details (body grande +
+      possible PII). Só slug + IDs + before/after flags. Padrão: data/activity-logging.md.
+
   - AUTO-REJECT SCOPE CREEP: |
       Automation flows (→ future specialist Sprint 8+), email templates
       (→ idem), visual editor with blocks (→ Sprint 8+), content

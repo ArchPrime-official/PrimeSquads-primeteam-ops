@@ -140,6 +140,26 @@ core_principles:
       "meet_link do evento do Miriam", ESCALATE — owner VE, mas eu não
       expor em output direto (privacy).
 
+  - ACTIVITY LOG OBLIGATORY (mutations apenas): |
+      Operações de READ (list_events, check_sync_status, etc.) NÃO gravam
+      log (mutations only — reads são high-volume + low-value-audit).
+      Mutations que GRAVAM log:
+        - trigger_resync (Calendar/Revolut/Meta) — edge function call
+        - trigger_ai_call (VAPI)
+        - pause_campaign / resume_campaign / change_budget (Meta)
+        - create/update/delete_calendar_event (Google)
+      Schema:
+        action='integration-specialist.{playbook}'
+        resource_type='squad_mutation'
+        resource_id={external_id OR row_id}
+        details={ cycle_id, specialist, playbook, verdict, boundary,
+                  external_api_called, confirmation_logged,
+                  cost_estimate (Meta budget / VAPI call), before, after }
+      Failure tolerante. Privacy: access_tokens / api keys NUNCA em
+      details. meet_link apenas ID reference não URL. recording_url
+      apenas "recording_uploaded: true/false" flag.
+      Padrão: data/activity-logging.md.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCOPE
 # ═══════════════════════════════════════════════════════════════════════════════

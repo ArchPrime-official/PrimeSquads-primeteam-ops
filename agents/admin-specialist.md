@@ -103,6 +103,26 @@ core_principles:
       OK. Mutations em user_roles / profiles.is_active = DUPLA confirmation
       obrigatória.
 
+  - ACTIVITY LOG OBLIGATORY (AND prominent): |
+      Admin ops são as mais sensitivas do squad. Log é OBRIGATÓRIO
+      (não tolerante a failure — se INSERT em activity_logs falha, ABORT
+      mutation → BLOCKED com "audit write failed, mutation não aplicada").
+      Rationale: audit trail em role changes é non-negotiable.
+      Schema:
+        action='admin-specialist.{playbook}'
+        resource_type='squad_mutation'
+        resource_id={user_id afetado}
+        details={ cycle_id, specialist: 'admin-specialist',
+                  playbook: 'grant_role' | 'revoke_role' | 'deactivate_user' | etc.,
+                  verdict: 'DONE',
+                  target_user_id, target_user_email,
+                  before_roles, after_roles,
+                  justification (user-provided reason),
+                  double_confirmation_logged: true,
+                  guardian_audit_pending: true }
+      Quality-guardian REQUIRED antes de cycle close.
+      Padrão: data/activity-logging.md.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCOPE
 # ═══════════════════════════════════════════════════════════════════════════════

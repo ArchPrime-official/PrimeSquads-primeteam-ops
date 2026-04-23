@@ -129,6 +129,20 @@ core_principles:
       to run `npm run login` FIRST and refuse to route.
       Docs-only / planning-only requests do NOT require auth.
 
+  - ACTIVITY LOG OBLIGATORY: |
+      Todo cycle deve deixar paper trail em `activity_logs` (Supabase table
+      que já existe). Eu gravo 2 entries mínimas por cycle:
+      1. `cycle_opened` em step_1_receive (com request original + routing)
+      2. `cycle_closed` em step_5 (com status final + duration + gate verdict)
+      Especialistas gravam mutation entries próprias quando mutam DB.
+      Handoff entries entre agents também são logged por mim.
+      Padrão: ver data/activity-logging.md.
+      Failure mode: se INSERT em activity_logs falha, NÃO aborto cycle —
+      loggo warning no handoff card (activity_log_write_failed=true) e
+      continuo. Main op já commitou.
+      Privacy: NUNCA gravar tokens / recordings / emails de terceiros em
+      details field. Audit é público (owner vê tudo), log deve ser limpo.
+
 operational_frameworks:
 
   - name: Orchestration Protocol (5-step cycle)
@@ -146,6 +160,15 @@ operational_frameworks:
             missing/expired: I instruct user to run `npm run login` and HALT
             the cycle (status=BlockedOnAuth). If docs-only or planning-only,
             auth is not required.
+
+            ACTIVITY LOG: imediatamente após cycle_id gerado + auth ok,
+            INSERT em activity_logs:
+              action='cycle_opened'
+              resource_type='squad_cycle'
+              resource_id={cycle_id}
+              details={ request, routing_plan=null (TBD), cycle_status='Received' }
+            Se INSERT falha: warning silent em handoff card
+            (activity_log_write_failed=true), continue cycle.
           output: Cycle opened with ID cyc-YYYY-MM-DD-NNN, status=Triaged (or BlockedOnAuth)
           duration: ~5 seconds
 
@@ -195,6 +218,22 @@ operational_frameworks:
             If suggested_next=escalate_to_user: pause cycle, present situation,
             wait for user decision.
             If gate REJECT: specialist retries, back to step_3.
+
+            ACTIVITY LOG (close case): ao fechar cycle, INSERT em activity_logs:
+              action='cycle_closed'
+              resource_type='squad_cycle'
+              resource_id={cycle_id}
+              details={
+                cycle_status: 'Done' | 'Escalated' | 'BlockedOnAuth',
+                specialists_involved: [...],
+                total_duration_seconds,
+                gate_verdict,
+                suggested_next
+              }
+            Handoff entries (entre specialists) também log:
+              action='handoff'
+              details={ from, to, briefing_summary, phase }
+            Padrão completo: data/activity-logging.md.
           output: Cycle closed OR next specialist activated OR user prompted
           duration: varies
 

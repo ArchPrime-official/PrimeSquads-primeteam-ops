@@ -236,6 +236,8 @@ Mais specialists serão adicionados nas Fases 2-4 do roadmap abaixo.
 - [x] **Sprint 17:** `wf-meta-ab-test.yaml` + `FINAL-STATE.md` — Fase 2 scope completo
 - [x] **Sprint 18 (UX polish):** postinstall banner + ops-chief auto-offer login em background
 - [x] **Sprint 19 (handoff):** `data/edge-functions-required.md` + `data/migrations-required.md` — **v1.0.0 Fase 2 squad-side COMPLETA**
+- [x] **Sprint 20 (observability):** activity logging em cycle + mutations — `data/activity-logging.md` + todos specialists atualizados — **v1.1.0**
+- [ ] **Sprint 21 (primeteam-side):** aba "Squad Ops" em `src/pages/ActivityLog.tsx` (trabalho no repo primeteam, não neste)
 
 📋 **Ver [`FINAL-STATE.md`](./FINAL-STATE.md)** para status consolidado, próximos passos e guia de onboarding.
 

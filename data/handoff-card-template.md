@@ -110,6 +110,36 @@ reason: "i18n tem 4 novas keys; quality-guardian precisa validar que ambos idiom
 - Timezone: Europe/Rome
 - Feature flags ativos: none
 
+---
+
+### 7. Activity log reference (Sprint 20+)
+
+Se o specialist gravou entry em `activity_logs` (mutations), incluir o ID:
+
+```yaml
+activity_log_id: "a7c4f1e2-..." (uuid da row em activity_logs)
+activity_log_write_failed: false  # true se INSERT falhou (mutation OK mas audit perdida)
+```
+
+Exemplo completo em handoff:
+```yaml
+activity_log_id: "a7c4f1e2-b234-..."
+activity_log_write_failed: false
+```
+
+**Se mutation foi executada mas log falhou:**
+```yaml
+activity_log_id: null
+activity_log_write_failed: true
+warnings:
+  - "Audit log write failed (INSERT em activity_logs falhou). Mutation
+     principal foi aplicada. Investigar RLS ou network issue no próximo cycle."
+```
+
+Reads (SELECT puro) não gravam log — campos ficam `null` sem warning.
+
+Padrão completo: `data/activity-logging.md`.
+
 ```
 
 ---

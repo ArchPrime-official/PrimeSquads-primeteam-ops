@@ -108,6 +108,23 @@ core_principles:
       inseridas com batch_id=X. Restantes 300 não processadas." User
       decide cleanup / re-run.
 
+  - ACTIVITY LOG OBLIGATORY (1 entry per batch, não per row): |
+      Import batch = 1 única entry em activity_logs (não 1000 entries de N
+      INSERTs). Schema:
+        action='imports-specialist.{playbook: import_leads_csv | import_finance_csv | rollback_batch}'
+        resource_type='squad_mutation'
+        resource_id={import_batch_id}
+        details={ cycle_id, specialist, playbook, verdict,
+                  import_file_name, total_csv_rows, inserted_count,
+                  skipped_invalid_count, skipped_duplicates_count,
+                  failed_rows_count, target_table (leads/finance_transactions),
+                  dry_run_approved_by: auth.uid() }
+      Rationale: batch é atomic unit do ponto de vista UX — entry summary é
+      suficiente. Se user precisa per-row detail, query por import_batch_id
+      na target table direto.
+      Failure tolerante. Privacy: CSV raw content NÃO em details (só counts).
+      Padrão: data/activity-logging.md.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCOPE
 # ═══════════════════════════════════════════════════════════════════════════════

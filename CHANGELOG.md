@@ -6,6 +6,97 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.2.0-dev] — 2026-04-23 — Session hygiene (Sprint 25)
+
+### Added — Avisos de sessão longa + absence detection
+
+Endereça a dor #5 do Pablo: **zero mecanismos de alerta quando a sessão fica longa demais**. Prova viva: a sessão que criou este squad atravessou meia-noite sem warning. Sprint 25 adiciona:
+
+**Hook Claude Code (`hooks/session-hygiene.sh`):**
+- Lê `session_id` do JSON que o Claude Code envia em `UserPromptSubmit`
+- Grava timestamp inicial em `~/.claude/session-state/{id}.start` (primeira chamada)
+- Em cada prompt subsequente, compara com o relógio e dispara avisos quando bater em um gatilho:
+
+| Gatilho | Aviso (tom) |
+|---------|-------------|
+| **Virada de data** (00:00 durante sessão) | neutro — "Virou o dia — hoje é X. Você começou em Y." |
+| **2h de sessão contínua** | leve — "Você está há 2h. Tudo bem por aí?" |
+| **4h de sessão contínua** | firme — "Bom momento para /compact + pausa curta." |
+| **Hora local 23h** | empático — "Descansar hoje ajuda o trabalho de amanhã." |
+| **Hora local < 05h** (madrugada) | bloqueio suave — "Passou da meia-noite. Considere /compact." |
+
+Cada aviso **uma vez por sessão** (marca em `<id>.warned`). Respeita `PTO_SKIP_HYGIENE=1` env var e `CI=true` para contextos automatizados.
+
+**Configuração automática (`.claude/settings.json`):**
+- Per-project em `.claude/settings.json` do squad (como Pablo pediu — não global)
+- Hook `UserPromptSubmit` aponta para `${CLAUDE_PROJECT_DIR}/hooks/session-hygiene.sh`
+- Ativa automaticamente quando o colaborador abre o Claude Code dentro do clone do squad — zero setup extra
+
+**Detecção de ausência prolongada em `pto start`:**
+- Se `last_start_at` em `state.json` está há 3+ dias, mostra aviso no topo do briefing:
+  `ℹ Você não roda pto há 5 dias — puxando o que mudou...`
+- Aparece ANTES do update check (que já puxa novidades silenciosamente), contextualizando o silêncio.
+
+**Traduções (3 idiomas):**
+- `cli.hygiene.absent_days_one`/`_other` em PT-BR, IT, EN
+- `cli.hygiene.hook_active_note` (para futura documentação)
+
+### Arquivos novos
+
+- `hooks/session-hygiene.sh` (170 linhas, chmod +x)
+- `.claude/settings.json` (per-project, configura o hook)
+
+### Arquivos modificados
+
+- `cli/start.ts` — `daysSinceLastStart()` + banner de ausência prolongada
+- `locales/*/cli.json` — seção `hygiene`
+
+### Dependência externa
+
+O hook usa `jq` (presente por default em macOS 10.15+, Ubuntu 20.04+). Se `jq` não estiver instalado, o hook degrada silenciosamente (não bloqueia prompt).
+
+### Como desativar (se necessário)
+
+- **Temporariamente:** `export PTO_SKIP_HYGIENE=1` antes de abrir Claude Code
+- **Permanentemente no próprio squad:** editar `.claude/settings.local.json` (gitignored) removendo o hook
+- **Em CI:** `CI=true` já é respeitado
+
+### Smoke tests
+
+```bash
+# Simula sessão de 2h30
+echo $(( $(date +%s) - 9000 )) > ~/.claude/session-state/sim.start
+echo '{"session_id":"sim"}' | ./hooks/session-hygiene.sh
+# → emite: "Você está há 2h nesta sessão. Tudo bem por aí?"
+
+# Segunda chamada na mesma sessão — idempotente
+echo '{"session_id":"sim"}' | ./hooks/session-hygiene.sh
+# → silencioso (warning já emitido)
+
+# Simula sessão de 5h
+echo $(( $(date +%s) - 18000 )) > ~/.claude/session-state/sim5.start
+echo '{"session_id":"sim5"}' | ./hooks/session-hygiene.sh
+# → emite: "Você está há 4h. Bom momento para /compact + pausa curta"
+```
+
+### Completa a Fase 3
+
+Com Sprint 25, as 5 dores originais do Pablo estão resolvidas:
+
+| Dor | Sprint | Estado |
+|-----|:------:|--------|
+| #1 Setup manual | 22 | ✅ `pto setup` wizard |
+| #2 Idiomas | 24 | ✅ PT-BR + IT + EN + `pto lang` |
+| #3 Jargão técnico | 23 | ✅ Copy humanizada + HOW-TO.md |
+| #4 Pull diário | 22 | ✅ `pto start` + `pto update` |
+| #5 Session hygiene | 25 | ✅ Hook + warnings (este PR) |
+
+### Sprint 26 (opcional, não neste PR)
+
+Onboarding guiado no ops-chief — tour contextual para primeira vez no Claude Code, por role.
+
+---
+
 ## [1.2.0-dev] — 2026-04-23 — i18n PT-BR + IT + EN (Sprint 24)
 
 ### Added — Internacionalização completa do CLI em 3 idiomas

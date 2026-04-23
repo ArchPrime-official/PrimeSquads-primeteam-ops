@@ -164,6 +164,11 @@
     "already_done_skip": "OK, nada a fazer. Rode {{cmd}} para verificar seu ambiente.",
     "cancelled": "Setup cancelado — rode {{cmd}} de novo quando quiser continuar."
   },
+  "hygiene": {
+    "absent_days_one": "Você não roda `pto` há {{count}} dia — puxando o que mudou...",
+    "absent_days_other": "Você não roda `pto` há {{count}} dias — puxando o que mudou...",
+    "hook_active_note": "Avisos de sessão longa estão ativos (2h, 4h, meia-noite)."
+  },
   "roles": {
     "owner": "Dona/dono do time (acesso total)",
     "financeiro": "Financeiro",

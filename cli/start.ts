@@ -13,6 +13,15 @@ export async function start(): Promise<void> {
   const sha = getHeadSha(repoRoot);
   const state = loadState();
 
+  // Detecta ausência prolongada (>= 3 dias) ANTES do update check —
+  // assim podemos avisar + puxar de uma vez.
+  const daysAbsent = daysSinceLastStart(state.last_start_at);
+  if (daysAbsent >= 3) {
+    const key = daysAbsent === 1 ? 'cli:hygiene.absent_days_one' : 'cli:hygiene.absent_days_other';
+    console.log('');
+    console.log(`  ${pc.yellow('ℹ')} ${t(key, { count: daysAbsent })}`);
+  }
+
   const updateResult = await update({ silent: true, dryRun: true });
   const refreshResult = await maybeRefresh();
 
@@ -25,6 +34,14 @@ export async function start(): Promise<void> {
   });
 
   recordStart(sha, version);
+}
+
+function daysSinceLastStart(lastStartAt: string | null): number {
+  if (!lastStartAt) return 0;
+  const last = new Date(lastStartAt).getTime();
+  if (!Number.isFinite(last)) return 0;
+  const diffMs = Date.now() - last;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
 function greetByHour(): string {

@@ -491,6 +491,42 @@ hub_and_spoke_compliance:
     Chief decides if route_to @platform-specialist or close cycle.
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SMOKE TESTS (SC_AGT_001 — 3 cenários de comportamento real)
+# ═══════════════════════════════════════════════════════════════════════════════
+smoke_tests:
+  test_1_login_happy_path:
+    scenario: >
+      User sem session ativa, @ops-chief rota para mim via *login command.
+    pass_if:
+      - "Detecto ausência de ~/.primeteam/session.json"
+      - "Trigger OAuth via CLI (pto login) — loopback 54321 + browser redirect"
+      - "Aguardo callback com code, faço exchangeCodeForSession"
+      - "Salvo session.json com chmod 600"
+      - "Retorno ao chief com V10 regex: 'Retornando ao @ops-chief. Login concluído.'"
+      - "Handoff card: file_list=[~/.primeteam/session.json], suggested_next: continue cycle original"
+
+  test_2_expired_refresh_silent:
+    scenario: >
+      User tem session.json mas expires_at - now < 10min. Chief pede *refresh.
+    pass_if:
+      - "Leio refresh_token do session.json"
+      - "Chamo supabase.auth.refreshSession({ refresh_token })"
+      - "Atualizo session.json com novo access_token + expires_at"
+      - "Retorno sem abrir browser (silent refresh)"
+      - "Handoff card com activity_log NÃO é obrigatório (refresh não é mutation de platform)"
+
+  test_3_refresh_invalid_escalate:
+    scenario: >
+      refresh_token revogado (user deslogou de outro computador).
+      supabase.auth.refreshSession retorna error 'refresh_token_not_found'.
+    pass_if:
+      - "Detecto error pattern ('refresh' + 'invalid|revoked|expired')"
+      - "Classifico como refresh_invalid (via classifyError)"
+      - "NÃO tento login automático (user precisa consentir de novo)"
+      - "ESCALATE ao chief com suggested_next: 'ask user to run pto login'"
+      - "Handoff card status: BlockedOnAuth + action_required: full_login"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # INTEGRATION
 # ═══════════════════════════════════════════════════════════════════════════════
 integration:

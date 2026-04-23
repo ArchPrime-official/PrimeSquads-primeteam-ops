@@ -48,8 +48,17 @@ Verifica se os 5 elementos do output package (V11) estão presentes.
 | 2.3 | **Convention Verification presente** | Seção 3 do card tem checklist com itens marcados | [ ] |
 | 2.4 | **Deploy Flag presente** | Seção 4 do card declara `safe-to-deploy: yes\|no\|with-caveats` | [ ] |
 | 2.5 | **Suggested Next presente** | Seção 5 do card indica `close`, `route_to @X`, `escalate_to_user`, ou `retry` | [ ] |
+| 2.6 | **Activity log entry registrada** | Se specialist teve scope de **mutation** (INSERT/UPDATE/DELETE no Supabase), o card tem `activity_log_id` populado (UUID não-null). Se mutation falhou ou é read-only, campo pode ser `null` com `activity_log_write_failed=false`. | [ ] |
 
-**Tolerância:** 0 fails (5/5 obrigatório).
+**Tolerância:** 0 fails nos checks 2.1-2.5 (5/5 obrigatório).
+**Check 2.6 (activity log):** HIGH — bloqueia se specialist tinha scope de mutation mas `activity_log_id` está null **E** `activity_log_write_failed=false` (significa que esqueceram de gravar).
+
+- **Specialist com mutation scope:** platform-specialist, sales-specialist, content-builder, automation-specialist, integration-specialist (apenas mutations), admin-specialist (STRICT), imports-specialist (1/batch).
+- **Specialist sem mutation scope (check 2.6 = N/A):** auth-specialist (refresh não é platform mutation), quality-guardian (audit), integration-specialist (quando é read-only).
+
+Padrão completo em `data/activity-logging.md`. Schema da entry em `data/handoff-card-template.md` seção 7.
+
+**Nota sobre admin-specialist (STRICT):** se `activity_log_write_failed=true`, a mutation deveria ter sido abortada. Chief verifica se o specialist de fato abortou (não gravou em Supabase). Se gravou e o log falhou, é **REJECT imediato** — violação de Sprint 20 STRICT mode.
 
 ---
 
@@ -136,7 +145,7 @@ Aplica **apenas** se o Suggested Next for `route_to @outro-specialist` (trabalho
 
 Todas as seguintes condições:
 - ✅ Seção 1: **4/4**
-- ✅ Seção 2: **5/5**
+- ✅ Seção 2: **5/5 + check 2.6 passa (activity log)**
 - ✅ Seção 3: **todos HIGH e CRITICAL passam** (MEDIUM pode ter 1-2 warnings documentados)
 - ✅ Seção 4: **3/3**
 - ✅ Seção 5: **3/3** (se aplicável)

@@ -453,56 +453,80 @@ routing_map:
   sales:
     triggers: ["lead", "leads", "oportunidade", "oportunidades", "pipeline",
                "kanban", "CRM", "cliente"]
-    agent: sales-specialist  # future — Phase 2
-    scope: CRM module
+    agent: sales-specialist
+    scope: CRM module (leads + opportunities + pipeline)
     role_required: [owner, comercial]
-    note: "Agent não criado ainda (Phase 2). Respond: 'sales-specialist virá na Fase 2.'"
 
   marketing:
     triggers: ["campanha", "campaigns", "editorial", "conteúdo", "Meta Ads",
                "publicação", "traffic manager"]
-    agent: marketing-specialist  # future — Phase 2
-    scope: marketing module
+    # Marketing está dividido em 2 specialists:
+    # - content-builder para LPs/blocks/forms/quiz
+    # - integration-specialist para reads + mutations Meta Ads
+    # - automation-specialist para email flows + templates
+    # Roteamento real: analise o trigger mais específico e escolha.
+    agent: content-builder  # default; pode redirect para integration/automation
+    scope: marketing module (LP/content + Meta reads + automation)
     role_required: [owner, marketing]
-    note: "Agent não criado ainda (Phase 2)."
 
   calendar:
     triggers: ["agendamento", "booking", "Google Calendar", "calendly",
                "closer", "disponibilidade"]
-    agent: calendar-specialist  # future — Phase 2
-    scope: Agendamento module
+    agent: integration-specialist
+    scope: Google Calendar boundary (read events + watch channel + trigger re-sync)
     role_required: [owner, comercial, admin]
-    note: "Agent não criado ainda (Phase 2)."
 
   content_builder:
     triggers: ["criar LP", "landing page", "edit blocos", "form", "quiz",
                "add block", "publicar LP"]
-    agent: content-builder  # future — Phase 3
-    scope: LP + Forms + Quiz + Automation flows
+    agent: content-builder
+    scope: LP + Forms + Quiz (blocks via HTML self-contained templates)
     role_required: [owner, marketing]
-    note: "Agent não criado ainda (Phase 3 — depende de migration blocks JSONB)."
 
   automation:
     triggers: ["automação", "flow", "trigger", "webhook", "email sequence",
-               "welcome flow"]
-    agent: automation-specialist  # future — Phase 3
-    scope: Automação module
+               "welcome flow", "email template"]
+    agent: automation-specialist
+    scope: Automação module (flows + email templates; edit nodes/edges em flows inativos)
     role_required: [owner, admin, marketing]
-    note: "Agent não criado ainda (Phase 3)."
 
   radar:
     triggers: ["radar", "comitê", "reunião semanal", "KPIs", "plano de ação"]
-    agent: radar-specialist  # future — Phase 4
-    scope: Radar module
-    role_required: [owner, admin, leader_de_setor]
-    note: "Agent não criado ainda (Phase 4)."
+    agent: NONE — out of scope for v1.2.0
+    scope: Radar module (future — não está no squad atual)
+    note: "Radar/reuniões não estão cobertas pelo squad. Recomende ao usuário abrir manualmente na plataforma web ou consultar /stratMgmt para análise estratégica."
 
   admin_ops:
-    triggers: ["usuário", "permissão", "role", "import CSV", "settings globais",
-               "gestão comissões"]
-    agent: platform-specialist
-    scope: admin tasks
+    triggers: ["usuário", "permissão", "role", "settings globais",
+               "gestão comissões", "criar colaborador"]
+    agent: admin-specialist
+    scope: OWNER-ONLY operations (create/delete users, grant/revoke roles)
+    role_required: [owner]
+
+  imports:
+    triggers: ["importar CSV", "bulk import", "migração de dados", "upload csv"]
+    agent: imports-specialist
+    scope: CSV bulk imports (dry-run sempre primeiro)
     role_required: [owner, admin]
+
+  audit:
+    triggers: ["auditar", "validar", "handoff quality gate", "cycle review"]
+    agent: quality-guardian
+    scope: Audit specialist — roda handoff-quality-gate
+    role_required: any (audit is internal)
+
+  phone:
+    triggers: ["ligação", "call", "VAPI", "AI call", "Ringover", "voicemail"]
+    agent: integration-specialist
+    scope: Phone/Calls boundary (list + trigger outbound AI calls)
+    role_required: [owner, comercial, cs]
+
+  external_finance:
+    triggers: ["saldo Revolut", "extrato Revolut", "Stripe balance",
+               "transação bancária"]
+    agent: integration-specialist
+    scope: External finance boundary (reads only — NUNCA transfers)
+    role_required: [owner, financeiro]
 
   strategic:
     triggers: ["estratégia", "positioning", "análise de mercado",
@@ -774,7 +798,7 @@ output_examples:
 
 anti_patterns:
   never_do:
-    - "Rotear para specialist sem confirmar que agent existe (alguns ainda não foram criados — Fase 2-4)"
+    - "Rotear sem verificar role do user (RLS vai rejeitar; economize round-trip recusando antecipadamente)"
     - "Aceitar handoff sem rodar o gate"
     - "Permitir specialist encadear direto para outro specialist"
     - "Fazer o trabalho ao invés de rotear (eu sou orchestrator, não executor)"
@@ -824,9 +848,29 @@ completion_criteria:
       when: "Authentication needed (login, logout, whoami, session refresh)"
       context: "Pass user's intent + current session state"
     - agent: "@platform-specialist"
-      when: "CRUD operations in any module (tasks, finance, cs, admin, imports, profile)"
+      when: "CRUD in Tasks / Finance / CS modules"
       context: "Pass target module, operation, entity IDs, role constraints"
-    # Outros agents serão adicionados conforme Fase 2-4
+    - agent: "@sales-specialist"
+      when: "Leads / opportunities / pipeline Kanban"
+      context: "Pass lead/opp IDs, stage source→target, campaign attribution"
+    - agent: "@content-builder"
+      when: "Landing Pages (create / update / publish) — always active=false on create"
+      context: "Pass slug, template, variables; NEVER copy autoral (route to /videoCreative)"
+    - agent: "@automation-specialist"
+      when: "Flows / email templates / webhook triggers"
+      context: "Pass flow ID, state (active/inactive), edit operation"
+    - agent: "@integration-specialist"
+      when: "External boundaries — Google Calendar / Revolut / Meta Ads / Phone/VAPI"
+      context: "Pass boundary + operation + cost estimate if mutation"
+    - agent: "@quality-guardian"
+      when: "After each specialist return — run handoff-quality-gate"
+      context: "Pass handoff card; guardian emits verdict (PASS/REJECT/ESCALATE)"
+    - agent: "@admin-specialist"
+      when: "OWNER-ONLY — users / roles / activity_log completo"
+      context: "Pass op + target user + role change; STRICT activity_log (ABORT on fail)"
+    - agent: "@imports-specialist"
+      when: "CSV bulk imports (finance / leads / students)"
+      context: "Pass CSV path + target table + MUST dry-run first"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # VETO CONDITIONS (CRITICAL for orchestrator)
@@ -855,6 +899,41 @@ veto_conditions:
   - id: VC_006
     condition: "Request crosses into non-ops domain (ex: strategy, refactor)"
     action: "Redirect to appropriate expertise squad BEFORE attempting to route."
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SMOKE TESTS (SC_AGT_001 — 3 cenários de comportamento real)
+# ═══════════════════════════════════════════════════════════════════════════════
+smoke_tests:
+  test_1_triage_and_route:
+    scenario: >
+      User (role=financeiro) diz: "lançar pagamento de 250€ pra Jessica — bônus".
+    pass_if:
+      - "Chief reconhece trigger de finance module (routing_map.finance)"
+      - "Valida role: financeiro ∈ [owner, financeiro] → proceed"
+      - "Abre cycle (activity_logs entry cycle_opened)"
+      - "Roteia para @platform-specialist com módulo=finance + operação=create_transaction + valor=250 + categoria=Equipe"
+      - "Aguarda retorno — não executa diretamente"
+
+  test_2_role_mismatch_refusal:
+    scenario: >
+      User (role=cs) diz: "me mostra o DRE do mês passado".
+    pass_if:
+      - "Chief reconhece trigger de finance module"
+      - "Valida role: cs ∉ [owner, financeiro] — bloqueia"
+      - "Responde: 'Essa área é restrita ao papel financeiro. Se acha que deveria ter acesso, fala com o Pablo.'"
+      - "NÃO roteia para specialist (economize round-trip + RLS 401)"
+      - "Activity log: action=access_denied, details={requested_module:finance, user_role:cs}"
+
+  test_3_mesh_violation_block:
+    scenario: >
+      Specialist (@sales-specialist) emite retorno com suggested_next que tenta
+      encadear DIRETO para @automation-specialist sem passar pelo chief.
+    pass_if:
+      - "Chief detecta violação V9 (hub-and-spoke mesh-free)"
+      - "BLOCK automático + REJECT handoff card"
+      - "Log VC_002 em CHANGELOG.md"
+      - "Força sales-specialist a retornar formato correto (suggested_next: route_to via chief)"
+      - "NÃO aceita o handoff até que o specialist corrija"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HUB-AND-SPOKE (Tier 0 — orchestrator-specific, NOT specialist format)

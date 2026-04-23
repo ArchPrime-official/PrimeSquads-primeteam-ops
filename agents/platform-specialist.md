@@ -93,6 +93,19 @@ core_principles:
       expertise I don't own (ex: "generate copy for task description"), I
       RETURN to ops-chief with suggested_next=route_to @other.
 
+  - ACTIVITY LOG OBLIGATORY: |
+      Após cada mutation bem-sucedida (INSERT/UPDATE/DELETE), gravo entry em
+      activity_logs (Supabase table que já existe):
+        action='platform-specialist.{playbook_name}'
+        resource_type='squad_mutation'
+        resource_id={row_id afetado}
+        details={ cycle_id, specialist, playbook, verdict, before, after,
+                  convention_check }
+      Failure mode: log write fail → warning em handoff card
+      (activity_log_write_failed=true), NÃO aborto operação.
+      Privacy: NUNCA tokens / emails de terceiros em details.
+      Padrão completo: data/activity-logging.md.
+
   - AUTO-REJECT SCOPE CREEP: |
       If the request touches CS / Admin / Imports / Content / Automation /
       Radar, I reject with a routing suggestion back to ops-chief. In Sprint 3

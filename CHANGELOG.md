@@ -6,6 +6,67 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.1.0] — 2026-04-23 — Activity Logging (Sprint 20)
+
+### Added — Observability: todo cycle + mutation gravada em `activity_logs`
+
+Feedback real do Pablo: "quero um histórico de tudo que é feito, um log, podemos enviar para a página Log tudo o que está sendo feito no squad". Sprint 20 endereça o lado squad; Sprint 21 (próximo, lado primeteam) cria/refina a UI da página.
+
+- **`data/activity-logging.md` (NOVO)** — padrão canônico para o squad:
+  - Schema de 4 tipos de entries: cycle_opened, cycle_closed, handoff, mutation
+  - Uso da tabela `activity_logs` existente no Supabase (sem migration nova)
+  - Queries comuns (últimos cycles, mutations por user, reconstruir cycle completo)
+  - RLS considerations (user vê próprias; owner vê todas)
+  - Privacy rules (nunca tokens/recordings/emails de terceiros em details)
+  - Failure modes (log write fail = warning, não aborta operação)
+
+- **`agents/ops-chief.md` atualizado:**
+  - Core principle `ACTIVITY LOG OBLIGATORY` adicionado
+  - step_1_receive grava `cycle_opened` entry
+  - step_5_next_or_complete grava `cycle_closed` + `handoff` entries
+
+- **Todos os 7 specialists com mutation** ganharam core principle `ACTIVITY LOG OBLIGATORY`:
+  - platform-specialist (Tasks/Finance/CS mutations)
+  - sales-specialist (leads/opportunities)
+  - content-builder (LPs — privacy: html_content NÃO em details, só slug + IDs)
+  - automation-specialist (flows/templates — privacy: nodes/edges JSON NÃO em details)
+  - integration-specialist (mutations apenas — reads não gravam log; boundary + cost_estimate)
+  - admin-specialist (**OBRIGATÓRIO + NÃO tolerante** — se log write falha, ABORT mutation)
+  - imports-specialist (1 entry por batch, não per-row — resource_id=import_batch_id)
+
+- **`data/handoff-card-template.md` atualizado** — seção 7 nova:
+  - Campo `activity_log_id` (uuid da row em activity_logs)
+  - Campo `activity_log_write_failed` (bool)
+  - Reads não gravam (fields `null` sem warning)
+
+### Padrão resumido
+
+| Event | Gravado por | action | resource_type |
+|-------|-------------|--------|---------------|
+| Cycle opened | ops-chief (step_1) | `cycle_opened` | `squad_cycle` |
+| Handoff between agents | ops-chief (step_3) | `handoff` | `squad_cycle` |
+| Mutation (INSERT/UPDATE/DELETE) | specialist que mutou | `{id}.{playbook}` | `squad_mutation` |
+| Audit run | quality-guardian | `quality-guardian.audit` | `squad_cycle` |
+| Cycle closed | ops-chief (step_5) | `cycle_closed` | `squad_cycle` |
+
+### Correlation
+
+Tudo de um cycle é reconstruível via `resource_id = cycle_id` OR `details->>'cycle_id' = cycle_id`:
+
+```sql
+SELECT action, created_at, details
+FROM activity_logs
+WHERE (resource_type = 'squad_cycle' AND resource_id = 'cyc-2026-04-23-001')
+   OR (resource_type = 'squad_mutation' AND details->>'cycle_id' = 'cyc-2026-04-23-001')
+ORDER BY created_at ASC;
+```
+
+### Próximo (Sprint 21 — primeteam-side)
+
+Atualizar `src/pages/ActivityLog.tsx` no repo primeteam com aba "Squad Ops" filtrando `resource_type LIKE 'squad_%'`. Timeline de cycles + expandable details (specialist, playbook, verdict). Trabalho no repo `ByPabloRuanL/primeteam` (não este).
+
+---
+
 ## [1.0.0] — 2026-04-23 — Sprint 19: Handoff docs (primeteam-side infrastructure)
 
 ### Added — Documentação de handoff para team primeteam

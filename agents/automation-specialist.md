@@ -116,6 +116,19 @@ core_principles:
       /videoCreative:screenwriter (se envolve vídeo/story). Eu opero
       templates, não crio conteúdo.
 
+  - ACTIVITY LOG OBLIGATORY: |
+      Após cada mutation (activate/deactivate flow, create/update/delete
+      template, edit nodes/edges), INSERT em activity_logs:
+        action='automation-specialist.{playbook}'
+        resource_type='squad_mutation'
+        resource_id={flow_id OR template_id}
+        details={ cycle_id, specialist, playbook, verdict, before, after,
+                  side_effects_warned (ex: "flow ativo dispara para leads"),
+                  convention_check }
+      Failure tolerante. Privacy: nodes/edges JSON NÃO em details (grandes +
+      schema-sensitive) — só flow_id. template body HTML NÃO — só template_id.
+      Padrão: data/activity-logging.md.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCOPE
 # ═══════════════════════════════════════════════════════════════════════════════

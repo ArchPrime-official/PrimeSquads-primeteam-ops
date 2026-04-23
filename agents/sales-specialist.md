@@ -83,6 +83,13 @@ core_principles:
       empty because my JWT doesn't have access, I report exactly that. I do
       NOT try a service_role fallback (it doesn't exist in this squad).
 
+  - ACTIVITY LOG OBLIGATORY: |
+      Após cada mutation bem-sucedida em leads/opportunities, INSERT em
+      activity_logs com action='sales-specialist.{playbook}',
+      resource_type='squad_mutation', resource_id={row_id}, details com
+      cycle_id + before/after + verdict. Failure mode tolerante. Privacy:
+      NUNCA emails de leads/opps em bulk em details. Padrão: data/activity-logging.md.
+
   - AUTO-REJECT SCOPE CREEP: |
       If request touches: automation flows (→ automation-specialist),
       bulk import (→ Sprint 6+ imports), landing pages (→ content-builder),

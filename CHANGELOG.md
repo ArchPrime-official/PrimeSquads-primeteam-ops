@@ -6,6 +6,77 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.2.0-dev] — 2026-04-23 — Humanização de copy (Sprint 23)
+
+### Changed — Toda comunicação user-facing reescrita sem jargão
+
+Sprint 23 endereça a dor #3 do Pablo: linguagem técnica demais para o time (10 pessoas, não-devs). Todo copy visível ao usuário foi reescrito seguindo a regra do Heroku Style Guide: *"Commands are designed for humans before machines."*
+
+**Helpers novos em `cli/ui.ts`:**
+- `userError({ title, why, what, detail })` — template canônico "sintoma / porque / faça" para toda mensagem de erro
+- `translateError(err)` — traduz erros técnicos comuns (Supabase 401/403/500, ECONNREFUSED, EADDRINUSE, ETIMEDOUT, PKCE state mismatch, refresh_token invalid) para `{title, why, what}` humano
+- `handleError(err, fallbackWhat)` — fallback que usa translate quando possível
+
+**Glossário aplicado (evite → diga):**
+| Jargão | Substituído por |
+|--------|----------------|
+| JWT / access token / bearer | "sua sessão", "seu acesso" |
+| refresh_token | "renovar acesso" |
+| PKCE / OAuth callback | omitido (detalhe interno) |
+| loopback / 127.0.0.1 | "login local" ou omitido |
+| chmod 600 | "guardei com segurança" |
+| RLS policy | "permissão" |
+| 401 / Unauthorized | "sua sessão expirou" |
+| 403 / 42501 | "você não tem permissão para isso" |
+| ECONNREFUSED | "não consegui me conectar" |
+| EADDRINUSE | "a porta de login está ocupada" |
+| branch | "canal" |
+
+**Arquivos humanizados:**
+- `cli/login.ts` — mensagens + HTML de callback (success + error) sem menção a session.json/chmod/JWT
+- `cli/whoami.ts` — mostra papéis em português ("Dona/dono do time" em vez de "owner")
+- `cli/logout.ts` — "Tchau, {nome}"
+- `cli/refresh.ts` — "Renovando seu acesso..." / "Acesso renovado"
+- `cli/doctor.ts` — renomeia checks ("branch" → "canal", "sessão de login" → "seu login", "conectividade Supabase" → "conexão com a plataforma"); hints em português normal
+- `cli/update.ts` — "canal alternativo", "alterações não salvas", erros em humano
+- Stack traces só com `PTO_DEBUG=1`
+
+**`agents/ops-chief.md`:**
+- Auto-offer reescrito — mensagens para o usuário sem JWT/OAuth/callback
+- Greeting ecoa nome + role do usuário (lê ~/.primeteam/session.json no boot)
+- Fallback greeting humano quando não há sessão
+- NOTA explícita para o LLM: vocabulário a evitar ao falar com o usuário
+
+**Docs novas/reescritas:**
+- **`HOW-TO.md` (NOVO, ~280 linhas)** — receitas por papel com exemplos de conversa real:
+  - Rotina diária (3 comandos)
+  - Marketing (Sandra) — criar LP, listar Meta, performance
+  - Financeiro (Joyce/Larissa/Adriana) — lançar pagamento, saldos Revolut, conciliar
+  - Comercial (Miriam/Daniel/Yuri) — leads, oportunidades, chamadas AI
+  - CS (Jessica/Andrea) — estudantes, onboarding, check-ins
+  - Owner (Pablo) — activity log, usuários, imports
+  - Erros comuns e como resolver
+  - Limites (o que o squad NÃO faz)
+- **`README.md` reescrito** — parte humana no topo (o que é, para quem, 3 comandos, receitas), parte técnica abaixo da linha separadora (arquitetura, RLS, PKCE, build, roadmap). Links para HOW-TO.md.
+
+### Princípio aplicado
+
+Toda mensagem de erro segue o template canônico:
+```
+sintoma em 1 linha
+
+Porque: causa em 1 linha (sem jargão)
+Faça:   ação concreta (comando ou pessoa a contatar)
+```
+
+### Não mudou (próximos sprints)
+
+- Sprint 24: i18n PT-BR + IT + EN + runtime switching
+- Sprint 25: session hygiene (hook Claude Code)
+- Sprint 26 (opcional): tour guiado no ops-chief
+
+---
+
 ## [1.2.0-dev] — 2026-04-23 — CLI DX base (Sprint 22)
 
 ### Added — 5 novos comandos + bin global `pto`

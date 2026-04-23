@@ -80,16 +80,14 @@ function checkCallbackPort(): Promise<Check> {
     server.once('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
         resolve({
-          name: `porta ${CALLBACK_PORT} (login OAuth)`,
+          name: 'porta de login',
           status: 'fail',
-          detail: 'em uso por outro processo',
-          hint:
-            'Feche VS Code, Docker ou outra instância do pto e tente de novo. ' +
-            `Para descobrir o processo: lsof -i :${CALLBACK_PORT}`,
+          detail: 'ocupada por outro programa',
+          hint: 'Feche outras janelas do pto (ou reinicie o computador) e tente de novo.',
         });
       } else {
         resolve({
-          name: `porta ${CALLBACK_PORT}`,
+          name: 'porta de login',
           status: 'warn',
           detail: `erro inesperado: ${err.message}`,
         });
@@ -99,7 +97,7 @@ function checkCallbackPort(): Promise<Check> {
     server.once('listening', () => {
       server.close(() => {
         resolve({
-          name: `porta ${CALLBACK_PORT} (login OAuth)`,
+          name: 'porta de login',
           status: 'ok',
           detail: 'disponível',
         });
@@ -117,21 +115,21 @@ async function checkSupabaseReach(): Promise<Check> {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (res.ok || res.status === 401) {
-      // 401 = rota existe, só pede auth (esperado)
-      return { name: 'conectividade Supabase', status: 'ok', detail: 'acessível' };
+      // 401 = rota existe, só pede acesso (esperado em /auth/v1/health)
+      return { name: 'conexão com a plataforma', status: 'ok', detail: 'online' };
     }
     return {
-      name: 'conectividade Supabase',
+      name: 'conexão com a plataforma',
       status: 'warn',
-      detail: `retornou HTTP ${res.status}`,
+      detail: `resposta inesperada (HTTP ${res.status})`,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return {
-      name: 'conectividade Supabase',
+      name: 'conexão com a plataforma',
       status: 'fail',
-      detail: 'sem resposta do servidor',
-      hint: `Verifique sua internet. Detalhe técnico: ${msg}`,
+      detail: 'sem resposta',
+      hint: `Verifique sua internet e tente de novo. ${process.env.PTO_DEBUG === '1' ? msg : ''}`,
     };
   }
 }
@@ -141,37 +139,37 @@ function checkSession(): Check {
   switch (h.status) {
     case 'missing':
       return {
-        name: 'sessão de login',
+        name: 'seu login',
         status: 'warn',
-        detail: 'você não fez login ainda',
+        detail: 'você não entrou ainda',
         hint: 'Rode: pto login',
       };
     case 'corrupted':
       return {
-        name: 'sessão de login',
+        name: 'seu login',
         status: 'fail',
-        detail: 'arquivo de sessão corrompido',
-        hint: 'Rode: pto login',
+        detail: 'os dados do login estão corrompidos',
+        hint: 'Rode: pto login (para entrar de novo)',
       };
     case 'expired':
       return {
-        name: 'sessão de login',
+        name: 'seu login',
         status: 'fail',
         detail: `expirou ${formatRelativeTime(
           Math.floor(Date.now() / 1000) - h.expiredSinceSec,
         )}`,
-        hint: 'Rode: pto refresh  (ou pto login se refresh falhar)',
+        hint: 'Rode: pto refresh (ou pto login se o refresh não funcionar)',
       };
     case 'expiring':
       return {
-        name: 'sessão de login',
+        name: 'seu login',
         status: 'warn',
         detail: `${h.session.email} (expira ${formatRelativeTime(h.session.expires_at)})`,
-        hint: 'Rode: pto refresh',
+        hint: 'Rode: pto refresh (renova sem precisar relogar)',
       };
     case 'valid':
       return {
-        name: 'sessão de login',
+        name: 'seu login',
         status: 'ok',
         detail: `${h.session.email} (expira ${formatRelativeTime(h.session.expires_at)})`,
       };
@@ -185,10 +183,11 @@ function checkRepo(): Check[] {
   if (!isGitRepo(repoRoot)) {
     return [
       {
-        name: 'clone do squad',
+        name: 'pasta do squad',
         status: 'fail',
-        detail: 'não é um repositório git',
-        hint: 'Clone novamente: git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git',
+        detail: 'esta pasta não é o clone do squad',
+        hint:
+          'Clone de novo: git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git',
       },
     ];
   }
@@ -203,29 +202,29 @@ function checkRepo(): Check[] {
   });
 
   results.push({
-    name: 'branch atual',
+    name: 'canal atual',
     status: status.branch === 'main' ? 'ok' : 'warn',
-    detail: status.branch ?? 'desconhecida',
-    hint: status.branch !== 'main' ? 'Fora do main (esperado só se for dev).' : undefined,
+    detail: status.branch ?? 'desconhecido',
+    hint: status.branch !== 'main' ? 'Você está fora do canal padrão (normal só se estiver testando algo).' : undefined,
   });
 
   if (status.dirty) {
     results.push({
-      name: 'mudanças locais',
+      name: 'alterações não salvas',
       status: 'warn',
       detail: 'você tem arquivos modificados no clone',
-      hint: 'Vai bloquear pto update — faça commit ou git stash antes.',
+      hint: 'Isso bloqueia pto update. Se não lembra do que modificou, avise o Pablo.',
     });
   } else {
-    results.push({ name: 'mudanças locais', status: 'ok', detail: 'clone limpo' });
+    results.push({ name: 'alterações não salvas', status: 'ok', detail: 'nenhuma' });
   }
 
   if (status.behind !== null && status.behind > 0) {
     results.push({
       name: 'atualizações do squad',
       status: 'warn',
-      detail: `${status.behind} atualizaç${status.behind === 1 ? 'ão' : 'ões'} pendente${
-        status.behind === 1 ? '' : 's'
+      detail: `${status.behind} nov${status.behind === 1 ? 'a' : 'as'} disponível${
+        status.behind === 1 ? '' : 'eis'
       }`,
       hint: 'Rode: pto update',
     });
@@ -233,7 +232,7 @@ function checkRepo(): Check[] {
     results.push({
       name: 'atualizações do squad',
       status: 'ok',
-      detail: 'em dia com o remoto',
+      detail: 'em dia',
     });
   }
 
@@ -275,12 +274,25 @@ export async function doctor(): Promise<void> {
 
   console.log('');
   if (failures > 0) {
-    console.log(pc.red(`  ${failures} problema${failures === 1 ? '' : 's'} precisa${failures === 1 ? '' : 'm'} de atenção.`));
+    console.log(
+      pc.red(
+        `  ${failures} problema${failures === 1 ? '' : 's'} precisa${failures === 1 ? '' : 'm'} ser resolvido${failures === 1 ? '' : 's'}.`,
+      ),
+    );
+    console.log(
+      pc.dim(
+        `  Se não souber como, cole este output no Slack e peça ajuda ao Pablo.`,
+      ),
+    );
     process.exitCode = 1;
   } else if (warnings > 0) {
-    console.log(pc.yellow(`  ${warnings} aviso${warnings === 1 ? '' : 's'} (não bloqueia, mas veja acima).`));
+    console.log(
+      pc.yellow(
+        `  ${warnings} aviso${warnings === 1 ? '' : 's'} — dá pra trabalhar, mas vale resolver.`,
+      ),
+    );
   } else {
-    console.log(pc.green('  Tudo certo — ambiente saudável.'));
+    console.log(pc.green('  Tudo certo — seu ambiente está saudável.'));
   }
   console.log('');
 }

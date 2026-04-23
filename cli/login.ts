@@ -1,9 +1,11 @@
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import open from 'open';
+import pc from 'picocolors';
 import { CALLBACK_PATH, CALLBACK_PORT, CALLBACK_URL } from './config.js';
 import { saveSession, StoredSession } from './session.js';
 import { createPkceClient } from './supabase.js';
+import { userError, translateError, formatRelativeTime } from './ui.js';
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
 
@@ -11,20 +13,21 @@ const SUCCESS_HTML = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>primeteam-ops — login ok</title>
+  <title>primeteam-ops</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #0F0F10; color: #F5F5F7; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    .card { text-align: center; padding: 3rem; border: 1px solid rgba(201,153,92,0.3); border-radius: 12px; background: #141416; }
+    .card { text-align: center; padding: 3rem; border: 1px solid rgba(201,153,92,0.3); border-radius: 12px; background: #141416; max-width: 420px; }
     h1 { color: #C9995C; margin: 0 0 1rem; font-size: 2rem; }
-    p { margin: 0; opacity: 0.7; }
-    .close { margin-top: 2rem; opacity: 0.5; font-size: 0.875rem; }
+    p { margin: 0.25rem 0; opacity: 0.85; line-height: 1.5; }
+    .hint { margin-top: 2rem; opacity: 0.5; font-size: 0.875rem; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>✓ Login OK</h1>
-    <p>Sessão gravada em <code>~/.primeteam/session.json</code></p>
-    <p class="close">Pode fechar esta aba.</p>
+    <h1>✓ Tudo certo</h1>
+    <p>Você está logada/o na plataforma PrimeTeam.</p>
+    <p>Seu acesso está guardado com segurança neste computador.</p>
+    <p class="hint">Pode fechar esta aba e voltar para o terminal.</p>
   </div>
 </body>
 </html>`;
@@ -36,25 +39,29 @@ const ERROR_HTML = (msg: string) => `<!DOCTYPE html>
   <title>primeteam-ops — erro</title>
   <style>
     body { font-family: system-ui, sans-serif; background: #0F0F10; color: #F5F5F7; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    .card { text-align: center; padding: 3rem; border: 1px solid rgba(220,38,38,0.4); border-radius: 12px; background: #141416; }
+    .card { text-align: center; padding: 3rem; border: 1px solid rgba(220,38,38,0.4); border-radius: 12px; background: #141416; max-width: 480px; }
     h1 { color: #DC2626; margin: 0 0 1rem; }
-    pre { background: #000; padding: 1rem; border-radius: 6px; text-align: left; overflow-x: auto; }
+    p { margin: 0.25rem 0; opacity: 0.85; line-height: 1.5; }
+    .hint { margin-top: 1.5rem; opacity: 0.6; font-size: 0.875rem; }
+    pre { background: #000; padding: 1rem; border-radius: 6px; text-align: left; overflow-x: auto; font-size: 0.8rem; opacity: 0.7; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>✗ Erro no login</h1>
+    <h1>✗ O login não completou</h1>
+    <p>Volte para o terminal e rode <code>pto login</code> de novo.</p>
+    <p class="hint">Se continuar sem funcionar, avise o Pablo.</p>
     <pre>${msg.replace(/</g, '&lt;')}</pre>
   </div>
 </body>
 </html>`;
 
 export async function login(): Promise<void> {
-  console.log('🔐 primeteam-ops login');
+  console.log(`${pc.yellow('🔐')} ${pc.bold('Entrar na plataforma PrimeTeam')}`);
+  console.log('');
 
   const supabase = createPkceClient();
 
-  // Prepara a URL de autorização do Google via Supabase OAuth
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -64,14 +71,18 @@ export async function login(): Promise<void> {
   });
 
   if (error || !data.url) {
-    console.error('✗ Falha ao iniciar OAuth:', error?.message ?? 'URL ausente');
+    const translated = translateError(error) ?? {
+      title: 'não consegui começar o login',
+      why: error?.message ?? 'erro desconhecido',
+      what: 'tente de novo em 1 minuto',
+    };
+    userError(translated);
     process.exit(1);
   }
 
-  // Servidor local para capturar o callback
   const code = await new Promise<string>((resolve, reject) => {
     const timeout = setTimeout(() => {
-      reject(new Error('timeout — login não concluído em 5 minutos'));
+      reject(new Error('timeout — login não completou em 5 minutos'));
     }, LOGIN_TIMEOUT_MS);
 
     const server = http.createServer((req, res) => {
@@ -92,16 +103,16 @@ export async function login(): Promise<void> {
         res.end(ERROR_HTML(`${oauthError}: ${errorDesc ?? ''}`));
         clearTimeout(timeout);
         server.close();
-        reject(new Error(`OAuth error: ${oauthError} — ${errorDesc}`));
+        reject(new Error(`${oauthError} — ${errorDesc ?? ''}`));
         return;
       }
 
       if (!receivedCode) {
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(ERROR_HTML('Callback sem parâmetro ?code='));
+        res.end(ERROR_HTML('o navegador voltou sem o código de autorização'));
         clearTimeout(timeout);
         server.close();
-        reject(new Error('Callback sem code'));
+        reject(new Error('callback sem code'));
         return;
       }
 
@@ -118,28 +129,40 @@ export async function login(): Promise<void> {
     });
 
     server.listen(CALLBACK_PORT, '127.0.0.1', () => {
-      const address = server.address() as AddressInfo;
-      console.log(`   Aguardando callback em http://localhost:${address.port}${CALLBACK_PATH}`);
-      console.log('   Abrindo navegador para login Google...');
+      server.address() as AddressInfo;
+      console.log(
+        `  ${pc.cyan('→')} Vou abrir seu navegador para você entrar com ${pc.bold('@archprime.io')}.`,
+      );
+      console.log(`  ${pc.dim('(se não abrir, eu te mostro o link pra colar à mão)')}`);
+      console.log('');
       open(data.url).catch(() => {
+        console.log(pc.yellow('  ⚠ Não consegui abrir o navegador automaticamente.'));
+        console.log(`  ${pc.cyan('→')} Abra este link manualmente:`);
+        console.log('  ' + data.url);
         console.log('');
-        console.log('   (não consegui abrir o navegador automaticamente)');
-        console.log('   Abra esta URL manualmente:');
-        console.log('   ' + data.url);
       });
+      console.log(pc.dim('  Esperando você autorizar... (até 5 minutos)'));
     });
   });
 
-  // Troca o code por session via PKCE
   const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError || !sessionData.session) {
-    console.error('✗ Falha ao trocar code por session:', exchangeError?.message ?? 'session ausente');
+    const translated = translateError(exchangeError) ?? {
+      title: 'o login não completou',
+      why: exchangeError?.message ?? 'erro desconhecido',
+      what: 'rode: pto login de novo',
+    };
+    userError(translated);
     process.exit(1);
   }
 
   const s = sessionData.session;
   if (!s.user.email) {
-    console.error('✗ Session sem email do usuário');
+    userError({
+      title: 'não recebi seu email do Google',
+      why: 'resposta inesperada do servidor',
+      what: 'tente de novo: pto login',
+    });
     process.exit(1);
   }
 
@@ -153,9 +176,13 @@ export async function login(): Promise<void> {
 
   saveSession(stored);
 
+  const name = stored.email.split('@')[0];
   console.log('');
-  console.log(`✓ Logado como ${stored.email}`);
-  console.log(`   Session em ~/.primeteam/session.json (chmod 600)`);
+  console.log(
+    `${pc.green('✓')} Bem-vinda/o, ${pc.bold(name)} — acesso guardado com segurança neste computador.`,
+  );
+  console.log(pc.dim(`  (expira ${formatRelativeTime(stored.expires_at)})`));
   console.log('');
-  console.log('Próximo: npm run whoami   # verificar role + permissões');
+  console.log(`  ${pc.cyan('→')} Próximo: rode ${pc.cyan('pto whoami')} para ver seus papéis.`);
+  console.log('');
 }

@@ -1,52 +1,33 @@
 import pc from 'picocolors';
 import { loadSession, isExpired } from './session.js';
 import { createAuthenticatedClient } from './supabase.js';
-import { formatRelativeTime, userError, handleError } from './ui.js';
-
-const ROLE_LABEL: Record<string, string> = {
-  owner: 'Dona/dono do time (acesso total)',
-  financeiro: 'Financeiro',
-  marketing: 'Marketing',
-  comercial: 'Comercial',
-  cs: 'Customer Success',
-  admin: 'Admin',
-};
+import { formatRelativeTime, userErrorByCode, handleError } from './ui.js';
+import { t } from './i18n/index.js';
 
 function describeRole(role: string): string {
-  return ROLE_LABEL[role] ?? role;
+  // Labels vêm de cli.json > roles.{role}; se não existir, devolve o raw.
+  const localized = t(`cli:roles.${role}`);
+  return localized === `cli:roles.${role}` ? role : localized;
 }
 
 export async function whoami(): Promise<void> {
   const session = loadSession();
   if (!session) {
-    userError({
-      title: 'você não está logada/o',
-      why: 'não encontrei uma sessão ativa neste computador',
-      what: 'rode: pto login',
-    });
+    userErrorByCode('not_logged');
     process.exit(1);
   }
 
   if (isExpired(session)) {
-    userError({
-      title: 'sua sessão expirou',
-      why: 'acontece depois de algumas horas — segurança padrão',
-      what: 'rode: pto refresh (ou pto login se o refresh falhar)',
-    });
+    userErrorByCode('session_expired');
     process.exit(1);
   }
 
   const supabase = createAuthenticatedClient(session.access_token, session.refresh_token);
 
   try {
-    const { data: userData, error: userError_ } = await supabase.auth.getUser();
-    if (userError_ || !userData.user) {
-      userError({
-        title: 'sua sessão parece inválida',
-        why: 'o servidor não reconheceu seu acesso',
-        what: 'rode: pto login',
-        detail: userError_?.message,
-      });
+    const { data: userData, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !userData.user) {
+      userErrorByCode('session_invalid', { detail: authErr?.message });
       process.exit(1);
     }
 
@@ -60,27 +41,28 @@ export async function whoami(): Promise<void> {
     const name = (user.email ?? '').split('@')[0] || 'amigo';
 
     console.log('');
-    console.log(`  ${pc.green('✓')} Logada/o como ${pc.bold(name)}`);
+    console.log(`  ${pc.green('✓')} ${t('cli:whoami.logged_as', { name: pc.bold(name) })}`);
     console.log('');
-    console.log(`  ${pc.dim('Email')}        ${user.email}`);
+    console.log(`  ${pc.dim(t('cli:whoami.email_label'))}        ${user.email}`);
 
     if (rolesError) {
       console.log(
-        `  ${pc.dim('Papéis')}       ${pc.yellow('não consegui ler agora')} ${pc.dim('(tente pto refresh)')}`,
+        `  ${pc.dim(t('cli:whoami.roles_label'))}       ${pc.yellow(t('cli:whoami.roles_unavailable'))} ${pc.dim(t('cli:whoami.roles_unavailable_hint'))}`,
       );
     } else {
       const roleList = (roles ?? []).map((r) => r.role as string).sort();
       if (roleList.length === 0) {
-        console.log(`  ${pc.dim('Papéis')}       ${pc.yellow('nenhum papel atribuído — fale com o Pablo')}`);
+        console.log(`  ${pc.dim(t('cli:whoami.roles_label'))}       ${pc.yellow(t('cli:whoami.no_role'))}`);
       } else {
         const labels = roleList.map(describeRole).join(', ');
-        console.log(`  ${pc.dim('Papéis')}       ${labels}`);
+        console.log(`  ${pc.dim(t('cli:whoami.roles_label'))}       ${labels}`);
       }
     }
 
+    const when = formatRelativeTime(session.expires_at);
+    const abs = new Date(session.expires_at * 1000).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
     console.log(
-      `  ${pc.dim('Expira')}       ${formatRelativeTime(session.expires_at)} ` +
-        pc.dim(`(${new Date(session.expires_at * 1000).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })})`),
+      `  ${pc.dim(t('cli:whoami.expires_label'))}       ${when} ${pc.dim(`(${abs})`)}`,
     );
     console.log('');
   } catch (err) {

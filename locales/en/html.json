@@ -1,0 +1,16 @@
+{
+  "lang_attr": "en",
+  "success": {
+    "title": "primeteam-ops",
+    "heading": "All set",
+    "body1": "You're signed in to the PrimeTeam platform.",
+    "body2": "Your access is safely stored on this computer.",
+    "hint": "You can close this tab and go back to the terminal."
+  },
+  "error": {
+    "title": "primeteam-ops — error",
+    "heading": "The login didn't complete",
+    "body1": "Go back to the terminal and run <code>pto login</code> again.",
+    "hint": "If it still doesn't work, message Pablo."
+  }
+}

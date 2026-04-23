@@ -1,5 +1,6 @@
 import pc from 'picocolors';
 import boxen from 'boxen';
+import { t, currentLocale } from './i18n/index.js';
 
 export const c = pc;
 
@@ -85,8 +86,6 @@ export function errorBox(title: string, why: string, what: string): string {
  *   sintoma em 1 linha (title)
  *   Porque: causa em 1 linha (sem jargão)
  *   Faça:   ação concreta (comando ou pessoa a contatar)
- *
- * Printa direto em stderr. Retorna o exit code sugerido pelo caller.
  */
 export function userError(params: {
   title: string;
@@ -97,169 +96,103 @@ export function userError(params: {
   const { title, why, what, detail } = params;
   console.error(`\n${pc.red('✗')} ${title}`);
   console.error('');
-  console.error(`  ${pc.dim('Porque:')} ${why}`);
-  console.error(`  ${pc.dim('Faça: ')}  ${what}`);
+  console.error(`  ${pc.dim(t('errors:labels.why'))} ${why}`);
+  console.error(`  ${pc.dim(t('errors:labels.what'))}  ${what}`);
   if (detail && process.env.PTO_DEBUG === '1') {
     console.error('');
-    console.error(pc.dim(`  Detalhe técnico: ${detail}`));
+    console.error(pc.dim(`  ${t('errors:labels.detail')} ${detail}`));
   }
   console.error('');
 }
 
-export interface HumanizedError {
-  title: string;
-  why: string;
-  what: string;
-  detail?: string;
+/**
+ * Emite um erro humano resolvendo as chaves via i18n.
+ * Mais direto que userError() quando você já tem o código do erro.
+ */
+export function userErrorByCode(
+  code: string,
+  options: { detail?: string; whatOverride?: string } = {},
+): void {
+  const title = t(`errors:${code}.title`);
+  const why = t(`errors:${code}.why`);
+  const what = options.whatOverride ?? t(`errors:${code}.what`);
+  userError({ title, why, what, detail: options.detail });
 }
 
 /**
- * Traduz erros técnicos comuns (Supabase, OAuth, rede, filesystem) em
- * mensagens humanas no formato { title, why, what }.
- *
- * Se nenhum padrão bater, retorna null — o caller decide o fallback.
+ * Classifica um erro técnico em um código conhecido (chave no namespace errors).
+ * Retorna null se não reconhecer — o caller decide o fallback.
  */
-export function translateError(err: unknown): HumanizedError | null {
+export function classifyError(err: unknown): string | null {
   const raw = err instanceof Error ? err.message : String(err ?? '');
   const code = (err as NodeJS.ErrnoException | undefined)?.code;
   const lower = raw.toLowerCase();
 
-  // Rede — conexão
-  if (code === 'ENOTFOUND' || lower.includes('enotfound')) {
-    return {
-      title: 'não consegui falar com o servidor',
-      why: 'sua internet caiu ou o servidor está fora do ar',
-      what: 'verifique sua conexão e tente de novo em 1 minuto',
-      detail: raw,
-    };
-  }
+  if (code === 'ENOTFOUND' || lower.includes('enotfound')) return 'host_not_found';
   if (
     code === 'ECONNREFUSED' ||
     lower.includes('econnrefused') ||
     lower.includes('fetch failed')
   ) {
-    return {
-      title: 'não consegui me conectar',
-      why: 'o servidor não respondeu',
-      what: 'verifique sua internet. Se persistir, avise o Pablo',
-      detail: raw,
-    };
+    return 'network_offline';
   }
   if (code === 'ETIMEDOUT' || lower.includes('etimedout') || lower.includes('timeout')) {
-    return {
-      title: 'a operação demorou demais',
-      why: 'a internet está lenta ou o servidor travou',
-      what: 'tente de novo em 1 minuto',
-      detail: raw,
-    };
+    return 'timeout';
   }
-
-  // Porta ocupada (login OAuth)
-  if (code === 'EADDRINUSE' || lower.includes('eaddrinuse') || lower.includes('address already in use')) {
-    return {
-      title: 'a porta de login está ocupada',
-      why: 'outro programa (ou outra aba do pto) está usando a porta 54321',
-      what: 'feche outras janelas do pto e tente de novo',
-      detail: raw,
-    };
+  if (
+    code === 'EADDRINUSE' ||
+    lower.includes('eaddrinuse') ||
+    lower.includes('address already in use')
+  ) {
+    return 'port_busy';
   }
-
-  // Permissões filesystem
   if (code === 'EACCES' || lower.includes('eacces') || lower.includes('permission denied')) {
-    return {
-      title: 'sem permissão para este arquivo',
-      why: 'o sistema bloqueou a operação',
-      what: 'tente rodar de novo como admin (sudo) ou avise o Pablo',
-      detail: raw,
-    };
+    return 'no_permission_fs';
   }
-
-  // OAuth / Supabase
   if (
     lower.includes('state mismatch') ||
     lower.includes('invalid state') ||
     lower.includes('state_mismatch')
   ) {
-    return {
-      title: 'o login no navegador não completou a tempo',
-      why: 'a página ficou aberta demais, ou foi aberta em mais de uma aba',
-      what: 'feche todas as abas de login e rode: pto login',
-      detail: raw,
-    };
-  }
-  if (lower.includes('refresh') && (lower.includes('invalid') || lower.includes('revoked') || lower.includes('expired'))) {
-    return {
-      title: 'seu acesso precisa ser renovado',
-      why: 'sua permissão de renovação expirou ou você saiu de outro lugar',
-      what: 'rode: pto login (leva 30 segundos)',
-      detail: raw,
-    };
+    return 'oauth_state_mismatch';
   }
   if (
-    raw.includes('401') ||
-    lower.includes('unauthorized') ||
-    lower.includes('jwt expired')
+    lower.includes('refresh') &&
+    (lower.includes('invalid') || lower.includes('revoked') || lower.includes('expired'))
   ) {
-    return {
-      title: 'sua sessão expirou',
-      why: 'acontece depois de algumas horas — segurança padrão',
-      what: 'rode: pto refresh (ou pto login se refresh falhar)',
-      detail: raw,
-    };
+    return 'refresh_invalid';
+  }
+  if (raw.includes('401') || lower.includes('unauthorized') || lower.includes('jwt expired')) {
+    return 'session_expired';
   }
   if (raw.includes('403') || lower.includes('forbidden') || lower.includes('42501')) {
-    return {
-      title: 'você não tem permissão para isso',
-      why: 'essa área é restrita ao seu papel no time',
-      what: 'se acha que deveria ter acesso, fale com o Pablo',
-      detail: raw,
-    };
+    return 'forbidden';
   }
   if (raw.includes('500') || lower.includes('internal server error')) {
-    return {
-      title: 'problema no nosso servidor',
-      why: 'algo deu errado do lado do Supabase',
-      what: 'tente de novo em 1 minuto. Se persistir, avise o Pablo',
-      detail: raw,
-    };
+    return 'server_error';
   }
-
-  // PKCE / callback — traduções específicas
-  if (lower.includes('pkce')) {
-    return {
-      title: 'o login foi interrompido',
-      why: 'começou em outro terminal ou foi cancelado no navegador',
-      what: 'rode: pto login',
-      detail: raw,
-    };
-  }
+  if (lower.includes('pkce')) return 'pkce_failed';
   if (lower.includes('callback sem code') || lower.includes('callback')) {
-    return {
-      title: 'o navegador voltou sem completar o login',
-      why: 'você pode ter fechado a aba antes de autorizar',
-      what: 'rode: pto login e complete a autorização',
-      detail: raw,
-    };
+    return 'callback_incomplete';
   }
-
   return null;
 }
 
 /**
- * Trata um erro desconhecido: se for traduzível, usa userError().
- * Senão, imprime uma mensagem genérica + hint para ver o detalhe técnico.
+ * Trata um erro desconhecido: se for classificável, usa userErrorByCode.
+ * Senão, imprime uma mensagem genérica com o detalhe técnico em debug.
  */
-export function handleError(err: unknown, fallbackWhat = 'tente de novo ou rode pto doctor'): void {
-  const translated = translateError(err);
-  if (translated) {
-    userError(translated);
+export function handleError(err: unknown, fallbackWhat?: string): void {
+  const code = classifyError(err);
+  const raw = err instanceof Error ? err.message : String(err);
+  if (code) {
+    userErrorByCode(code, { detail: raw, whatOverride: fallbackWhat });
     return;
   }
-  const raw = err instanceof Error ? err.message : String(err);
   userError({
-    title: 'algo deu errado',
-    why: 'erro inesperado',
-    what: fallbackWhat,
+    title: t('errors:generic.title'),
+    why: t('errors:generic.why'),
+    what: fallbackWhat ?? t('cli:doctor.failure_hint'),
     detail: raw,
   });
 }
@@ -267,17 +200,12 @@ export function handleError(err: unknown, fallbackWhat = 'tente de novo ou rode 
 export function formatRelativeTime(unixSec: number): string {
   const now = Math.floor(Date.now() / 1000);
   const diff = unixSec - now;
-  if (diff < 0) {
-    const past = -diff;
-    if (past < 60) return `há ${past}s`;
-    if (past < 3600) return `há ${Math.floor(past / 60)}min`;
-    if (past < 86400) return `há ${Math.floor(past / 3600)}h`;
-    return `há ${Math.floor(past / 86400)}d`;
-  }
-  if (diff < 60) return `em ${diff}s`;
-  if (diff < 3600) return `em ${Math.floor(diff / 60)}min`;
-  if (diff < 86400) return `em ${Math.floor(diff / 3600)}h`;
-  return `em ${Math.floor(diff / 86400)}d`;
+  const rtf = new Intl.RelativeTimeFormat(currentLocale(), { numeric: 'auto' });
+  const abs = Math.abs(diff);
+  if (abs < 60) return rtf.format(diff, 'second');
+  if (abs < 3600) return rtf.format(Math.round(diff / 60), 'minute');
+  if (abs < 86400) return rtf.format(Math.round(diff / 3600), 'hour');
+  return rtf.format(Math.round(diff / 86400), 'day');
 }
 
 export function formatDateTime(unixSec: number): string {

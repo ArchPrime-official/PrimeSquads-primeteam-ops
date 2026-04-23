@@ -12,6 +12,7 @@ import {
   getHeadSha,
 } from './git.js';
 import { getRepoRoot } from './paths.js';
+import { t } from './i18n/index.js';
 
 export interface UpdateOptions {
   dryRun?: boolean;
@@ -27,14 +28,6 @@ export interface UpdateResult {
   skippedReason?: string;
 }
 
-/**
- * Comando `pto update` — checa se o squad tem novas atualizações no remoto,
- * mostra os commits pendentes e (se autorizado) faz o pull + npm install se
- * package.json/lock mudou.
- *
- * Em modo silent (usado por `pto start`), só faz o fetch silencioso e retorna
- * o count de commits pendentes — o caller decide o que fazer.
- */
 export async function update(options: UpdateOptions = {}): Promise<UpdateResult> {
   const { dryRun = false, silent = false } = options;
   const repoRoot = getRepoRoot();
@@ -50,42 +43,40 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   };
 
   if (!branch) {
-    result.skippedReason = 'esta pasta não é um clone do squad';
-    if (!silent)
-      console.error(`${pc.red('✗')} Esta pasta não é um clone do squad primeteam-ops.`);
+    result.skippedReason = t('cli:update.not_clone');
+    if (!silent) console.error(`${pc.red('✗')} ${t('cli:update.not_clone')}`);
     return result;
   }
 
   if (branch !== 'main') {
-    result.skippedReason = `você está no canal ${branch} (só atualiza no principal)`;
+    result.skippedReason = t('cli:update.branch_warn', { branch });
     if (!silent) {
       console.log(
-        `${pc.yellow('⚠')} Você está num canal alternativo (${pc.bold(branch)}) — update pulei por segurança.\n` +
-          `  ${pc.cyan('→')} volte para o canal principal: ${pc.cyan('git checkout main')}`,
+        `${pc.yellow('⚠')} ${t('cli:update.branch_warn', { branch: pc.bold(branch) })}\n` +
+          `  ${pc.cyan('→')} ${t('cli:update.branch_hint', { cmd: pc.cyan('git checkout main') })}`,
       );
     }
     return result;
   }
 
   if (hasUncommittedChanges(repoRoot)) {
-    result.skippedReason = 'você tem alterações não salvas no clone';
+    result.skippedReason = t('cli:update.dirty_warn');
     if (!silent) {
       console.log(
-        `${pc.yellow('⚠')} Você tem alterações não salvas no clone — update pulei por segurança.\n` +
-          `  ${pc.cyan('→')} se você não lembra do que modificou, rode ${pc.cyan('pto doctor')} e avise o Pablo.`,
+        `${pc.yellow('⚠')} ${t('cli:update.dirty_warn')}\n` +
+          `  ${pc.cyan('→')} ${t('cli:update.dirty_hint', { cmd: pc.cyan('pto doctor') })}`,
       );
     }
     return result;
   }
 
-  const spinner = silent ? null : ora('Verificando atualizações do squad...').start();
+  const spinner = silent ? null : ora(t('cli:update.spinner_fetching')).start();
   try {
     await fetchRemote('origin', { cwd: repoRoot, timeoutMs: 15_000 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (spinner)
-      spinner.fail(`Não consegui conectar ao GitHub agora. ${pc.dim('Verifique sua internet.')}`);
-    result.skippedReason = 'sem conexão com GitHub';
+    if (spinner) spinner.fail(`${t('cli:update.fetch_fail')} ${pc.dim(t('cli:update.fetch_fail_hint'))}`);
+    result.skippedReason = t('cli:update.fetch_fail');
     if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
     return result;
   }
@@ -94,77 +85,62 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   result.checked = true;
 
   if (behind === null || behind === 0) {
-    if (spinner) spinner.succeed('Seu squad está em dia — nenhuma novidade.');
+    if (spinner) spinner.succeed(t('cli:update.up_to_date'));
     return result;
   }
 
   const messages = getRecentCommitMessages(
     'HEAD',
-    `origin/main`,
+    'origin/main',
     Math.min(behind, 10),
     repoRoot,
   );
   result.messages = messages;
 
   if (spinner) {
-    spinner.succeed(
-      `${pc.bold(String(behind))} nov${behind === 1 ? 'a' : 'as'} atualizaç${behind === 1 ? 'ão' : 'ões'} disponível${
-        behind === 1 ? '' : 'eis'
-      }:`,
-    );
+    const key = behind === 1 ? 'cli:update.updates_found_one' : 'cli:update.updates_found_other';
+    spinner.succeed(t(key, { count: behind }));
   }
 
   if (!silent) {
     console.log('');
-    for (const m of messages) {
-      console.log(`  ${pc.dim('·')} ${m}`);
-    }
+    for (const m of messages) console.log(`  ${pc.dim('·')} ${m}`);
     if (behind > messages.length) {
-      console.log(`  ${pc.dim(`... e mais ${behind - messages.length}`)}`);
+      console.log(`  ${pc.dim(t('cli:update.more_hidden', { count: behind - messages.length }))}`);
     }
     console.log('');
   }
 
   if (dryRun) {
     if (!silent) {
-      console.log(
-        `${pc.cyan('→')} Só verifiquei — rode ${pc.cyan('pto update')} para aplicar.`,
-      );
+      console.log(`${pc.cyan('→')} ${t('cli:update.dry_run_hint', { cmd: pc.cyan('pto update') })}`);
     }
     return result;
   }
 
-  const pullSpin = silent ? null : ora('Aplicando as atualizações...').start();
+  const pullSpin = silent ? null : ora(t('cli:update.applying')).start();
   try {
     await pullFastForward('origin', 'main', { cwd: repoRoot, timeoutMs: 60_000 });
     result.pulled = true;
     result.commitsApplied = behind;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (pullSpin)
-      pullSpin.fail(
-        `Não consegui aplicar as atualizações. ${pc.dim('Avise o Pablo com o output de pto doctor.')}`,
-      );
+    if (pullSpin) pullSpin.fail(`${t('cli:update.pull_fail')} ${pc.dim(t('cli:update.pull_fail_hint'))}`);
     if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
     return result;
   }
 
-  if (pullSpin) pullSpin.succeed('Atualizações aplicadas.');
+  if (pullSpin) pullSpin.succeed(t('cli:update.applied'));
 
   if (shaBefore && packageLockChanged(shaBefore, 'HEAD', repoRoot)) {
-    const npmSpin = silent
-      ? null
-      : ora('Algumas dependências mudaram — atualizando...').start();
+    const npmSpin = silent ? null : ora(t('cli:update.deps_updating')).start();
     try {
       await runNpmInstall(repoRoot);
       result.depsReinstalled = true;
-      if (npmSpin) npmSpin.succeed('Dependências atualizadas.');
+      if (npmSpin) npmSpin.succeed(t('cli:update.deps_updated'));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (npmSpin)
-        npmSpin.fail(
-          `Não consegui atualizar as dependências. ${pc.dim('Rode npm install manualmente, ou avise o Pablo.')}`,
-        );
+      if (npmSpin) npmSpin.fail(`${t('cli:update.deps_fail')} ${pc.dim(t('cli:update.deps_fail_hint'))}`);
       if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
     }
   }

@@ -32,6 +32,8 @@
     "boxen": "^7.1.1",
     "commander": "^12.1.0",
     "env-paths": "^3.0.0",
+    "i18next": "^26.0.6",
+    "i18next-fs-backend": "^2.6.4",
     "open": "^10.1.0",
     "ora": "^8.1.0",
     "picocolors": "^1.1.0"

@@ -1,0 +1,16 @@
+{
+  "lang_attr": "it",
+  "success": {
+    "title": "primeteam-ops",
+    "heading": "Tutto a posto",
+    "body1": "Hai effettuato l'accesso alla piattaforma PrimeTeam.",
+    "body2": "Il tuo accesso è salvato in sicurezza su questo computer.",
+    "hint": "Puoi chiudere questa scheda e tornare al terminale."
+  },
+  "error": {
+    "title": "primeteam-ops — errore",
+    "heading": "Il login non si è completato",
+    "body1": "Torna al terminale e esegui <code>pto login</code> di nuovo.",
+    "hint": "Se continua a non funzionare, avvisa Pablo."
+  }
+}

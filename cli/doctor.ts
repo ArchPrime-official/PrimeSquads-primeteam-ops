@@ -11,6 +11,7 @@ import {
 import { getRepoRoot } from './paths.js';
 import { CALLBACK_PORT, SUPABASE_URL } from './config.js';
 import { formatRelativeTime } from './ui.js';
+import { t } from './i18n/index.js';
 
 type CheckStatus = 'ok' | 'warn' | 'fail';
 
@@ -20,6 +21,8 @@ interface Check {
   detail: string;
   hint?: string;
 }
+
+const SQUAD_CLONE_URL = 'https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git';
 
 const ICON: Record<CheckStatus, string> = {
   ok: pc.green('✓'),
@@ -31,30 +34,30 @@ function checkNode(): Check {
   const v = process.versions.node;
   const major = parseInt(v.split('.')[0], 10);
   if (major >= 20) {
-    return { name: 'Node.js', status: 'ok', detail: `v${v}` };
+    return { name: t('cli:doctor.check_node'), status: 'ok', detail: `v${v}` };
   }
   return {
-    name: 'Node.js',
+    name: t('cli:doctor.check_node'),
     status: 'fail',
-    detail: `v${v} (precisa de v20 ou superior)`,
-    hint: 'Atualize Node: https://nodejs.org',
+    detail: `v${v}`,
+    hint: t('cli:setup.node_hint', { cmd: 'pto setup' }),
   };
 }
 
 function checkGit(): Check {
   if (!isGitInstalled()) {
     return {
-      name: 'git',
+      name: t('cli:doctor.check_git'),
       status: 'fail',
-      detail: 'não instalado',
-      hint: 'Instale git: https://git-scm.com',
+      detail: t('cli:setup.git_fail'),
+      hint: t('cli:setup.git_hint', { cmd: 'pto setup' }),
     };
   }
   try {
     const v = execSync('git --version', { encoding: 'utf-8' }).trim().replace('git version ', '');
-    return { name: 'git', status: 'ok', detail: v };
+    return { name: t('cli:doctor.check_git'), status: 'ok', detail: v };
   } catch {
-    return { name: 'git', status: 'ok', detail: 'instalado' };
+    return { name: t('cli:doctor.check_git'), status: 'ok', detail: 'ok' };
   }
 }
 
@@ -63,13 +66,13 @@ function checkGh(): Check {
     const v = execSync('gh --version', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
       .split('\n')[0]
       ?.trim();
-    return { name: 'gh (GitHub CLI)', status: 'ok', detail: v ?? 'instalado' };
+    return { name: 'gh (GitHub CLI)', status: 'ok', detail: v ?? 'ok' };
   } catch {
     return {
       name: 'gh (GitHub CLI)',
       status: 'warn',
-      detail: 'não instalado (opcional)',
-      hint: 'Só precisa se for contribuir com o squad: https://cli.github.com',
+      detail: t('cli:doctor.check_gh_optional'),
+      hint: t('cli:doctor.check_gh_hint'),
     };
   }
 }
@@ -80,16 +83,16 @@ function checkCallbackPort(): Promise<Check> {
     server.once('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
         resolve({
-          name: 'porta de login',
+          name: t('cli:doctor.check_port'),
           status: 'fail',
-          detail: 'ocupada por outro programa',
-          hint: 'Feche outras janelas do pto (ou reinicie o computador) e tente de novo.',
+          detail: t('cli:doctor.check_port_busy'),
+          hint: t('cli:doctor.check_port_hint'),
         });
       } else {
         resolve({
-          name: 'porta de login',
+          name: t('cli:doctor.check_port'),
           status: 'warn',
-          detail: `erro inesperado: ${err.message}`,
+          detail: err.message,
         });
       }
       server.close();
@@ -97,9 +100,9 @@ function checkCallbackPort(): Promise<Check> {
     server.once('listening', () => {
       server.close(() => {
         resolve({
-          name: 'porta de login',
+          name: t('cli:doctor.check_port'),
           status: 'ok',
-          detail: 'disponível',
+          detail: t('cli:doctor.check_port_available'),
         });
       });
     });
@@ -115,21 +118,20 @@ async function checkSupabaseReach(): Promise<Check> {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (res.ok || res.status === 401) {
-      // 401 = rota existe, só pede acesso (esperado em /auth/v1/health)
-      return { name: 'conexão com a plataforma', status: 'ok', detail: 'online' };
+      return { name: t('cli:doctor.check_supabase'), status: 'ok', detail: t('cli:doctor.check_supabase_ok') };
     }
     return {
-      name: 'conexão com a plataforma',
+      name: t('cli:doctor.check_supabase'),
       status: 'warn',
-      detail: `resposta inesperada (HTTP ${res.status})`,
+      detail: `HTTP ${res.status}`,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return {
-      name: 'conexão com a plataforma',
+      name: t('cli:doctor.check_supabase'),
       status: 'fail',
-      detail: 'sem resposta',
-      hint: `Verifique sua internet e tente de novo. ${process.env.PTO_DEBUG === '1' ? msg : ''}`,
+      detail: t('cli:doctor.check_supabase_fail'),
+      hint: t('cli:doctor.check_supabase_hint') + (process.env.PTO_DEBUG === '1' ? ` (${msg})` : ''),
     };
   }
 }
@@ -139,39 +141,37 @@ function checkSession(): Check {
   switch (h.status) {
     case 'missing':
       return {
-        name: 'seu login',
+        name: t('cli:doctor.check_session_name'),
         status: 'warn',
-        detail: 'você não entrou ainda',
-        hint: 'Rode: pto login',
+        detail: t('cli:doctor.check_session_missing'),
+        hint: t('cli:doctor.check_session_missing_hint'),
       };
     case 'corrupted':
       return {
-        name: 'seu login',
+        name: t('cli:doctor.check_session_name'),
         status: 'fail',
-        detail: 'os dados do login estão corrompidos',
-        hint: 'Rode: pto login (para entrar de novo)',
+        detail: t('cli:doctor.check_session_corrupted'),
+        hint: t('cli:doctor.check_session_corrupted_hint'),
       };
     case 'expired':
       return {
-        name: 'seu login',
+        name: t('cli:doctor.check_session_name'),
         status: 'fail',
-        detail: `expirou ${formatRelativeTime(
-          Math.floor(Date.now() / 1000) - h.expiredSinceSec,
-        )}`,
-        hint: 'Rode: pto refresh (ou pto login se o refresh não funcionar)',
+        detail: formatRelativeTime(Math.floor(Date.now() / 1000) - h.expiredSinceSec),
+        hint: t('cli:doctor.check_session_expired_hint'),
       };
     case 'expiring':
       return {
-        name: 'seu login',
+        name: t('cli:doctor.check_session_name'),
         status: 'warn',
-        detail: `${h.session.email} (expira ${formatRelativeTime(h.session.expires_at)})`,
-        hint: 'Rode: pto refresh (renova sem precisar relogar)',
+        detail: `${h.session.email} (${formatRelativeTime(h.session.expires_at)})`,
+        hint: t('cli:doctor.check_session_expiring_hint'),
       };
     case 'valid':
       return {
-        name: 'seu login',
+        name: t('cli:doctor.check_session_name'),
         status: 'ok',
-        detail: `${h.session.email} (expira ${formatRelativeTime(h.session.expires_at)})`,
+        detail: `${h.session.email} (${formatRelativeTime(h.session.expires_at)})`,
       };
   }
 }
@@ -183,11 +183,10 @@ function checkRepo(): Check[] {
   if (!isGitRepo(repoRoot)) {
     return [
       {
-        name: 'pasta do squad',
+        name: t('cli:doctor.check_folder'),
         status: 'fail',
-        detail: 'esta pasta não é o clone do squad',
-        hint:
-          'Clone de novo: git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git',
+        detail: t('cli:doctor.check_folder_fail'),
+        hint: t('cli:doctor.check_folder_hint', { url: SQUAD_CLONE_URL }),
       },
     ];
   }
@@ -196,57 +195,56 @@ function checkRepo(): Check[] {
   const results: Check[] = [];
 
   results.push({
-    name: 'versão do squad',
+    name: t('cli:doctor.check_version'),
     status: 'ok',
-    detail: version ? `v${version}` : 'desconhecida',
+    detail: version ? `v${version}` : '?',
   });
 
   results.push({
-    name: 'canal atual',
+    name: t('cli:doctor.check_branch'),
     status: status.branch === 'main' ? 'ok' : 'warn',
-    detail: status.branch ?? 'desconhecido',
-    hint: status.branch !== 'main' ? 'Você está fora do canal padrão (normal só se estiver testando algo).' : undefined,
+    detail: status.branch ?? '?',
+    hint: status.branch !== 'main' ? t('cli:doctor.check_branch_alt_hint') : undefined,
   });
 
   if (status.dirty) {
     results.push({
-      name: 'alterações não salvas',
+      name: t('cli:doctor.check_dirty'),
       status: 'warn',
-      detail: 'você tem arquivos modificados no clone',
-      hint: 'Isso bloqueia pto update. Se não lembra do que modificou, avise o Pablo.',
+      detail: t('cli:doctor.check_dirty_some'),
+      hint: t('cli:doctor.check_dirty_hint'),
     });
   } else {
-    results.push({ name: 'alterações não salvas', status: 'ok', detail: 'nenhuma' });
+    results.push({
+      name: t('cli:doctor.check_dirty'),
+      status: 'ok',
+      detail: t('cli:doctor.check_dirty_none'),
+    });
   }
 
   if (status.behind !== null && status.behind > 0) {
+    const count = status.behind;
+    const key = count === 1 ? 'cli:doctor.check_updates_found_one' : 'cli:doctor.check_updates_found_other';
     results.push({
-      name: 'atualizações do squad',
+      name: t('cli:doctor.check_updates'),
       status: 'warn',
-      detail: `${status.behind} nov${status.behind === 1 ? 'a' : 'as'} disponível${
-        status.behind === 1 ? '' : 'eis'
-      }`,
-      hint: 'Rode: pto update',
+      detail: t(key, { count }),
+      hint: t('cli:doctor.check_updates_hint'),
     });
   } else if (status.behind === 0) {
     results.push({
-      name: 'atualizações do squad',
+      name: t('cli:doctor.check_updates'),
       status: 'ok',
-      detail: 'em dia',
+      detail: t('cli:doctor.check_updates_ok'),
     });
   }
 
   return results;
 }
 
-/**
- * Comando `pto doctor` — healthcheck completo com saída copiável.
- * Útil quando algo não funciona: usuário copia o output e cola no Slack.
- */
 export async function doctor(): Promise<void> {
-  console.log(pc.bold('\n pto doctor — diagnóstico do ambiente\n'));
+  console.log(pc.bold(`\n ${t('cli:doctor.heading')}\n`));
 
-  // Roda em paralelo o que é paralelizável
   const [portCheck, supabaseCheck] = await Promise.all([
     checkCallbackPort(),
     checkSupabaseReach(),
@@ -264,9 +262,7 @@ export async function doctor(): Promise<void> {
 
   for (const c of checks) {
     console.log(`  ${ICON[c.status]} ${c.name}: ${c.detail}`);
-    if (c.hint) {
-      console.log(`      ${pc.dim(c.hint)}`);
-    }
+    if (c.hint) console.log(`      ${pc.dim(c.hint)}`);
   }
 
   const failures = checks.filter((c) => c.status === 'fail').length;
@@ -274,25 +270,15 @@ export async function doctor(): Promise<void> {
 
   console.log('');
   if (failures > 0) {
-    console.log(
-      pc.red(
-        `  ${failures} problema${failures === 1 ? '' : 's'} precisa${failures === 1 ? '' : 'm'} ser resolvido${failures === 1 ? '' : 's'}.`,
-      ),
-    );
-    console.log(
-      pc.dim(
-        `  Se não souber como, cole este output no Slack e peça ajuda ao Pablo.`,
-      ),
-    );
+    const key = failures === 1 ? 'cli:doctor.failures_one' : 'cli:doctor.failures_other';
+    console.log(pc.red(`  ${t(key, { count: failures })}`));
+    console.log(pc.dim(`  ${t('cli:doctor.failure_hint')}`));
     process.exitCode = 1;
   } else if (warnings > 0) {
-    console.log(
-      pc.yellow(
-        `  ${warnings} aviso${warnings === 1 ? '' : 's'} — dá pra trabalhar, mas vale resolver.`,
-      ),
-    );
+    const key = warnings === 1 ? 'cli:doctor.warnings_one' : 'cli:doctor.warnings_other';
+    console.log(pc.yellow(`  ${t(key, { count: warnings })}`));
   } else {
-    console.log(pc.green('  Tudo certo — seu ambiente está saudável.'));
+    console.log(pc.green(`  ${t('cli:doctor.ok_all')}`));
   }
   console.log('');
 }

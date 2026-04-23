@@ -1,0 +1,81 @@
+{
+  "session_expired": {
+    "title": "sua sessão expirou",
+    "why": "acontece depois de algumas horas — segurança padrão",
+    "what": "rode: pto refresh (ou pto login se o refresh falhar)"
+  },
+  "not_logged": {
+    "title": "você não está logada/o",
+    "why": "não encontrei sua sessão neste computador",
+    "what": "rode: pto login"
+  },
+  "session_invalid": {
+    "title": "sua sessão parece inválida",
+    "why": "o servidor não reconheceu seu acesso",
+    "what": "rode: pto login"
+  },
+  "refresh_invalid": {
+    "title": "seu acesso precisa ser renovado",
+    "why": "sua permissão de renovação expirou ou você saiu de outro lugar",
+    "what": "rode: pto login (leva 30 segundos)"
+  },
+  "network_offline": {
+    "title": "não consegui me conectar",
+    "why": "o servidor não respondeu",
+    "what": "verifique sua internet. Se persistir, avise o Pablo"
+  },
+  "host_not_found": {
+    "title": "não consegui falar com o servidor",
+    "why": "sua internet caiu ou o servidor está fora do ar",
+    "what": "verifique sua conexão e tente de novo em 1 minuto"
+  },
+  "timeout": {
+    "title": "a operação demorou demais",
+    "why": "a internet está lenta ou o servidor travou",
+    "what": "tente de novo em 1 minuto"
+  },
+  "port_busy": {
+    "title": "a porta de login está ocupada",
+    "why": "outro programa (ou outra aba do pto) está usando a porta 54321",
+    "what": "feche outras janelas do pto e tente de novo"
+  },
+  "no_permission_fs": {
+    "title": "sem permissão para este arquivo",
+    "why": "o sistema bloqueou a operação",
+    "what": "tente rodar de novo como admin (sudo) ou avise o Pablo"
+  },
+  "oauth_state_mismatch": {
+    "title": "o login no navegador não completou a tempo",
+    "why": "a página ficou aberta demais, ou foi aberta em mais de uma aba",
+    "what": "feche todas as abas de login e rode: pto login"
+  },
+  "forbidden": {
+    "title": "você não tem permissão para isso",
+    "why": "essa área é restrita ao seu papel no time",
+    "what": "se acha que deveria ter acesso, fale com o Pablo"
+  },
+  "server_error": {
+    "title": "problema no nosso servidor",
+    "why": "algo deu errado do lado do Supabase",
+    "what": "tente de novo em 1 minuto. Se persistir, avise o Pablo"
+  },
+  "pkce_failed": {
+    "title": "o login foi interrompido",
+    "why": "começou em outro terminal ou foi cancelado no navegador",
+    "what": "rode: pto login"
+  },
+  "callback_incomplete": {
+    "title": "o navegador voltou sem completar o login",
+    "why": "você pode ter fechado a aba antes de autorizar",
+    "what": "rode: pto login e complete a autorização"
+  },
+  "generic": {
+    "title": "algo deu errado",
+    "why": "erro inesperado"
+  },
+  "labels": {
+    "detail": "Detalhe técnico:",
+    "why": "Porque:",
+    "what": "Faça:"
+  }
+}

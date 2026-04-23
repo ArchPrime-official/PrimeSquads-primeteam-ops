@@ -17,22 +17,12 @@ import {
   updateState,
   SetupStepName,
 } from './state.js';
+import { firstRunPickLocale } from './lang.js';
+import { hasChosenLocale } from './preferences.js';
+import { t } from './i18n/index.js';
 
-/**
- * Comando `pto setup` — wizard de primeira execução (idempotente).
- *
- * Cada step é skipado se já foi feito em execução anterior. Se o usuário
- * cancelar, o state fica parcial e o wizard retoma do último step pendente.
- *
- * Steps:
- *   1. node_version        — verifica Node >= 20
- *   2. git_installed       — verifica git na path
- *   3. clone_location      — confirma onde está o clone (getRepoRoot)
- *   4. deps_installed      — garante node_modules / reinstala se pediu
- *   5. bin_linked          — oferece npm link (comando global `pto`)
- *   6. logged_in           — oferece pto login
- *   7. identity_confirmed  — confirma via whoami + mostra roles
- */
+const SQUAD_CLONE_URL = 'https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git';
+
 export async function setup(options: { reset?: boolean } = {}): Promise<void> {
   const state = loadState();
 
@@ -43,13 +33,13 @@ export async function setup(options: { reset?: boolean } = {}): Promise<void> {
       setup_steps: {},
     });
   } else if (state.setup_completed_at) {
-    p.intro(pc.yellow('⚠ Setup já foi concluído anteriormente.'));
+    p.intro(pc.yellow(`⚠ ${t('cli:setup.already_done_warn')}`));
     const again = await p.confirm({
-      message: 'Quer rodar de novo mesmo assim?',
+      message: t('cli:setup.already_done_ask'),
       initialValue: false,
     });
     if (p.isCancel(again) || !again) {
-      p.outro('OK, nada a fazer. Rode `pto doctor` para verificar seu ambiente.');
+      p.outro(t('cli:setup.already_done_skip', { cmd: 'pto doctor' }));
       return;
     }
     updateState({ setup_completed_at: null, setup_steps: {} });
@@ -57,183 +47,155 @@ export async function setup(options: { reset?: boolean } = {}): Promise<void> {
     updateState({ setup_started_at: new Date().toISOString() });
   }
 
-  p.intro(pc.bgYellow(pc.black(' pto setup ')));
-  p.note(
-    'Vou te guiar passo-a-passo para deixar o CLI funcionando.\n' +
-      'A qualquer momento você pode cancelar com Ctrl+C — retomamos de onde parou.',
-    'Bem-vinda/o',
-  );
+  // Se o usuário ainda não escolheu idioma, roda o first-run picker.
+  // Isso carrega t() com a língua correta já para o resto do wizard.
+  if (!hasChosenLocale()) {
+    await firstRunPickLocale();
+  }
 
-  // STEP 1 — Node version
+  p.intro(pc.bgYellow(pc.black(` ${t('cli:setup.title')} `)));
+  p.note(t('cli:setup.welcome_message'), t('cli:setup.welcome_heading'));
+
   await runStep('node_version', async () => {
     const major = parseInt(process.versions.node.split('.')[0], 10);
     if (major < 20) {
-      p.log.error(
-        `Você tem Node v${process.versions.node}. Precisamos de v20 ou superior.`,
-      );
-      p.log.info('Atualize em https://nodejs.org e rode `pto setup` de novo.');
+      p.log.error(t('cli:setup.node_fail', { version: process.versions.node }));
+      p.log.info(t('cli:setup.node_hint', { cmd: 'pto setup' }));
       throw new Error('node_version');
     }
-    p.log.success(`Node v${process.versions.node} — OK.`);
+    p.log.success(t('cli:setup.node_ok', { version: process.versions.node }));
   });
 
-  // STEP 2 — git
   await runStep('git_installed', async () => {
     if (!isGitInstalled()) {
-      p.log.error('git não está instalado.');
-      p.log.info('Instale em https://git-scm.com e rode `pto setup` de novo.');
+      p.log.error(t('cli:setup.git_fail'));
+      p.log.info(t('cli:setup.git_hint', { cmd: 'pto setup' }));
       throw new Error('git_installed');
     }
-    p.log.success('git — OK.');
+    p.log.success(t('cli:setup.git_ok'));
   });
 
-  // STEP 3 — clone location
   const repoRoot = getRepoRoot();
   await runStep('clone_location', async () => {
     if (!isGitRepo(repoRoot)) {
-      p.log.error(`Este diretório não é um clone git: ${pc.dim(repoRoot)}`);
-      p.log.info(
-        'Clone o squad: git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git',
-      );
+      p.log.error(t('cli:setup.clone_fail', { path: pc.dim(repoRoot) }));
+      p.log.info(t('cli:setup.clone_hint', { url: SQUAD_CLONE_URL }));
       throw new Error('clone_location');
     }
     const v = readPackageVersion(repoRoot);
-    p.log.success(`Clone detectado em ${pc.dim(repoRoot)} ${v ? pc.dim(`(v${v})`) : ''}`);
+    const msg = v
+      ? t('cli:setup.clone_ok', { path: pc.dim(repoRoot), version: v })
+      : t('cli:setup.clone_ok_no_version', { path: pc.dim(repoRoot) });
+    p.log.success(msg);
   });
 
-  // STEP 4 — deps
   await runStep('deps_installed', async () => {
     const nm = path.join(repoRoot, 'node_modules');
     if (!fs.existsSync(nm)) {
       const s = p.spinner();
-      s.start('Instalando dependências (npm install)...');
+      s.start(t('cli:setup.deps_installing'));
       try {
         await runCmd('npm', ['install', '--silent'], repoRoot);
-        s.stop('Dependências instaladas.');
+        s.stop(t('cli:setup.deps_done'));
       } catch (err) {
-        s.stop(pc.red('Falha em npm install.'));
+        s.stop(pc.red(t('cli:setup.deps_fail')));
         p.log.error(err instanceof Error ? err.message : String(err));
         throw err;
       }
     } else {
-      p.log.success('node_modules — OK.');
+      p.log.success(t('cli:setup.deps_ok'));
     }
   });
 
-  // STEP 5 — bin global (npm link)
   await runStep('bin_linked', async () => {
     if (isBinAvailable('pto')) {
-      p.log.success('Comando `pto` já disponível globalmente — OK.');
+      p.log.success(t('cli:setup.bin_already'));
       return;
     }
-
     const wantsLink = await p.confirm({
-      message:
-        'Quer habilitar o comando `pto` globalmente? ' +
-        pc.dim('(Senão, use `npm start` no diretório do squad.)'),
+      message: t('cli:setup.bin_ask'),
       initialValue: true,
     });
     if (p.isCancel(wantsLink)) throw new Error('cancelled');
-
     if (!wantsLink) {
       markSetupStep('bin_linked', 'skipped');
-      p.log.info(
-        `OK — use ${pc.cyan('npm start')} dentro de ${pc.dim(repoRoot)}.`,
-      );
+      p.log.info(t('cli:setup.bin_skipped', { path: pc.dim(repoRoot) }));
       return;
     }
-
     const s = p.spinner();
-    s.start('Linkando comando `pto`...');
+    s.start(t('cli:setup.bin_linking'));
     try {
       await runCmd('npm', ['link'], repoRoot);
       if (isBinAvailable('pto')) {
-        s.stop('Comando `pto` disponível em qualquer lugar do terminal.');
+        s.stop(t('cli:setup.bin_done'));
       } else {
-        s.stop(pc.yellow('Linkei, mas `pto` não apareceu no PATH.'));
-        p.log.warn(
-          'Pode ser que você precise reiniciar o terminal, ' +
-            `ou rodar manualmente: ${pc.cyan('sudo npm link')} dentro de ${pc.dim(repoRoot)}`,
-        );
+        s.stop(pc.yellow(t('cli:setup.bin_path_warn')));
+        p.log.warn(t('cli:setup.bin_restart_hint'));
         markSetupStep('bin_linked', 'skipped');
         return;
       }
     } catch (err) {
-      s.stop(pc.red('Falha em npm link.'));
-      p.log.warn(
-        'Isso normalmente é permissão. Tente manualmente:\n' +
-          `  cd ${repoRoot}\n` +
-          `  sudo npm link\n\n` +
-          `Ou pule este passo — use ${pc.cyan('npm start')} dentro do clone.`,
-      );
+      s.stop(pc.red(t('cli:setup.bin_link_failed')));
+      p.log.warn(t('cli:setup.bin_manual_hint', { path: repoRoot }));
       p.log.error(err instanceof Error ? err.message : String(err));
       markSetupStep('bin_linked', 'skipped');
       return;
     }
   });
 
-  // STEP 6 — login
   await runStep('logged_in', async () => {
     const health = readSessionHealth();
     if (health.status === 'valid') {
-      p.log.success(`Já logada/o como ${pc.bold(health.session.email)} — OK.`);
+      p.log.success(t('cli:setup.login_already', { email: pc.bold(health.session.email) }));
       return;
     }
-
     const wantsLogin = await p.confirm({
-      message: 'Fazer login Google agora? (abre o navegador)',
+      message: t('cli:setup.login_ask'),
       initialValue: true,
     });
     if (p.isCancel(wantsLogin)) throw new Error('cancelled');
-
     if (!wantsLogin) {
       markSetupStep('logged_in', 'skipped');
-      p.log.info(`OK — faça depois com ${pc.cyan('pto login')}.`);
+      p.log.info(t('cli:setup.login_skipped', { cmd: 'pto login' }));
       return;
     }
-
     await login();
   });
 
-  // STEP 7 — identity confirmation
   await runStep('identity_confirmed', async () => {
     const health = readSessionHealth();
     if (health.status !== 'valid' && health.status !== 'expiring') {
-      p.log.info('Pulei a confirmação — você pulou o login.');
+      p.log.info(t('cli:setup.identity_skipped'));
       markSetupStep('identity_confirmed', 'skipped');
       return;
     }
-    p.log.success(`Você está logada/o como ${pc.bold(health.session.email)}.`);
+    p.log.success(t('cli:setup.identity_ok', { email: pc.bold(health.session.email) }));
   });
 
   updateState({ setup_completed_at: new Date().toISOString() });
 
   p.note(
-    `${pc.cyan('→')} ${pc.cyan('pto')} ${pc.dim('            # rotina diária (roda sempre que abrir o terminal)')}\n` +
-      `${pc.cyan('→')} ${pc.cyan('claude')} ${pc.dim('         # abrir Claude Code no diretório do squad')}\n` +
-      `${pc.cyan('→')} ${pc.cyan('pto doctor')} ${pc.dim('     # se algo não funcionar, roda este diagnóstico')}`,
-    'O que fazer agora',
+    `${pc.cyan('→')} ${t('cli:setup.what_now_daily', { cmd: pc.cyan('pto') })}\n` +
+      `${pc.cyan('→')} ${t('cli:setup.what_now_claude', { cmd: pc.cyan('claude') })}\n` +
+      `${pc.cyan('→')} ${t('cli:setup.what_now_doctor', { cmd: pc.cyan('pto doctor') })}`,
+    t('cli:setup.what_now_heading'),
   );
-  p.outro(pc.green('Pronto — você está no ar.'));
+  p.outro(pc.green(t('cli:setup.all_done')));
 }
 
 async function runStep(step: SetupStepName, fn: () => Promise<void>): Promise<void> {
   const state = loadState();
   const current = state.setup_steps[step];
-  if (current === 'done') {
-    // já concluído, skip silencioso
-    return;
-  }
+  if (current === 'done') return;
   try {
     await fn();
     const after = loadState();
-    // Só marca done se o próprio step não marcou algo diferente (skipped).
     if (!after.setup_steps[step] || after.setup_steps[step] === 'pending') {
       markSetupStep(step, 'done');
     }
   } catch (err) {
     if (err instanceof Error && err.message === 'cancelled') {
-      p.cancel('Setup cancelado — rode `pto setup` de novo quando quiser continuar.');
+      p.cancel(t('cli:setup.cancelled', { cmd: 'pto setup' }));
       process.exit(0);
     }
     throw err;

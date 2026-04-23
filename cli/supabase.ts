@@ -47,3 +47,17 @@ export function createAuthenticatedClient(
   client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
   return client;
 }
+
+/**
+ * Cliente minimalista só para refresh de token — não persiste nem auto-refresca
+ * (nós mesmos gravamos em disco via session.ts após refrescar).
+ */
+export function createRefreshClient(): SupabaseClient {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}

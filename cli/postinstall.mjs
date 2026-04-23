@@ -50,24 +50,25 @@ function printNeedLogin() {
   console.log(BANNER_TOP);
   console.log('│ ' + padRight('👋 primeteam-ops instalado.', 58) + '│');
   console.log('│ ' + padRight('', 58) + '│');
-  console.log('│ ' + padRight('Próximo passo — LOGIN:', 58) + '│');
+  console.log('│ ' + padRight('Próximo passo — setup guiado:', 58) + '│');
   console.log('│ ' + padRight('', 58) + '│');
-  console.log('│ ' + padRight('  npm run login', 58) + '│');
+  console.log('│ ' + padRight('  npm run setup', 58) + '│');
   console.log('│ ' + padRight('', 58) + '│');
-  console.log('│ ' + padRight('Abre Google OAuth no navegador + salva session em', 58) + '│');
-  console.log('│ ' + padRight('~/.primeteam/session.json. Depois, abra Claude Code', 58) + '│');
-  console.log('│ ' + padRight('(`claude`) + /PrimeteamOps:agents:ops-chief', 58) + '│');
+  console.log('│ ' + padRight('O wizard vai checar o ambiente, habilitar o', 58) + '│');
+  console.log('│ ' + padRight('comando global `pto` e fazer seu login Google.', 58) + '│');
   console.log(BANNER_BOT);
 }
 
 function printExpired(session) {
-  const expiredAt = new Date(session.expires_at * 1000).toLocaleString('pt-BR', {
-    timeZone: 'Europe/Rome',
+  const expiredAt = new Date(session.expires_at * 1000).toLocaleString(undefined, {
+    dateStyle: 'short',
+    timeStyle: 'short',
   });
   console.log(BANNER_TOP);
-  console.log('│ ' + padRight(`⚠ Session expirou em ${expiredAt}`, 58) + '│');
+  console.log('│ ' + padRight(`⚠ Sessão expirou em ${expiredAt}`, 58) + '│');
   console.log('│ ' + padRight('', 58) + '│');
-  console.log('│ ' + padRight('Refresh: npm run login', 58) + '│');
+  console.log('│ ' + padRight('Renove: npm run refresh', 58) + '│');
+  console.log('│ ' + padRight('(ou: npm run login se o refresh falhar)', 58) + '│');
   console.log(BANNER_BOT);
 }
 
@@ -76,15 +77,16 @@ function printReady(session) {
   console.log(BANNER_TOP);
   console.log('│ ' + padRight(emailLine, 58) + '│');
   console.log('│ ' + padRight('', 58) + '│');
-  console.log('│ ' + padRight('Abra Claude Code: claude', 58) + '│');
-  console.log('│ ' + padRight('Ative o chief: /PrimeteamOps:agents:ops-chief', 58) + '│');
+  console.log('│ ' + padRight('Rotina diária: npm start (ou `pto` se linkado)', 58) + '│');
+  console.log('│ ' + padRight('Claude Code:   claude', 58) + '│');
+  console.log('│ ' + padRight('Chief:         /PrimeteamOps:agents:ops-chief', 58) + '│');
   console.log(BANNER_BOT);
 }
 
 function printCorrupted() {
   console.log(BANNER_TOP);
-  console.log('│ ' + padRight('⚠ Session file existe mas está corrompido.', 58) + '│');
-  console.log('│ ' + padRight('Rode `npm run login` para refrescar.', 58) + '│');
+  console.log('│ ' + padRight('⚠ Arquivo de sessão corrompido.', 58) + '│');
+  console.log('│ ' + padRight('Rode `npm run login` para refazer o login.', 58) + '│');
   console.log(BANNER_BOT);
 }
 

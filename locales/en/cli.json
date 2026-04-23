@@ -164,6 +164,11 @@
     "already_done_skip": "OK, nothing to do. Run {{cmd}} to check your environment.",
     "cancelled": "Setup cancelled — run {{cmd}} again when you want to continue."
   },
+  "hygiene": {
+    "absent_days_one": "You haven't run `pto` in {{count}} day — pulling what changed...",
+    "absent_days_other": "You haven't run `pto` in {{count}} days — pulling what changed...",
+    "hook_active_note": "Long-session warnings are active (2h, 4h, midnight)."
+  },
   "roles": {
     "owner": "Team owner (full access)",
     "financeiro": "Finance",

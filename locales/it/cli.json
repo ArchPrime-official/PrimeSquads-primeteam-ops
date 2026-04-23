@@ -164,6 +164,11 @@
     "already_done_skip": "OK, niente da fare. Esegui {{cmd}} per verificare l'ambiente.",
     "cancelled": "Setup annullato — esegui {{cmd}} di nuovo quando vuoi continuare."
   },
+  "hygiene": {
+    "absent_days_one": "Non esegui `pto` da {{count}} giorno — aggiorno quello che è cambiato...",
+    "absent_days_other": "Non esegui `pto` da {{count}} giorni — aggiorno quello che è cambiato...",
+    "hook_active_note": "Gli avvisi di sessione lunga sono attivi (2h, 4h, mezzanotte)."
+  },
   "roles": {
     "owner": "Proprietaria/o del team (accesso completo)",
     "financeiro": "Amministrazione",

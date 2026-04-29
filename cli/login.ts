@@ -3,7 +3,7 @@ import { AddressInfo } from 'node:net';
 import open from 'open';
 import pc from 'picocolors';
 import { CALLBACK_PATH, CALLBACK_PORT, CALLBACK_URL } from './config.js';
-import { saveSession, StoredSession } from './session.js';
+import { fetchUserRoles, saveSession, StoredSession } from './session.js';
 import { createPkceClient } from './supabase.js';
 import { userError, userErrorByCode, classifyError, formatRelativeTime } from './ui.js';
 import { t } from './i18n/index.js';
@@ -184,6 +184,9 @@ export async function login(): Promise<void> {
     user_id: s.user.id,
     email: s.user.email,
   };
+
+  const roles = await fetchUserRoles(stored.access_token, stored.refresh_token, stored.user_id);
+  if (roles !== null) stored.roles = roles;
 
   saveSession(stored);
 

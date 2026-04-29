@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { SESSION_DIR, SESSION_FILE } from './paths.js';
-import { createRefreshClient } from './supabase.js';
+import { createAuthenticatedClient, createRefreshClient } from './supabase.js';
 
 // Também re-exporta os paths para compat com imports antigos (se houver).
 export { SESSION_DIR, SESSION_FILE };
@@ -11,6 +11,30 @@ export interface StoredSession {
   expires_at: number;
   user_id: string;
   email: string;
+  roles?: string[];
+}
+
+/**
+ * Busca as roles do usuário em `user_roles` usando o JWT atual.
+ * Retorna `null` se a query falhou (login/refresh continuam — degradação
+ * graciosa). Retorna `[]` se o usuário não tem nenhuma role atribuída.
+ */
+export async function fetchUserRoles(
+  accessToken: string,
+  refreshToken: string,
+  userId: string,
+): Promise<string[] | null> {
+  try {
+    const sb = createAuthenticatedClient(accessToken, refreshToken);
+    const { data, error } = await sb
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+    if (error) return null;
+    return (data ?? []).map((r) => r.role as string).sort();
+  } catch {
+    return null;
+  }
 }
 
 export type SessionHealth =
@@ -133,6 +157,9 @@ export async function refreshStoredSession(): Promise<StoredSession> {
     user_id: s.user.id,
     email: s.user.email,
   };
+
+  const roles = await fetchUserRoles(fresh.access_token, fresh.refresh_token, fresh.user_id);
+  if (roles !== null) fresh.roles = roles;
 
   saveSession(fresh);
   return fresh;

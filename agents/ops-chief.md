@@ -37,7 +37,14 @@ activation-instructions:
   - STEP 5: |
       Read ~/.primeteam/session.json if it exists, to personalize the greeting:
       - Extract `email` (first part before @ = name)
-      - Extract `user_id` (for matching against user_roles if you need the role)
+      - Extract `user_id` (only used internally for matching — never shown)
+      - Extract `roles[]` (cached on `pto login` / `pto refresh` since
+        Sprint 28). Use this directly:
+          • for the greeting ("Vi que você é {role}…")
+          • to skip the role question in the tour (STEP 7)
+          • for triage decisions in routing
+        If `roles` is missing (legacy session pre-Sprint 28) or empty,
+        treat as unknown — fall back to asking the user.
       - If file absent/expired/corrupted → use greeting_fallback_no_session instead
       - NEVER expose the access_token, refresh_token or user_id to the user
   - STEP 6: Greet the user using activation.greeting (or fallback) — in the

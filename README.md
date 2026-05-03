@@ -47,24 +47,57 @@ Dentro do Claude Code:
 
 Depois disso, só descreva o que precisa. O chief te conecta com o especialista certo.
 
-### Primeira vez? Use o wizard
+### Primeira vez? Instalação em 4 minutos
+
+> **Importante:** este squad é **standalone** — você instala num workspace pessoal seu (NÃO no repo da plataforma PrimeTeam, que tem código de fonte e é restrito). Cada membro do time tem seu próprio clone.
 
 ```bash
-pto setup
+# 1. Crie uma pasta no seu home (1x na vida)
+mkdir -p ~/archprime-cli && cd ~/archprime-cli
+
+# 2. Clone o squad (Pablo precisa adicionar seu GitHub user como collaborator antes)
+git clone https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops
+cd PrimeSquads-primeteam-ops
+
+# 3. Setup wizard — passo a passo guiado
+npm install
+npm run setup
 ```
 
-Ele faz tudo passo-a-passo: checa seu ambiente, te loga com Google, confirma seu papel e mostra o que você pode fazer.
+O wizard checa seu ambiente, te loga com Google (browser-callback OAuth), confirma seu papel (owner/marketing/comercial/cs/financeiro), e mostra o que você pode fazer.
+
+**Não tem acesso ao repo?** Pablo (pablo@archprime.io) adiciona sua conta GitHub via:
+```bash
+gh repo add-collaborator ArchPrime-official/PrimeSquads-primeteam-ops <user> --permission read
+```
+
+A partir daqui, o comando global `pto` está disponível. Use `pto setup` (idempotente, pode rodar de novo a qualquer momento) ou `pto doctor` se algo falhar.
 
 ---
 
 ## Receitas por papel
 
 Veja [`HOW-TO.md`](./HOW-TO.md) com exemplos reais de conversa por papel:
-- 🎨 Marketing — criar LP, listar campanhas, ver performance
+- 🎨 Marketing — criar LP (legacy), criar página CMS (lovarch.com/archprime.io), listar campanhas, ver performance
 - 💰 Financeiro — lançar pagamento, ver saldos, conciliar, recorrências
 - 📞 Comercial — criar lead, mover oportunidade, agenda, chamadas AI
 - 🌱 CS — listar estudantes, aprovar onboarding, marcar check-in
 - 👑 Owner — activity log, gerenciar usuários, importar CSV
+
+### 🆕 Páginas CMS (lovarch.com / archprime.io)
+
+A partir do CMS Fase 0+1+2 (PrimeTeam PRs #1181 → #1195, mai/26), o time tem um **CMS visual** para landing pages publicadas em `lovarch.com/page/:slug` e `archprime.io/page/:slug`. O fluxo é dual:
+
+| Operação | Onde fazer | Por quê |
+|----------|-----------|---------|
+| **Criar página vazia** | CLI: `*create-cms-page slug=foo target=archprime.io` | Rápido, scriptável |
+| **Listar / buscar páginas** | CLI: `*list-cms-pages target_domain=lovarch.com status=draft` | Filtros + tabela inline |
+| **Publicar / despublicar** | CLI: `*publish-cms-page slug=foo target=archprime.io` | Controle preciso, optimistic lock |
+| **Editar conteúdo dos blocos** | UI: `https://primeteam.archprime.io/admin/cms` | Drag-drop visual + 5 forms (Hero/CTA/FeatureGrid/Testimonials/Pricing) |
+
+**Por que dividir CLI vs UI?** Edição de blocos é high-touch (cores, layout, copy) — UI é a ferramenta certa. Operações CRUD repetitivas (criar várias pages para campanhas, listar drafts pendentes, publicar em batch) são CLI-friendly.
+
+⚠️ **Não confundir com `landing_pages` legacy:** o sistema `landing_pages` (lp.archprime.io) continua existindo para LPs antigas + páginas de evento/quiz/booking. Os dois coexistem indefinidamente. Se em dúvida, pergunte ao chief: "página normal nova vai para CMS; página com form de booking/quiz vai para LP legacy".
 
 ---
 

@@ -6,6 +6,7 @@ import { getRepoRoot } from './paths.js';
 import { loadState, recordStart } from './state.js';
 import { formatRelativeTime } from './ui.js';
 import { t } from './i18n/index.js';
+import { ensureClaudeTrackingInstalled } from './claude-tracking.js';
 
 export async function start(): Promise<void> {
   const repoRoot = getRepoRoot();
@@ -24,6 +25,11 @@ export async function start(): Promise<void> {
 
   const updateResult = await update({ silent: true, dryRun: true });
   const refreshResult = await maybeRefresh();
+
+  // Auto-install do Claude Code activity tracking (idempotente, fire-and-forget).
+  // Roda em background sem output. Garante que todos os colaboradores que
+  // usam o pto têm tracking ativo, sem precisar de instalação manual.
+  ensureClaudeTrackingInstalled({ silent: true });
 
   printBriefing({
     version,

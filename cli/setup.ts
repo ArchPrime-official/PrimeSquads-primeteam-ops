@@ -20,6 +20,7 @@ import {
 import { firstRunPickLocale } from './lang.js';
 import { hasChosenLocale } from './preferences.js';
 import { t } from './i18n/index.js';
+import { ensureClaudeTrackingInstalled } from './claude-tracking.js';
 
 const SQUAD_CLONE_URL = 'https://github.com/ArchPrime-official/PrimeSquads-primeteam-ops.git';
 
@@ -170,6 +171,17 @@ export async function setup(options: { reset?: boolean } = {}): Promise<void> {
       return;
     }
     p.log.success(t('cli:setup.identity_ok', { email: pc.bold(health.session.email) }));
+  });
+
+  await runStep('claude_tracking', async () => {
+    const result = ensureClaudeTrackingInstalled({ silent: true });
+    if (result.status === 'install_started') {
+      p.log.success(`Tracking de atividade do Claude Code instalado (${result.email}).`);
+    } else if (result.status === 'already_installed') {
+      p.log.success('Tracking de atividade do Claude Code já estava ativo.');
+    } else {
+      p.log.info('Tracking de atividade do Claude Code: pulado (sem email detectável).');
+    }
   });
 
   updateState({ setup_completed_at: new Date().toISOString() });

@@ -8,7 +8,8 @@ export type SetupStepName =
   | 'deps_installed'
   | 'bin_linked'
   | 'logged_in'
-  | 'identity_confirmed';
+  | 'identity_confirmed'
+  | 'claude_tracking';
 
 export type SetupStepStatus = 'pending' | 'done' | 'skipped';
 

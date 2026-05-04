@@ -1,165 +1,122 @@
 # Task: list-cms-pages
 
-> Task atômica para listar páginas em `cms_pages` com filtros opcionais. Read-only — não muta. Não confundir com `list-landing-pages` (legacy `landing_pages` em lp.archprime.io).
+> Task atômica para listar páginas em `landing_pages` com filtros opcionais. Read-only — não muta. Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages` (tabela única para `lp.archprime.io` + `lovarch.com` + `archprime.io`).
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
 ---
 
-## Task anatomy (HO-TP-001 — 8 campos obrigatórios)
+## Task anatomy
 
 ### task_name
-`List CMS Pages`
+`List Landing Pages`
 
 ### status
 `pending`
 
 ### responsible_executor
-`content-builder` (CMS Pages module)
+`content-builder`
 
 ### execution_type
-`Agent` — LLM + Supabase. Read-only, sem confirmation.
+`Agent` — read-only, sem confirmation.
 
 ### input
 
-Entregue pelo `ops-chief`:
-
-- **Cycle ID**: `cyc-YYYY-MM-DD-NNN`
-- **User JWT**: `~/.primeteam/session.json`
+- **Cycle ID**, **User JWT**
 - **Filters opcionais**:
-  - `target_domain` (`'lovarch.com'` | `'archprime.io'`)
+  - `target_domain` (`'lp.archprime.io'` | `'lovarch.com'` | `'archprime.io'`)
   - `locale` (`'it'` | `'en'` | `'pt'` | `'es'`)
   - `status` (`'draft'` | `'published'` | `'archived'`)
+  - `active` (`true` | `false`) — filtra pelo flag de runtime
   - `q` (string — search ILIKE em slug)
-  - `created_by` (uuid — pages criadas por user específico)
-  - `updated_after` (ISO date — `updated_at >= ?`)
+  - `campaign_id` (uuid — pages de uma campanha específica)
+  - `created_by` (uuid)
+  - `updated_after` (ISO date)
   - `limit` (int, default 50, max 200)
 
 ### output
 
-- **`pages`**: array de `{ id, slug, target_domain, locale, status, version, updated_at, published_at, created_by, blocks_count }` (NÃO retorna `blocks` completo — payload pode ser grande; use admin UI para ver)
-- **`count`**: total de páginas (sem aplicar limit)
-- **`filters_applied`**: echo dos filtros usados
+- **`pages`**: array de `{ id, slug, target_domain, locale, title, status, active, version, updated_at, published_at, campaign_id, redirect_to, redirect_to_slug, views, submissions, html_size }` (NÃO retorna `html_content` completo — payload pode ser ~MB)
+- **`count`**: total
+- **`filters_applied`**: echo
 - **`verdict`**: DONE | BLOCKED
-- **`next_step_suggestion`**: contextual ("Use create-cms-page para criar nova" se vazio, "Use publish-cms-page para publicar drafts" se há drafts)
+- **`next_step_suggestion`**
 
 ### action_items
 
-1. **Parse filters** — extrair filtros opcionais do input. Sem filtros = list all (limited).
-2. **Validar valores enum** — se `target_domain`, `locale`, `status` fornecidos, validar enum. Inválido = BLOCKED.
-3. **Validar limit** — clamp entre 1 e 200. Default 50.
-4. **Construir query** com WHERE conditional:
+1. **Parse filters** — extrair filtros opcionais. Sem filtros = list all (limited).
+2. **Validar enums** — target_domain, locale, status. Inválido = BLOCKED.
+3. **Validar limit** — clamp 1..200. Default 50.
+4. **Construir query**:
    ```sql
-   SELECT id, slug, target_domain, locale, status, version,
-          updated_at, published_at, created_by,
-          jsonb_array_length(blocks) AS blocks_count
-   FROM cms_pages
+   SELECT id, slug, target_domain, locale, title, status, active, version,
+          updated_at, published_at, campaign_id, redirect_to, redirect_to_slug,
+          views, submissions,
+          coalesce(length(html_content), 0) AS html_size
+   FROM landing_pages
    WHERE
      (target_domain = ? OR ? IS NULL) AND
      (locale = ? OR ? IS NULL) AND
      (status = ? OR ? IS NULL) AND
+     (active = ? OR ? IS NULL) AND
      (slug ILIKE '%' || ? || '%' OR ? IS NULL) AND
+     (campaign_id = ? OR ? IS NULL) AND
      (created_by = ? OR ? IS NULL) AND
      (updated_at >= ? OR ? IS NULL)
    ORDER BY updated_at DESC
    LIMIT {limit};
    ```
-5. **Count separado** (sem limit) para `count`:
-   ```sql
-   SELECT count(*) FROM cms_pages WHERE {same filters};
+5. **Count separado** (sem limit).
+6. **Tratar erros**: `42501` → BLOCKED (RLS). `5xx` → retry 1x → ESCALATE.
+7. **Format table output**:
    ```
-6. **Tratar erros**:
-   - 42501 (RLS) → BLOCKED. CMS pages têm RLS read public para `status='published'`, mas drafts/archived só para `cms_can_edit`. Se user não tem perm, retornará apenas published.
-   - 5xx → retry 1x → ESCALATE
-7. **Format table output** para o chief mostrar ao user:
+   | # | Domínio | Slug | Lang | Status | Active | v | HTML | Visite | Atualizado |
+   |---|---------|------|------|--------|--------|---|------|--------|------------|
+   | 1 | lp.archprime.io | offerta | it | published | ON | 3 | 12KB | 142 | 2026-05-04 12:15 |
    ```
-   | # | Domínio | Slug | Lang | Status | v | Blocos | Atualizado |
-   |---|---------|------|------|--------|---|--------|------------|
-   | 1 | lovarch.com | promo-italia-jun26 | it | published | 3 | 5 | 2026-05-03 21:00 |
-   ```
-8. **Populate next_step_suggestion**:
-   - Se 0 results: "Use create-cms-page para criar a primeira."
-   - Se há drafts: "Há N drafts. Use publish-cms-page para publicar quando estiver pronto."
-   - Se filtros não retornaram: sugerir afrouxar (ex. tirar status=published, ampliar updated_after)
-9. **Retornar ao chief** — V10 + V11 com pages array + table-formatted markdown.
+8. **next_step_suggestion**:
+   - Se 0 results: "Use create-cms-page para criar."
+   - Se há drafts: "Há N drafts. Use publish-cms-page para publicar."
+   - Se há páginas inativas sem redirect: warn "Páginas com active=false e sem redirect retornam 404."
 
 ### acceptance_criteria
 
-- **[A1] Filtros enum validados:** target_domain, locale, status restringidos ao enum. Inválido = BLOCKED.
-- **[A2] Limit clamped:** 1 ≤ limit ≤ 200. Default 50.
-- **[A3] Read-only:** zero mutations. Apenas SELECT.
-- **[A4] RLS-aware:** anonymous reads veem apenas `status='published'`. Authenticated com cms_can_edit veem tudo. Esta task usa user JWT, então perfis editores veem drafts.
-- **[A5] Blocks NOT returned:** retorna apenas `blocks_count` (size). Payload completo é grande — para edit, usuário usa admin UI.
-- **[A6] Output sortable:** ORDER BY updated_at DESC. Mais recente primeiro.
+- **[A1]** Filtros enum validados.
+- **[A2]** Limit clamped (1..200).
+- **[A3]** Read-only.
+- **[A4]** RLS-aware: anonymous veem apenas `status='published' AND active=true`. Editores (owner/admin/marketing) veem tudo.
+- **[A5]** `html_content` NÃO retornado — apenas `html_size`.
+- **[A6]** Sort by `updated_at DESC`.
 
 ---
 
-## Exemplos de execução
+## Exemplos
 
-### Exemplo 1 — Listar todos publicados em lovarch.com (DONE)
+### Exemplo 1 — Listar publicadas em lp.archprime.io (DONE)
 
-**Input:** `"listar páginas publicadas no lovarch"`
+**Input:** `"listar páginas publicadas em lp.archprime.io"`
 
-**Specialist:** filters = `{ target_domain: 'lovarch.com', status: 'published' }`. SELECT → 4 rows.
+**Specialist:** filters = `{ target_domain: 'lp.archprime.io', status: 'published' }`. SELECT → 12 rows.
 
-**Return:**
-```
-[content-builder → ops-chief] Cycle cyc-... — DONE.
+### Exemplo 2 — Páginas inativas (DONE)
 
-count: 4
-pages: [
-  { id: cms-1..., slug: home, target_domain: lovarch.com, locale: it, status: published, version: 7, blocks_count: 8, updated_at: 2026-05-03T21:00:00Z, published_at: 2026-05-03T20:55:00Z },
-  { id: cms-2..., slug: cms-fase-0-smoke, ... },
-  ...
-]
-table_view: |
-  | # | Domínio | Slug | Lang | Status | v | Blocos | Atualizado |
-  |---|---------|------|------|--------|---|--------|------------|
-  | 1 | lovarch.com | home | it | published | 7 | 8 | 2026-05-03 21:00 |
-  | 2 | lovarch.com | cms-fase-0-smoke | it | published | 1 | 3 | 2026-05-03 17:30 |
-  | 3 | lovarch.com | promo-aprile | it | published | 2 | 5 | 2026-04-15 10:22 |
-  | 4 | lovarch.com | metodo | pt | published | 4 | 6 | 2026-04-10 14:11 |
-filters_applied: { target_domain: lovarch.com, status: published }
-next_step_suggestion: "Para editar qualquer uma, abra https://primeteam.archprime.io/admin/cms"
-```
+**Input:** `"listar páginas desativadas"`
 
-### Exemplo 2 — Search por slug (DONE)
-
-**Input:** `"procura páginas com 'italia' no slug"`
-
-**Specialist:** filters = `{ q: 'italia' }`. ILIKE %italia% → 2 results.
-
-**Return:**
-```
-table_view: |
-  | # | Domínio | Slug | Lang | Status | v | Blocos | Atualizado |
-  | 1 | archprime.io | promo-italia-jun26 | it | draft | 0 | 0 | 2026-05-03 21:30 |
-  | 2 | lovarch.com | italia-1k-signups | it | draft | 1 | 4 | 2026-04-28 16:10 |
-next_step_suggestion: "Há 2 drafts com 'italia'. Use publish-cms-page para publicar."
-```
+**Specialist:** filters = `{ active: false }`. SELECT → 3 rows. Warn quais não têm redirect.
 
 ### Exemplo 3 — Filtro inválido (BLOCKED)
 
-**Input:** `"listar páginas com target_domain='loverch.com'"` (typo)
+**Input:** `"target_domain='loverch.com'"` (typo).
 
-**Specialist:** target_domain inválido (não está no enum).
-
-**Return:**
-```
-verdict: BLOCKED
-error: { code: 'invalid_filter', field: 'target_domain', value: 'loverch.com' }
-suggested_user_message: |
-  "target_domain inválido: 'loverch.com'. Valores aceitos: 'lovarch.com' ou 'archprime.io'.
-   Você quis dizer 'lovarch.com'?"
-```
+**Return:** BLOCKED com sugestão de typo.
 
 ---
 
-## Notas de implementação
+## Notas
 
-- **Read RLS:** Policy de SELECT em `cms_pages` permite anonymous reads para `status='published'`. Para drafts/archived, o JWT do user deve passar em `cms_can_edit(auth.uid())`. Essa task usa user JWT, então marketing/admin/owner veem tudo; outros veem apenas published.
-- **Performance:** índices em `(target_domain, slug)` (UNIQUE) + `(target_domain, status, locale)` cobrem os filtros mais comuns. Sem precisar otimizar pra Sprint 23.
-- **`blocks_count` via jsonb_array_length:** evita devolver `blocks` cheio (que pode ser ~50-200KB por página). Para inspecionar conteúdo, usuário abre admin UI.
+- **Read RLS:** anonymous reads veem `status='published' AND active=true`. Drafts/archived/inactive exigem role editora.
+- **`html_size` em vez de `html_content`:** evita transferir MBs. Para ver conteúdo, abrir editor admin (preview iframe).
+- **Performance:** índices `landing_pages_domain_status_idx` (partial WHERE published) e `(target_domain, slug, locale)` UNIQUE cobrem os filtros mais comuns.
 
 ---
 

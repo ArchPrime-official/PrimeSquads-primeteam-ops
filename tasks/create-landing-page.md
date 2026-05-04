@@ -286,7 +286,7 @@ suggested_user_message: |
 - **Safe by default:** LP sempre nasce em `active=false`. Exige separate cycle para publicar — dá chance de review.
 - **Slug is immutable post-publish:** enforçado no playbook update_lp_slug do agent.
 - **Analytics campos NOT touched:** views/submissions/conversion_rate são DB-computed. Task NÃO toca.
-- **Block-based editor:** `blocks` JSON fica NULL por default. Sprint 8+ adicionará playbook dedicado para manipular blocks.
+- **Block-based editor:** conteúdo é raw HTML em `html_content` (pós-convergência PR #1226). Coluna `blocks` foi removida do schema.
 - **Lesson pages:** `lesson_config`, `lesson_html_content`, `lesson_css_content` ficam NULL. Sprint 8+ terá task dedicada.
 
 ---

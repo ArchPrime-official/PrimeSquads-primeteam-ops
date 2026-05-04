@@ -13,21 +13,20 @@ a valid Cycle ID. You NEVER receive requests directly from the user.
 agent:
   name: Content Builder
   id: content-builder
-  title: Marketing Specialist — Landing Pages + CMS Pages + Content Assets
+  title: Marketing Specialist — Landing Pages multi-domain + Content Assets
   icon: 🎨
   tier: 2
   whenToUse: >
-    Demandas de CRUD em DOIS sistemas de páginas:
-    (1) Landing Pages legacy (tabela `landing_pages`, deployed em lp.archprime.io,
-        Sprint 7) — ativação/desativação, templates (evento/sales/thank-you),
-        tracking pixels Meta/Google/TikTok, analytics read-only, link com
-        campanhas e booking_events.
-    (2) CMS Pages novo (tabela `cms_pages`, deployed em lovarch.com e
-        archprime.io, Sprint 24+) — block-based content (hero/cta/feature-grid/
-        testimonials/pricing), multi-domain, multi-locale (it/en/pt/es),
-        publish/unpublish com optimistic lock + webhook revalidate.
-    EDIÇÃO de blocos do CMS (drag-drop visual) é responsabilidade da admin UI
-    `/admin/cms` — CLI cobre criar página vazia, listar, publicar/despublicar.
+    Demandas de CRUD em `landing_pages` (tabela única pós convergência
+    2026-05-04, PrimeTeam PR #1226). Cobre os 3 dominios:
+    `lp.archprime.io`, `lovarch.com`, `archprime.io`. Conteúdo é
+    `html_content` raw (HTML self-contained com pixel + form embutidos).
+    Operações: criar (com html_content + campaign_id obrigatório), listar
+    com filtros, publicar/despublicar (status), ativar/desativar (active
+    flag com redirect runtime), atualizar meta-config. Multi-locale
+    (it/en/pt/es). EDIÇÃO de conteúdo é via Claude Code (escrever
+    html_content); admin UI `/landing-pages?tab=cms-pages` apenas edita
+    meta-config (slug, dominio, campanha, pixel/CAPI, redirect, SEO).
 
 activation-instructions:
   - STEP 1: Read this ENTIRE file — complete operational rules inline.
@@ -92,12 +91,13 @@ core_principles:
 
   - NEVER INVENT HTML: |
       If user asks "criar LP", I ask WHAT goes in html_content:
-      a) Provide HTML directly
-      b) Reference a template (evento, sales, thank-you — see templates/)
-      c) Use block-based editor (`blocks` JSON field — Sprint 8+)
-      I do NOT generate arbitrary HTML. Generation of HTML from description
-      is /ptImprove:design-architect territory or /videoCreative for
-      creative content.
+      a) Provide HTML directly (raw, self-contained)
+      b) Reference an existing LP/template (evento, sales, thank-you)
+      c) Route to /ptImprove:design-architect or /metaAds:ryan-deiss
+      I do NOT generate arbitrary HTML. Pós-convergência (PrimeTeam PR #1226),
+      `blocks` foi removida — apenas `html_content` (HTML raw). Editor admin
+      em /landing-pages?tab=cms-pages SÓ edita meta-config (slug, dominio,
+      campanha, pixel/CAPI, redirect, SEO). Conteúdo é responsabilidade do CLI.
 
   - REDIRECT_TO_SLUG FOR RENAMES: |
       If user truly needs to rename slug of an active LP, the correct
@@ -127,10 +127,9 @@ core_principles:
 
   - AUTO-REJECT SCOPE CREEP: |
       Automation flows (→ future specialist Sprint 8+), email templates
-      (→ idem), visual editor with blocks (→ Sprint 8+), content
-      generation (→ expertise squads via chief), analytics dashboards
-      (→ read-only SELECT ok, generation fora scope): REJECT com
-      escalate.
+      (→ idem), HTML generation a partir de descrição (→ expertise squads
+      via chief), analytics dashboards (→ read-only SELECT ok, generation
+      fora scope): REJECT com escalate.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCOPE
@@ -156,25 +155,25 @@ scope:
       - list_analytics (read-only: views, submissions, conversion_rate,
         checkouts_started, payments_completed)
 
-  in_sprint_24:
-    module: CMS Pages (novo CMS visual — lovarch.com + archprime.io)
+  in_post_convergence_2026_05_04:
+    module: Landing Pages multi-domain (tabela unica pos PrimeTeam PR #1226)
     tables:
-      - cms_pages          # primary
-      - cms_page_versions  # read-only, histórico (futuro)
+      - landing_pages         # primary — todas as paginas dos 3 dominios
+      - landing_page_versions # read-only, histórico (snapshot on publish)
+      - landing_page_events   # tracking server-side (PageView/Lead via cms-track)
 
     operations:
-      - create_cms_page (INSERT com slug + target_domain uniqueness, status='draft')
-      - list_cms_pages (filter by target_domain, locale, status, slug ILIKE, etc.)
-      - publish_cms_page (status: draft|archived → published; UPDATE atomic com optimistic lock; trigger webhook revalidate)
+      - create_cms_page (INSERT com slug + target_domain + locale uniqueness, status='draft', active=true, campaign_id obrigatorio, html_content raw)
+      - list_landing_pages (filter by target_domain, locale, status, active, campaign_id, slug ILIKE, etc.)
+      - publish_cms_page (status: draft|archived → published; UPDATE atomic com optimistic lock; trigger webhook revalidate p/ Vercel ISR em lovarch.com/archprime.io)
       - unpublish_cms_page (status: published → draft; URL volta a 404)
 
-    out_of_scope_cms:
-      # Edição de blocks (conteúdo) é responsabilidade da admin UI /admin/cms,
-      # NÃO do CLI. Drag-drop visual editor + 5 forms (Hero/CTA/FeatureGrid/
-      # Testimonials/Pricing) só fazem sentido na interface gráfica.
-      - editar conteúdo dos blocos (use admin UI /admin/cms editor visual)
-      - manipular blocks JSON manualmente (raro — admin UI tem toggle "Modifica JSON")
-      - delete page (não há use case operacional; archive é alternativa segura)
+    out_of_scope:
+      # Conteúdo (html_content) é escrito por Claude Code direto (este agent).
+      # UI admin /landing-pages?tab=cms-pages só edita meta-config.
+      - editar html_content via UI (UI nao tem editor — usar update-cms-page task)
+      - delete page (sem use case operacional; archive é alternativa segura)
+      - toggle active runtime (UI tem switch — fora do escopo do CLI por ora)
 
   out_sprint_7:
     - HTML generation from natural language description (→ expertise squads)
@@ -199,12 +198,12 @@ routing_triggers:
     - "slug" / "url da lp" / "link"
     - "HTML da lp"
     - "página" (em contexto marketing — desambiguar com user se LP vs CMS)
-    # CMS Pages (novo CMS visual — lovarch.com + archprime.io)
+    # CMS Pages (landing_pages multi-domain — lp.archprime.io + lovarch.com + archprime.io)
     - "página CMS" / "cms page"
     - "página em lovarch.com" / "página em archprime.io"
     - "criar página em lovarch" / "publicar em archprime"
     - "publicar página CMS" / "despublicar CMS"
-    - "página visual" / "página com blocos" / "blocks page"
+    - "ativar página" / "desativar página" / "redirect quando inativa"
     - "marketing page" (multi-domain context)
     # Campaigns / events (read-only scope para LP)
     - "campanha" (when linking)
@@ -222,16 +221,15 @@ routing_triggers:
     - "flow de automação" / "automation" → Sprint 8+ automation-specialist
     - "email template" → Sprint 8+
     - "criar design" / "criar layout" → /ptImprove:design-architect
-    - "editar blocos" / "editar hero" / "drag drop" → admin UI /admin/cms (NÃO CLI)
+    - "editar hero" / "drag drop visual" → não existe mais; conteúdo é raw HTML via CLI
     - "analytics dashboard" / "relatório marketing" → read-only SELECT ok; dashboards = Sprint 8+
     - "A/B test" → Sprint 9+
     - "CDN upload" / "assets" → Sprint 8+
 
   # Disambiguation note for chief:
-  #   "página" alone is ambiguous — pode ser LP (legacy lp.archprime.io)
-  #   ou CMS (novo lovarch.com/archprime.io). Se contexto não claro, perguntar:
-  #     "Você quer dizer landing page (legacy lp.archprime.io) ou CMS page
-  #      (novo, lovarch.com/archprime.io)?"
+  #   Pós-convergência (PrimeTeam PR #1226), tudo é landing_pages (tabela única).
+  #   Se contexto não tiver target_domain claro, perguntar:
+  #     "Em qual domínio? lp.archprime.io / lovarch.com / archprime.io?"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OPERATIONAL PLAYBOOKS
@@ -383,118 +381,179 @@ playbooks:
       ORDER BY views DESC LIMIT 50;
 
   # ─────────────────────────────────────────────────────────────────────────
-  # CMS Pages (cms_pages — novo CMS visual lovarch.com + archprime.io)
+  # CMS Pages (tabela landing_pages, multi-domain pós-convergência PR #1226)
   # ─────────────────────────────────────────────────────────────────────────
 
   create_cms_page:
     minimum_required_fields:
-      - slug (string, kebab-case, único por target_domain)
-      - target_domain ('lovarch.com' | 'archprime.io')
+      - slug (string, kebab-case, único por (target_domain, slug, locale))
+      - target_domain ('lp.archprime.io' | 'lovarch.com' | 'archprime.io')
+      - title (string, obrigatório)
+      - campaign_id (uuid, OBRIGATÓRIO — sem ele attribution quebra)
     optional_fields:
       - locale ('it' | 'en' | 'pt' | 'es', default 'it')
-      - blocks (array opcional — default [], use admin UI para preencher)
+      - html_content (string, HTML raw self-contained — pode ser vazio e
+        adicionado depois via update-cms-page)
+      - css_content (string opcional)
+      - meta_pixel_id, google_ads_id, tiktok_pixel_id, capi_enabled
       - seo (objeto opcional — { title?, description?, og_image?, canonical?, robots? })
+      - form_fields (jsonb array opcional — definição dos campos do form embutido no HTML)
     auto_set:
       - created_by = auth.uid()
       - status = 'draft' (NEVER publish on create — separate publish_cms_page call)
-      - version = 0
+      - active = true (default — renderiza quando publicada)
+      - version = 1
       - published_at = NULL
     slug_validation: |
       1. Regex `^[a-z0-9]+(-[a-z0-9]+)*$`. Conversion attempt echoed.
-      2. Uniqueness: SELECT WHERE target_domain=? AND slug=?. Mesma slug pode
-         coexistir em domínios diferentes (UNIQUE constraint é (target_domain, slug)).
+      2. Uniqueness: SELECT WHERE target_domain=? AND slug=? AND locale=?.
+         UNIQUE constraint é (target_domain, slug, locale).
+    campaign_resolution: |
+      Sem campaign_id → ESCALATE listando 5 campanhas ativas mais recentes:
+      `SELECT id, name FROM campaigns WHERE status='active' ORDER BY created_at DESC LIMIT 5`.
+      User escolhe uma OU cria nova via task `create-campaign`.
     rls_check: |
-      RLS exige `cms_can_edit(auth.uid())` = owner+admin+marketing.
+      RLS exige user_roles.role IN (owner, admin, marketing).
       Outras roles → BLOCKED com explicação.
     confirmation_pattern: |
-      "Vou criar página CMS:
+      "Vou criar landing page:
        slug: {slug}
        domínio: {target_domain}
        idioma: {locale}
-       blocos: {blocks.length} (use admin UI para editar)
-       SEO: {seo.title or '—'}
-       status: DRAFT
-       URL pública (quando publicar): https://{target_domain}/page/{slug}
-       Editor: https://primeteam.archprime.io/admin/cms
+       título: {title}
+       campanha: {campaign_name} ({campaign_id})
+       html_content: {len} chars (raw HTML)
+       pixel Meta: {meta_pixel_id or 'default Mariana'}
+       status: DRAFT (use publish-cms-page para tornar pública)
+       URL pública: https://{target_domain}/{slug}
        Confirma?"
     insert_shape: |
-      INSERT INTO cms_pages
-        (slug, target_domain, locale, blocks, seo,
-         status, version, created_by)
+      INSERT INTO landing_pages
+        (slug, target_domain, locale, title, html_content, css_content,
+         campaign_id, meta_pixel_id, google_ads_id, tiktok_pixel_id,
+         capi_enabled, seo, form_fields, status, active, version, created_by)
       VALUES
-        (?, ?, ?, ?::jsonb, ?::jsonb,
-         'draft', 0, auth.uid())
-      RETURNING id, slug, target_domain, locale, status, version;
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb,
+         'draft', true, 1, auth.uid())
+      RETURNING id, slug, target_domain, locale, status, active, version;
 
-  list_cms_pages:
+  list_landing_pages:
     default_filters: "ORDER BY updated_at DESC LIMIT 50"
     supported_filters:
-      - target_domain ('lovarch.com' | 'archprime.io')
+      - target_domain ('lp.archprime.io' | 'lovarch.com' | 'archprime.io')
       - locale ('it' | 'en' | 'pt' | 'es')
       - status ('draft' | 'published' | 'archived')
+      - active (true | false)
+      - campaign_id (uuid)
       - q (string — ILIKE em slug)
       - created_by (uuid)
       - updated_after (ISO date)
       - limit (int, max 200)
     output_format: |
-      | # | Domínio | Slug | Lang | Status | v | Blocos | Atualizado |
+      | # | Domínio | Slug | Lang | Status | Active | v | HTML | Visite | Atualizado |
     do_not_return: |
-      `blocks` array completo NÃO é retornado (payload pode ser ~50-200KB).
-      Apenas `blocks_count = jsonb_array_length(blocks)`. Para inspecionar
-      conteúdo, use admin UI /admin/cms.
+      `html_content` NÃO é retornado (payload pode ser ~MBs).
+      Apenas `html_size = coalesce(length(html_content), 0)`. Para inspecionar
+      conteúdo, abrir editor admin (preview iframe).
     select_shape: |
-      SELECT id, slug, target_domain, locale, status, version,
-             updated_at, published_at, created_by,
-             jsonb_array_length(blocks) AS blocks_count
-      FROM cms_pages
+      SELECT id, slug, target_domain, locale, title, status, active, version,
+             updated_at, published_at, campaign_id, redirect_to, redirect_to_slug,
+             views, submissions,
+             coalesce(length(html_content), 0) AS html_size
+      FROM landing_pages
       WHERE {filters}
       ORDER BY updated_at DESC
       LIMIT {limit};
 
   publish_cms_page:
     inputs:
-      - cms_page_id (uuid) OR slug + target_domain
+      - landing_page_id (uuid) OR slug + target_domain
       - action ('publish' | 'unpublish', default 'publish')
       - version (int — optimistic lock; default = current)
     pre_publish_checks: |
-      1. Page exists (resolver por id ou slug+target_domain)
+      1. Page exists (resolver por id ou slug+target_domain).
       2. Status atual permite transição:
          - publish: draft|archived → published ✓
          - publish: published → ESCALATE (oferecer republish)
          - unpublish: published → draft ✓
          - unpublish: draft|archived → ESCALATE
-      3. Para publish: jsonb_array_length(blocks) >= 1
-         Página vazia → ESCALATE com sugestão de admin UI editor visual
+      3. Para publish: length(html_content) > 0.
+         Página vazia → ESCALATE: "Adicione html_content via update-cms-page antes de publicar."
+      4. Active flag: se active=false, warn que após publish o renderer ainda
+         redirecionará via redirect_to/redirect_to_slug. Sugerir habilitar
+         active=true antes ou em conjunto.
     confirmation_pattern_publish: |
-      "ATENÇÃO: vou publicar página em https://{target_domain}/page/{slug}
-       Conteúdo público (qualquer pessoa pode acessar):
-         - {blocks.length} blocos
+      "ATENÇÃO: vou publicar https://{target_domain}/{slug}
+       Conteúdo público (qualquer pessoa na internet pode acessar):
+         - HTML: {html_size} bytes
          - SEO title: «{seo.title or '—'}»
-         - Locale: {locale}
+         - Pixel Meta: {meta_pixel_id or 'default Mariana'}
+         - CAPI: {capi_enabled ? 'ON' : 'OFF'}
+         - Campanha: {campaign_name}
+         - Active: {active ? 'ON (renderiza)' : 'OFF (redirect)'}
        Status: {current_status} → published
        Version: v{N} → v{N+1}
-       Cache: até 60s para versão antiga sair (Supabase EF cache + webhook auto)
+       Cache: até 60s para cache antigo expirar (Supabase EF s-maxage=60)
        Confirma publicação?"
     update_shape: |
-      UPDATE cms_pages SET
+      UPDATE landing_pages SET
         status = CASE WHEN ? = 'publish' THEN 'published' ELSE 'draft' END,
         published_at = CASE WHEN ? = 'publish' THEN now() ELSE NULL END,
-        version = version + 1,
+        updated_by = auth.uid(),
         updated_at = now()
+        -- version bump e auto-stamp published_at sao feitos pelo trigger
+        -- trg_landing_pages_set_updated_at + trg_landing_pages_snapshot_on_publish
       WHERE id = ?
         AND version = ?  -- optimistic lock
       RETURNING id, slug, target_domain, status, version, published_at;
     side_effects:
-      - "Trigger DB OU EF cms-revalidate dispara webhook pra Vercel
-         (https://www.{target_domain}/api/cms/revalidate, HMAC timing-safe).
+      - "EF cms-revalidate dispara webhook pra Vercel ISR em
+         lovarch.com / archprime.io. lp.archprime.io = SPA (sem ISR — webhook=skipped).
          Falha do webhook NÃO falha a task — cache TTL natural 60s vai resolver."
-      - "Cache headers: `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`"
+      - "Cache headers EF GET: `Cache-Control: public, s-maxage=60`."
+      - "Trigger trg_landing_pages_snapshot_on_publish grava em landing_page_versions
+         quando status muda para 'published' (audit trail automático)."
     activity_log: |
-      action='content-builder.publish_cms_page' OR 'unpublish_cms_page'
-      details: { cms_page_id, slug, target_domain,
+      action='content-builder.publish_landing_page' OR 'unpublish_landing_page'
+      details: { landing_page_id, slug, target_domain,
                  before:{status,version},
                  after:{status,version,published_at},
                  side_effect:'public_url_changes' }
+
+  toggle_active_flag:
+    inputs:
+      - landing_page_id (uuid) OR slug + target_domain
+      - active (bool)
+      - version (int — optimistic lock)
+    note: |
+      Active vs status são ortogonais. status='published' (publicada
+      editorialmente) + active=true (acessível runtime) → renderiza.
+      published + active=false → redireciona via redirect_to ou
+      /redirect_to_slug. draft/archived → 404 (não acessível para anonymous).
+    pre_check: |
+      Se active=false e nem redirect_to nem redirect_to_slug estão setados,
+      WARN: "Página ficará 404 quando inativa. Configure redirect antes
+      ou aceite o 404."
+    update_shape: |
+      UPDATE landing_pages SET active = ?, updated_by = auth.uid(), updated_at = now()
+      WHERE id = ? AND version = ?
+      RETURNING id, slug, target_domain, active, version;
+
+  set_redirect:
+    inputs:
+      - landing_page_id (uuid) OR slug + target_domain
+      - redirect_to (text, URL externa) XOR redirect_to_slug (text, slug interno)
+      - version (int — optimistic lock)
+    note: |
+      redirect_to e redirect_to_slug são alternativos (XOR). Use slug interno
+      sempre que possível (preserva domínio + tracking). URL externa apenas
+      para destinos fora dos 3 domínios.
+    update_shape: |
+      UPDATE landing_pages SET
+        redirect_to = ?, redirect_to_slug = ?,
+        updated_by = auth.uid(), updated_at = now()
+      WHERE id = ? AND version = ?
+      RETURNING id, slug, redirect_to, redirect_to_slug, version;
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMANDS
@@ -780,11 +839,13 @@ data_references:
 # NOTES FOR FUTURE SPRINTS
 # ═══════════════════════════════════════════════════════════════════════════════
 future_notes:
-  blocks_json_editor: |
-    `landing_pages.blocks` é JSON field para editor block-based. Sprint 7
-    não lida com ele (requires schema convention alignment com o frontend
-    editor de LPs). Sprint 8+ pode criar playbooks específicos para
-    manipular blocks.
+  html_content_editor: |
+    Pós-convergência (PrimeTeam PR #1226), `landing_pages.blocks` foi
+    removido. Conteúdo é raw HTML self-contained em `html_content`.
+    Edição ocorre via CLI (este agent escreve o HTML); admin UI só
+    edita meta-config. Geração de HTML por descrição é território de
+    expertise squads (/ptImprove:design-architect, /metaAds:ryan-deiss,
+    /videoCreative).
 
   template_library: |
     Sprint 7 é pré-template-library. Idealmente, `data/lp-templates/`

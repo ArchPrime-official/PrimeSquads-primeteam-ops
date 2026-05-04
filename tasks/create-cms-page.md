@@ -1,24 +1,24 @@
 # Task: create-cms-page
 
-> Task atômica para criar uma nova linha em `cms_pages` (CMS multi-domain — lovarch.com + archprime.io). **SEMPRE status='draft'** na criação — publicação é operação separada (`publish-cms-page`). Valida slug kebab-case + uniqueness por (target_domain, slug). Não confundir com `landing_pages` (legacy lp.archprime.io) — `cms_pages` é o novo CMS visual de Fase 0+1+2 (PRs PrimeTeam #1181, #1182, #1188, #1191, #1195).
+> Task atômica para criar uma nova linha em `landing_pages` (tabela única para todas as landing pages multi-domain — `lp.archprime.io`, `lovarch.com`, `archprime.io`). Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages`. Conteúdo é `html_content` (HTML raw self-contained com pixel + form embutidos), não mais `blocks`. **SEMPRE status='draft'** + **campaign_id obrigatório** (sem ele attribution quebra).
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
 ---
 
-## Task anatomy (HO-TP-001 — 8 campos obrigatórios)
+## Task anatomy
 
 ### task_name
-`Create CMS Page`
+`Create Landing Page (CMS)`
 
 ### status
 `pending`
 
 ### responsible_executor
-`content-builder` (CMS Pages module — adicionado pós-Sprint 17 quando Fase 2 do CMS shippou)
+`content-builder`
 
 ### execution_type
-`Agent` — LLM + Supabase. Human intervention apenas no confirmation step antes do INSERT.
+`Agent` — LLM + Supabase. Human confirma antes do INSERT.
 
 ### input
 
@@ -27,181 +27,134 @@ Entregue pelo `ops-chief`:
 - **Cycle ID**: `cyc-YYYY-MM-DD-NNN`
 - **User JWT**: `~/.primeteam/session.json`
 - **Request payload**:
-  - `slug` (string, obrigatório — kebab-case, único por target_domain)
-  - `target_domain` (`'lovarch.com'` | `'archprime.io'`, obrigatório)
+  - `slug` (string, kebab-case, único por `(target_domain, locale)`)
+  - `target_domain` (`'lp.archprime.io'` | `'lovarch.com'` | `'archprime.io'`)
   - `locale` (`'it'` | `'en'` | `'pt'` | `'es'`, default `'it'`)
-  - `blocks` (array opcional — se ausente, cria com `[]`. Editor visual em /admin/cms preenche via UI depois)
-  - `seo` (objeto opcional — `{ title?, description?, og_image?, canonical?, robots? }`)
+  - `title` (string, obrigatório)
+  - `html_content` (string, HTML raw — pode ser fornecido na criação OU adicionado depois via update)
+  - `css_content` (string opcional)
+  - `campaign_id` **(uuid, obrigatório)** — campanha existente em `campaigns`. Sem ele, `lead.campaign_id` e `opportunity.campaign_id` ficam NULL para visitantes sem UTM
+  - `meta_pixel_id`, `google_ads_id`, `tiktok_pixel_id`, `capi_enabled` (opcionais)
+  - `seo` (jsonb opcional — `{ title?, description?, og_image?, canonical?, robots? }`)
+  - `form_fields` (jsonb array opcional — definição dos campos do form embutido no HTML)
 
 ### output
 
-- **`cms_page_id`** — uuid da row criada
+- **`landing_page_id`** — uuid da row criada
 - **`slug`** — slug final validado
-- **`target_domain`** — domínio alvo
-- **`status`** — sempre `'draft'`
-- **`version`** — `0` (incrementa a cada save)
-- **`public_url_when_published`** — `https://{target_domain}/page/{slug}` (válido apenas após publicação)
-- **`admin_edit_url`** — `https://primeteam.archprime.io/admin/cms?id={cms_page_id}` (UI visual editor)
+- **`target_domain`**, **`locale`**, **`status`** (sempre `'draft'`), **`active`** (sempre `true` por default), **`version`** (`1`)
+- **`public_url_when_published`** — `https://{target_domain}/{slug}`
+- **`admin_edit_url`** — `https://primeteam.archprime.io/landing-pages?tab=cms-pages`
 - **`verdict`** — DONE | BLOCKED | ESCALATE
-- **`next_step_suggestion`** — "Use admin /cms editor visual para adicionar blocos OU publish-cms-page para publicar"
-- **`convention_check`**:
-  - Slug kebab-case: ✓
-  - Slug unique por target_domain: ✓
-  - status=draft (safe default): ✓
-  - RLS respected (cms_can_edit): ✓
-  - JWT scoped: ✓
+- **`next_step_suggestion`**
+- **`convention_check`**
 
 ### action_items
 
-1. **Parse input** — extrair slug + target_domain + locale + optional blocks/seo.
-2. **Validar slug regex** `^[a-z0-9]+(-[a-z0-9]+)*$`. Se inválido, tentar conversion (lowercase + replace spaces/underscores com `-` + strip accents) e ECHOAR: "Vou usar slug 'X' (convertido de 'Y'). Confirma?"
-3. **Validar target_domain** ∈ `{'lovarch.com', 'archprime.io'}`. Se outro: BLOCKED com explicação.
-4. **Validar locale** ∈ `{'it', 'en', 'pt', 'es'}`. Default `'it'` se ausente.
-5. **Check uniqueness** — `SELECT id FROM cms_pages WHERE target_domain = ? AND slug = ?`.
-   - 0 matches: OK, prosseguir.
-   - 1+ match: ESCALATE com 3 options:
-     a) Usar slug alternativo (sugestão: `{slug}-v2`, `{slug}-{ano}`)
-     b) Editar a existente: `https://primeteam.archprime.io/admin/cms?id={existing_id}`
-     c) Trocar target_domain (se semantically faz sentido — ex. mesma promo, dois domínios)
-6. **Validar blocks** — se fornecido, deve ser `Array<unknown>`, length 0..40. Se vazio array: warning "Página criada vazia — use admin UI para adicionar blocos."
-7. **Validar seo** — se fornecido, deve ser objeto plain (não array). Campos opcionais validados shallow (urls válidas se presentes). Default `{}`.
-8. **Auto-set campos**:
+1. **Parse input** — extrair slug + target_domain + locale + title + html_content + campaign_id + opcionais.
+2. **Validar slug regex** `^[a-z0-9]+(-[a-z0-9]+)*$`. Se inválido, conversion attempt + echo.
+3. **Validar target_domain** ∈ `{'lp.archprime.io', 'lovarch.com', 'archprime.io'}`. Outros → BLOCKED.
+4. **Validar locale** ∈ `{'it', 'en', 'pt', 'es'}`. Default `'it'`.
+5. **Validar campaign_id obrigatório** — se ausente, ESCALATE com lista de campanhas ativas: `SELECT id, name FROM campaigns WHERE status='active' ORDER BY created_at DESC`. User escolhe uma OU cria nova via task `create-campaign`.
+6. **Check uniqueness** — `SELECT id FROM landing_pages WHERE target_domain = ? AND slug = ? AND locale = ?`. Collision → ESCALATE com 3 options.
+7. **Validar html_content** — se fornecido, deve ser string (max 2MB). Pode ser vazio (`''`) e adicionado depois.
+8. **Validar campos opcionais** (pixel regex, seo objeto, form_fields array).
+9. **Auto-set**:
    - `created_by = auth.uid()`
-   - `status = 'draft'` (NUNCA publish na criação)
-   - `version = 0`
+   - `status = 'draft'`
+   - `active = true`
+   - `version = 1`
    - `published_at = NULL`
-9. **Confirmation message** — mostrar campos resolvidos:
-   ```
-   Vou criar página CMS:
-   slug: {slug}
-   domínio: {target_domain}
-   idioma: {locale}
-   blocos: {blocks.length} (use admin UI para editar)
-   SEO: {seo.title or "—"}
-   status: DRAFT
-   URL pública (quando publicar): https://{target_domain}/page/{slug}
-   Editor: https://primeteam.archprime.io/admin/cms (selecione esta página)
-   Confirma?
-   ```
-10. **Aguardar confirmação** — "sim" prossegue, "não" ESCALATE.
-11. **Executar INSERT** via Supabase (user JWT):
+10. **Confirmation message**:
+    ```
+    Vou criar landing page:
+    slug: {slug}
+    domínio: {target_domain}
+    idioma: {locale}
+    título: {title}
+    campanha: {campaign_name} ({campaign_id})
+    html_content: {len} chars (raw HTML)
+    pixel Meta: {meta_pixel_id or "default Mariana"}
+    status: DRAFT (use publish-cms-page para tornar pública)
+    URL pública: https://{target_domain}/{slug}
+    Confirma?
+    ```
+11. **Aguardar confirmação**.
+12. **Executar INSERT** via Supabase (user JWT):
     ```sql
-    INSERT INTO cms_pages
-      (slug, target_domain, locale, blocks, seo, status, version, created_by)
+    INSERT INTO landing_pages
+      (slug, target_domain, locale, title, html_content, css_content,
+       campaign_id, meta_pixel_id, google_ads_id, tiktok_pixel_id,
+       capi_enabled, seo, form_fields, status, active, version, created_by)
     VALUES
-      ({slug}, {target_domain}, {locale}, {blocks::jsonb}, {seo::jsonb},
-       'draft', 0, auth.uid())
+      ({slug}, {target_domain}, {locale}, {title}, {html_content},
+       {css_content}, {campaign_id}, {meta_pixel_id}, {google_ads_id},
+       {tiktok_pixel_id}, {capi_enabled or false}, {seo::jsonb},
+       {form_fields::jsonb}, 'draft', true, 1, auth.uid())
     RETURNING id, slug, target_domain, locale, status, version;
     ```
-12. **Tratar erros**:
-    - 42501 (RLS) → BLOCKED com role explanation: "INSERT em cms_pages exige owner+admin+marketing. Sua role atual: {role}. Peça a Sandra (marketing) ou Pablo (owner) para criar."
-    - 23505 (unique violation em (target_domain, slug)) → ESCALATE com retry sugestion (race condition rara)
-    - 23514 (CHECK constraint) → BLOCKED indicando qual constraint violou (slug regex / blocks size / seo type)
-    - 5xx → retry 1x → ESCALATE
-13. **Registrar activity_log** — INSERT em `activity_logs` com `action='content-builder.create_cms_page'`, `details={slug, target_domain, cycle_id, before:null, after:{id,status:'draft'}}`. Failure tolerante.
-14. **Populate next_step_suggestion**:
-    - Se blocks vazio: "Abra https://primeteam.archprime.io/admin/cms, selecione a página, use o editor visual (palette + drag-drop) para adicionar Hero/CTA/FeatureGrid/Testimonials/Pricing. Depois use publish-cms-page."
-    - Se blocks fornecidos: "Use publish-cms-page para tornar a página acessível em https://{target_domain}/page/{slug}."
-15. **Retornar ao chief** — V10 + V11 + V18 com cms_page_id + URLs.
+13. **Tratar erros**:
+    - `42501` (RLS) → BLOCKED. RLS de `landing_pages` exige owner/admin/marketing via `user_roles`. Sua role: `{role}`.
+    - `23505` (unique violation `(target_domain, slug, locale)`) → ESCALATE.
+    - `23503` (FK violation em `campaign_id`) → BLOCKED — campanha não existe.
+    - `23514` (CHECK) → BLOCKED indicando constraint violada.
+    - `5xx` → retry 1x → ESCALATE.
+14. **Activity log** — INSERT em `activity_logs` com `action='content-builder.create_landing_page'`, `details={slug, target_domain, campaign_id, cycle_id, before:null, after:{id, status:'draft', active:true}}`.
+15. **next_step_suggestion**:
+    - Se html_content vazio: "Use update-cms-page para adicionar html_content. Depois publish-cms-page."
+    - Se html_content fornecido: "Use publish-cms-page para tornar a página acessível em https://{target_domain}/{slug}."
+16. **Retornar ao chief** com `landing_page_id` + URLs.
 
 ### acceptance_criteria
 
-- **[A1] Slug + target_domain required:** ambos obrigatórios. Falta = ESCALATE.
-- **[A2] Slug regex validation:** kebab-case enforced. Conversion attempt echoed antes de prosseguir.
-- **[A3] Slug uniqueness por target_domain:** SELECT prévio obrigatório. Collision = ESCALATE com 3 options, nunca overwrite silencioso.
-- **[A4] Status=draft forced:** NUNCA `'published'` na criação. Publicação = separate cycle via publish-cms-page.
-- **[A5] target_domain restricted:** apenas `lovarch.com` ou `archprime.io`. Outros = BLOCKED.
-- **[A6] locale restricted:** apenas `it`, `en`, `pt`, `es`. Default `it`.
-- **[A7] JWT scoping:** INSERT usa user JWT. `created_by = auth.uid()`. Helper `cms_can_edit(auth.uid())` na RLS valida (owner+admin+marketing).
-- **[A8] Activity log:** INSERT em `activity_logs` após mutation, fail-tolerant.
+- **[A1]** slug + target_domain + title + campaign_id obrigatórios. Falta = ESCALATE.
+- **[A2]** Slug regex kebab-case enforced.
+- **[A3]** Slug uniqueness por `(target_domain, slug, locale)`.
+- **[A4]** status='draft' + active=true forçados na criação.
+- **[A5]** target_domain restrito aos 3 valores.
+- **[A6]** locale restrito aos 4 valores.
+- **[A7]** campaign_id deve referenciar campanha existente (FK validada).
+- **[A8]** html_content validado (string, max 2MB) — pode ser vazio.
+- **[A9]** Activity log fail-tolerant.
 
 ---
 
-## Exemplos de execução
+## Exemplos
 
-### Exemplo 1 — Happy path com blocks vazio (DONE)
+### Exemplo 1 — Happy path com html_content (DONE)
 
-**Input:** `"criar página CMS slug 'promo-italia-jun26' em archprime.io, idioma it, vazia"`
+**Input:** `"criar landing 'promo-italia-jun26' em archprime.io, italiano, campanha PROMO_ITALIA_2026, com este HTML: <html>...</html>"`
 
 **Specialist:**
-1. slug regex ✓, target_domain `archprime.io` ✓, locale `it` ✓
-2. SELECT WHERE target_domain='archprime.io' AND slug='promo-italia-jun26' → 0 matches ✓
-3. blocks=[], seo={}
-4. Confirmation echoed (user confirma)
-5. INSERT → cms_page_id=cms-a1b2... status=draft
+1. slug ✓, domain ✓, locale ✓, title ✓
+2. Resolve campaign: `SELECT id FROM campaigns WHERE name='PROMO_ITALIA_2026'` → uuid
+3. SELECT uniqueness → 0 matches ✓
+4. Confirmation (user confirma)
+5. INSERT → landing_page_id=lp-a1b2... status=draft active=true
 
-**Return:**
-```
-[content-builder → ops-chief] Cycle cyc-... — DONE.
+**Return:** `landing_page_id: lp-a1b2... | URL: https://archprime.io/promo-italia-jun26`
 
-cms_page_id: cms-a1b2...
-slug: promo-italia-jun26
-target_domain: archprime.io
-locale: it
-status: draft
-version: 0
-public_url_when_published: https://archprime.io/page/promo-italia-jun26
-admin_edit_url: https://primeteam.archprime.io/admin/cms
-next_step_suggestion: |
-  "Página criada vazia. Abra o admin /cms, selecione 'promo-italia-jun26',
-   use o editor visual para adicionar Hero/CTA/FeatureGrid/Testimonials/Pricing.
-   Depois use publish-cms-page para publicar."
-convention_check: slug kebab-case ✓ | unique ✓ | draft ✓ | RLS ✓
-```
+### Exemplo 2 — Sem campaign_id (ESCALATE)
 
-### Exemplo 2 — Slug colisão (ESCALATE)
+**Input:** `"criar página 'evento-milano' em archprime.io"`
 
-**Input:** `"criar página slug 'home' em lovarch.com"`
-
-**Specialist:** SELECT WHERE target_domain='lovarch.com' AND slug='home' → 1 match (existing).
-
-**Return:**
-```
-[content-builder → ops-chief] Cycle cyc-... — ESCALATE.
-
-verdict: ESCALATE
-suggested_user_message: |
-  "Já existe página 'home' em lovarch.com (id=cms-x1y2..., status=published,
-  versão 7). Opções:
-  1. Editar a existente: https://primeteam.archprime.io/admin/cms?id=cms-x1y2...
-  2. Usar slug alternativo: 'home-v2', 'home-promo-jun26', 'home-italia'
-  3. Criar em archprime.io (mesma slug pode coexistir entre domínios)
-  Qual?"
-context_for_retry:
-  existing_id: cms-x1y2...
-  existing_status: published
-  existing_version: 7
-```
+**Specialist:** ESCALATE com lista das 5 campanhas ativas mais recentes.
 
 ### Exemplo 3 — RLS denial (BLOCKED)
 
-**Input:** user role=cs tentando criar página CMS.
+**Input:** user role=cs.
 
-**Specialist:** INSERT → 42501 (cms_pages RLS exige `cms_can_edit` = owner+admin+marketing).
-
-**Return:**
-```
-[content-builder → ops-chief] Cycle cyc-... — BLOCKED.
-
-verdict: BLOCKED
-error: { code: 42501, detail: "row-level security policy denied" }
-warnings: |
-  Sua role (cs) não tem permissão para criar cms_pages. Helper cms_can_edit
-  permite apenas owner, admin e marketing.
-suggested_user_message: |
-  "Criação de CMS pages é restrita a roles owner/admin/marketing. Sua role
-   atual é cs. Peça a Sandra (marketing) ou Pablo (owner) para criar a página."
-```
+**Specialist:** INSERT → 42501. BLOCKED — peça a Sandra (marketing) ou Pablo (owner).
 
 ---
 
-## Notas de implementação
+## Notas
 
-- **CMS vs Landing Pages legacy:** `cms_pages` é o NOVO CMS visual (Fase 0+1+2 shippadas em 2026-05-03). Renderiza em `lovarch.com/page/:slug` e `archprime.io/page/:slug`. **NÃO confundir com `landing_pages`** (sistema legacy em `lp.archprime.io/{slug}`, criado por `create-landing-page` task). Os dois coexistem indefinidamente.
-- **Block-based content:** O conteúdo da página é o array `blocks` (JSONB). Tipos suportados v0.1.x: `hero`, `cta`, `feature-grid`, `testimonials`, `pricing`. Schemas Zod em `supabase/functions/_shared/cms-schemas.ts`. CLI **não gera blocks** — apenas cria a página vazia/com blocks fornecidos. Edição visual = admin UI `/admin/cms`.
-- **Optimistic locking:** `version` incrementa a cada save. Tasks de edit (futuro) deverão passar `version` esperada para detectar conflitos concorrentes.
-- **Slug é único por (target_domain, slug):** mesma slug pode existir em lovarch.com E archprime.io independentemente.
-- **Safe by default:** página sempre nasce em `status='draft'`. Exige separate cycle (`publish-cms-page`) para tornar pública.
+- **Conteúdo é raw HTML self-contained.** Pixel scripts, form handlers, estilos inline ou em `<style>` — tudo dentro de `html_content`. UI admin não edita HTML — apenas meta-config (slug, domínio, campanha, pixel/CAPI, redirect, SEO, toggle Attiva).
+- **Renderer público:** `/page/:slug` carrega via cms-pages-api EF e renderiza em iframe srcDoc sandbox.
+- **Form handlers no HTML:** o HTML deve fazer `fetch('https://xmqmuxwlecjbpubjdkoj.supabase.co/functions/v1/cms-form-submit', { method:'POST', body: JSON.stringify({ page_id, slug, target_domain, locale, form_data, tracking }) })`.
+- **Active toggle:** `active=false` faz o renderer redirecionar para `redirect_to` ou `/<redirect_to_slug>`. Admin precisa configurar destino antes de desativar.
+- **Optimistic locking:** `version` incrementa a cada update. Tasks de edit passam `version` esperada.
 
 ---
 

@@ -1,220 +1,143 @@
 # Task: publish-cms-page
 
-> Task atômica para publicar/despublicar uma página `cms_pages`. Toggle status entre `'draft'`/`'archived'` e `'published'`. Valida que blocks não está vazio antes de publicar (página vazia = erro). Bypass cache via webhook automático (cms-revalidate EF posta pra Vercel revalidate).
+> Task atômica para publicar/despublicar uma `landing_pages`. Toggle `status` entre `'draft'`/`'archived'` e `'published'`. Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages`. Conteúdo é `html_content` raw — valida que não está vazio antes de publicar. Webhook automático (`cms-revalidate` EF) bypass cache em `lovarch.com` / `archprime.io` (lp.archprime.io é SPA, sem ISR).
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
 ---
 
-## Task anatomy (HO-TP-001 — 8 campos obrigatórios)
+## Task anatomy
 
 ### task_name
-`Publish CMS Page`
+`Publish Landing Page`
 
 ### status
 `pending`
 
 ### responsible_executor
-`content-builder` (CMS Pages module)
+`content-builder`
 
 ### execution_type
 `Agent` — LLM + Supabase + EF webhook side-effect. Confirmation step obrigatório (publica conteúdo PÚBLICO).
 
 ### input
 
-Entregue pelo `ops-chief`:
-
-- **Cycle ID**: `cyc-YYYY-MM-DD-NNN`
-- **User JWT**: `~/.primeteam/session.json`
+- **Cycle ID**, **User JWT**
 - **Request payload**:
-  - `cms_page_id` (uuid) OR `slug` + `target_domain` (resolver via list-cms-pages)
+  - `landing_page_id` (uuid) OR `slug` + `target_domain` (resolver via list-cms-pages)
   - `action` (`'publish'` | `'unpublish'`, default `'publish'`)
-  - `version` (int, optional — optimistic lock; se ausente, busca current e usa)
+  - `version` (int, optional — optimistic lock)
 
 ### output
 
-- **`cms_page_id`** — uuid da row mutada
-- **`slug`** — slug
-- **`target_domain`** — domínio
-- **`status_before`** — status antes (`'draft'` | `'archived'` se publish, `'published'` se unpublish)
-- **`status_after`** — status depois (`'published'` ou `'draft'`)
-- **`version`** — nova version (incrementada)
-- **`published_at`** — timestamp (NULL se unpublish)
-- **`public_url`** — `https://{target_domain}/page/{slug}` (acessível imediatamente após publish; cache pode levar até 60s)
-- **`webhook_status`** — status da chamada cms-revalidate (`'sent'` | `'failed'` | `'skipped'`)
-- **`verdict`** — DONE | BLOCKED | ESCALATE
-- **`next_step_suggestion`** — "Abra a URL pública para validar render" ou "Espere ~60s pra cache atualizar"
-- **`convention_check`**:
-  - Page exists: ✓
-  - blocks non-empty (para publish): ✓
-  - version match (optimistic lock): ✓
-  - RLS respected: ✓
+- **`landing_page_id`**, **`slug`**, **`target_domain`**
+- **`status_before`**, **`status_after`**, **`version`** (incrementada), **`published_at`**
+- **`public_url`** — `https://{target_domain}/{slug}`
+- **`webhook_status`** — `'sent'` | `'failed'` | `'skipped'`
+- **`verdict`**, **`next_step_suggestion`**, **`convention_check`**
 
 ### action_items
 
-1. **Resolver target page**:
-   - Se `cms_page_id` fornecido: SELECT direct.
-   - Se `slug` + `target_domain`: SELECT WHERE slug=? AND target_domain=?. 0 = ESCALATE com create-cms-page suggestion. >1 impossível (UNIQUE constraint).
-2. **Validar action** ∈ `{'publish', 'unpublish'}`. Default `'publish'`.
+1. **Resolver target page**: SELECT por `landing_page_id` ou `(slug, target_domain, locale)`. 0 = ESCALATE com create-cms-page.
+2. **Validar action** ∈ `{'publish', 'unpublish'}`.
 3. **Validar status atual vs action**:
-   - `action='publish'` + status atual `'published'` → ESCALATE: "Já está publicada (v{N}, desde {published_at}). Quer republicar (force update timestamp)?"
-   - `action='publish'` + status atual `'draft'` ou `'archived'` → OK
-   - `action='unpublish'` + status atual `'published'` → OK
-   - `action='unpublish'` + status atual `'draft'` → ESCALATE: "Já é draft. Use archive-cms-page (futuro) para arquivar."
-4. **Para `action='publish'`: validar conteúdo**:
-   - `jsonb_array_length(blocks) >= 1` — se 0, ESCALATE: "Página vazia. Adicione blocos via admin /cms editor visual antes de publicar."
-   - Cada bloco passa Zod validation (delegado ao backend cms-pages-api EF — server-side re-valida; CLI não duplica).
-5. **Resolver version**:
-   - Se `version` no input: usar como expected.
-   - Se ausente: usar `version` da row buscada no passo 1.
-6. **Confirmation message** — para PUBLISH (action high-impact):
+   - `publish` + status `'published'` → ESCALATE (force republish?)
+   - `publish` + `'draft'`/`'archived'` → OK
+   - `unpublish` + `'published'` → OK
+   - `unpublish` + `'draft'` → ESCALATE
+4. **Para `publish`: validar conteúdo**:
+   - `length(html_content) > 0` — se vazio, ESCALATE: "Página sem conteúdo. Use create-cms-page com html_content ou update-cms-page para adicionar."
+5. **Validar `active`** — se `active=false`, warn que após publish o renderer ainda redirecionará via `redirect_to`/`redirect_to_slug`. Sugerir habilitar `active=true` antes ou em conjunto.
+6. **Resolver version** — input ou current.
+7. **Confirmation message**:
    ```
-   ATENÇÃO: vou publicar página em https://{target_domain}/page/{slug}
+   ATENÇÃO: vou publicar https://{target_domain}/{slug}
    Conteúdo público (qualquer pessoa na internet pode acessar):
-     - {blocks.length} blocos
+     - HTML: {html_size} bytes
      - SEO title: «{seo.title or "—"}»
-     - SEO description: «{seo.description or "—"}»
-     - Locale: {locale}
+     - Pixel Meta: {meta_pixel_id or "default Mariana"}
+     - CAPI: {capi_enabled ? "ON" : "OFF"}
+     - Campanha: {campaign_name}
+     - Active: {active ? "ON (renderiza)" : "OFF (redirect)"}
    Status: {current_status} → published
    Version: v{N} → v{N+1}
-   Cache: pode levar até 60s para a versão antiga sair (Supabase EF cache)
-          + webhook automático notifica Vercel revalidate
+   Cache: até 60s para cache antigo expirar (Supabase EF s-maxage=60)
    Confirma publicação?
    ```
-   Para UNPUBLISH:
-   ```
-   Vou despublicar https://{target_domain}/page/{slug}
-   A URL voltará a 404 para usuários (admin ainda vê).
-   Confirma?
-   ```
-7. **Aguardar confirmação** — "sim" prossegue, "não" ESCALATE.
-8. **Executar UPDATE atomic** (com optimistic lock):
+8. **Aguardar confirmação**.
+9. **UPDATE atomic** com optimistic lock:
    ```sql
-   UPDATE cms_pages
+   UPDATE landing_pages
    SET
-     status = CASE
-       WHEN {action} = 'publish' THEN 'published'
-       ELSE 'draft'
-     END,
-     published_at = CASE
-       WHEN {action} = 'publish' THEN now()
-       ELSE NULL
-     END,
-     version = version + 1,
+     status = CASE WHEN {action} = 'publish' THEN 'published' ELSE 'draft' END,
+     published_at = CASE WHEN {action} = 'publish' THEN now() ELSE NULL END,
+     updated_by = auth.uid(),
      updated_at = now()
-   WHERE id = {cms_page_id}
+     -- version bump e auto-stamp published_at sao feitos por trigger
+   WHERE id = {landing_page_id}
      AND version = {expected_version}
    RETURNING id, slug, target_domain, status, version, published_at;
    ```
-9. **Tratar erros**:
-   - 0 rows updated → CONFLICT (version mismatch — outro user mutou). ESCALATE: "Outro usuário mudou a página (version drift). Re-listar para ver versão atual."
-   - 42501 (RLS) → BLOCKED: "Sua role não tem permissão. Publish exige cms_can_edit (owner+admin+marketing)."
-   - 23514 (CHECK published_at consistency) → BLOCKED indicando campo (CHECK constraint força `(status='published' AND published_at IS NOT NULL) OR (status≠'published' AND published_at IS NULL)`).
-   - 5xx → retry 1x → ESCALATE
-10. **Webhook side-effect** (não-blocking):
-    - Backend trigger `trg_sync_onboarding_status` ou job background chama EF `cms-revalidate` (PrimeTeam Supabase).
-    - cms-revalidate posta pra `https://www.{target_domain}/api/cms/revalidate` com HMAC.
-    - Se sucesso: `webhook_status='sent'`. Se 4xx/5xx: `webhook_status='failed'` com warning (UPDATE foi aceito, só o cache não foi invalidado — vai esperar TTL natural 60s).
-    - Se webhook não está configurado (env var ausente): `webhook_status='skipped'` (Fase 1 graceful fallback).
-11. **Activity log** — INSERT em `activity_logs` com `action='content-builder.publish_cms_page'` ou `unpublish_cms_page`. `details={cms_page_id, slug, target_domain, before:{status,version}, after:{status,version,published_at}, side_effect:'public_url_changes'}`.
-12. **Populate next_step_suggestion**:
-    - Publish OK + webhook sent: "Página publicada. Abra https://{target_domain}/page/{slug} pra validar (cache pode levar até 60s)."
-    - Publish OK + webhook failed: "Página publicada no DB, mas webhook revalidate falhou. Cache pode levar até 60s pra atualizar naturalmente. Verifique em ~1 min."
-    - Unpublish: "Página despublicada. URL volta a 404 imediatamente após cache TTL."
-13. **Retornar ao chief** — V10 + V11 + V18.
+10. **Tratar erros**:
+    - `0 rows` → CONFLICT (version mismatch). ESCALATE: re-listar.
+    - `42501` (RLS) → BLOCKED: role exige owner/admin/marketing.
+    - `5xx` → retry 1x → ESCALATE.
+11. **Webhook side-effect** (não-blocking):
+    - Para `lovarch.com` / `archprime.io`: chama EF `cms-revalidate` para invalidar Vercel ISR.
+    - Para `lp.archprime.io`: webhook retorna `null` na resolução do domain — webhook_status='skipped' (SPA, sem ISR).
+    - Falha não bloqueia a task — UPDATE foi aceito, cache expira em 60s natural.
+12. **Activity log** — INSERT em `activity_logs` com `action='content-builder.publish_landing_page'` ou `unpublish_landing_page`. `details={landing_page_id, slug, target_domain, before:{status,version}, after:{status,version,published_at}, side_effect:'public_url_changes'}`.
+13. **next_step_suggestion**:
+    - Publish OK + active=true: "Página publicada. Abra https://{target_domain}/{slug} para validar."
+    - Publish OK + active=false: "Publicada mas inativa — redirect para {redirect_target} ativo. Toggle Attiva no admin para renderizar."
+    - Unpublish: "URL volta a 404 imediatamente após cache TTL."
+14. **Retornar ao chief**.
 
 ### acceptance_criteria
 
-- **[A1] Action restricted:** apenas `'publish'` ou `'unpublish'`. Outros = BLOCKED.
-- **[A2] Status transitions enforced:**
-  - publish: draft|archived → published ✓
-  - publish: published → ESCALATE (oferece force republish)
-  - unpublish: published → draft ✓
-  - unpublish: draft → ESCALATE
-- **[A3] Empty blocks blocked:** publish exige `jsonb_array_length(blocks) >= 1`.
-- **[A4] Confirmation obrigatória:** publish é high-impact (público); unpublish é medium-impact. Sempre echo + confirm.
-- **[A5] Optimistic lock:** UPDATE com `WHERE version = {expected}`. 0 rows = CONFLICT, ESCALATE.
-- **[A6] CHECK constraint respected:** `(status='published' AND published_at IS NOT NULL)`. UPDATE seta ambos atomic.
-- **[A7] Webhook non-blocking:** falha do webhook NÃO falha a task. UPDATE foi aceito; warning ao user sobre cache.
-- **[A8] RLS via cms_can_edit:** owner+admin+marketing. JWT scoped.
-- **[A9] Activity log:** sempre, fail-tolerant.
+- **[A1]** Action restrito a `'publish'`/`'unpublish'`.
+- **[A2]** Status transitions enforced.
+- **[A3]** Empty html_content bloqueia publish.
+- **[A4]** Confirmação obrigatória (publish é high-impact).
+- **[A5]** Optimistic lock via `WHERE version = {expected}`.
+- **[A6]** CHECK constraint `(status='published' AND published_at IS NOT NULL)` respeitado pelo trigger.
+- **[A7]** Webhook non-blocking — falha não falha a task.
+- **[A8]** RLS via user_roles (owner/admin/marketing).
+- **[A9]** Activity log fail-tolerant.
 
 ---
 
-## Exemplos de execução
+## Exemplos
 
 ### Exemplo 1 — Publish happy path (DONE)
 
-**Input:** `"publica a página promo-italia-jun26 do archprime.io"`
+**Input:** `"publica 'promo-italia-jun26' em archprime.io"`
 
 **Specialist:**
-1. SELECT WHERE slug='promo-italia-jun26' AND target_domain='archprime.io' → cms-a1b2... status=draft v=2 blocks=[hero, cta, feature-grid]
-2. blocks.length=3 ✓
-3. Confirmation echoed (user confirma)
-4. UPDATE → status=published, version=3, published_at=now()
-5. Webhook → 202 sent
+1. SELECT → lp-a1b2... status=draft v=2 html_size=18KB
+2. Confirmation (user confirma)
+3. UPDATE → status=published v=3 published_at=now()
+4. Webhook archprime.io → 202 sent
 
-**Return:**
-```
-[content-builder → ops-chief] Cycle cyc-... — DONE.
+**Return:** DONE com URL pública.
 
-cms_page_id: cms-a1b2...
-slug: promo-italia-jun26
-target_domain: archprime.io
-status_before: draft
-status_after: published
-version: 3
-published_at: 2026-05-03T22:00:00Z
-public_url: https://archprime.io/page/promo-italia-jun26
-webhook_status: sent
-next_step_suggestion: |
-  "Página publicada. Abra https://archprime.io/page/promo-italia-jun26 pra validar
-   (cache pode levar até 60s)."
-convention_check: page exists ✓ | blocks ≥ 1 ✓ | version match ✓ | RLS ✓
-```
+### Exemplo 2 — html_content vazio (ESCALATE)
 
-### Exemplo 2 — Página vazia (ESCALATE)
+**Specialist:** SELECT → html_content='' → ESCALATE: "Adicione html_content via update-cms-page antes de publicar."
 
-**Input:** `"publica home do lovarch.com"` (mas blocks=[])
+### Exemplo 3 — Version conflict (ESCALATE)
 
-**Specialist:** SELECT → cms-x... status=draft blocks=[] → A3 violado.
-
-**Return:**
-```
-verdict: ESCALATE
-suggested_user_message: |
-  "Página 'home' do lovarch.com está VAZIA (0 blocos). Não posso publicar
-   página vazia (renderiza branca em produção).
-   Opções:
-   1. Abra https://primeteam.archprime.io/admin/cms, selecione 'home',
-      adicione Hero/CTA/etc via editor visual, depois rode publish.
-   2. Forneça blocks no payload (mas recomendo UI — drag-drop é mais rápido)."
-```
-
-### Exemplo 3 — Version conflict (CONFLICT escalate)
-
-**Input:** `"publica home do lovarch.com version 5"` (mas current = v=7)
-
-**Specialist:** UPDATE WHERE version=5 → 0 rows.
-
-**Return:**
-```
-verdict: ESCALATE
-error: { code: 'version_mismatch', expected: 5, actual: 7 }
-suggested_user_message: |
-  "Outro usuário modificou a página depois de você (você esperava v5, atual é v7).
-   Re-liste para ver o estado atual:
-   /PrimeteamOps:tasks:list-cms-pages slug=home target_domain=lovarch.com"
-```
+**Specialist:** UPDATE WHERE version=5 → 0 rows. ESCALATE: re-list para ver versão atual.
 
 ---
 
-## Notas de implementação
+## Notas
 
-- **Backend trigger pode publicar webhook sozinho:** depending on schema, `cms_pages` pode ter trigger `trg_cms_publish_webhook` que chama `cms-revalidate` EF automatic on UPDATE WHERE status changes. Verificar no schema atual antes de chamar EF manualmente — se trigger existir, CLI **não chama** webhook, só monitora resultado via subsequent SELECT em `webhook_log` (futuro).
-- **Cache TTL natural 60s:** `Cache-Control: public, s-maxage=60, stale-while-revalidate=300` na EF GET. Mesmo sem webhook, cache renova em ~60s. Webhook é optimization, não correctness.
-- **Preview antes de publicar:** se user quiser validar primeiro, sugerir: `Use the admin UI preview button — gera JWT temporário (1h) que bypass cache: ?preview=<jwt>`.
-- **Archive vs unpublish:** `unpublish` volta para `'draft'` (editável). Archive (`'archived'`) é status separado para soft-delete (sem editar mas preserva histórico). Task `archive-cms-page` é separada (futuro).
+- **Trigger faz bump version + stamp published_at:** `trg_landing_pages_set_updated_at` (BEFORE UPDATE) auto-incrementa version + auto-stampa published_at na transição para `'published'`. CLI não precisa setar manualmente — apenas WHERE version = expected.
+- **Snapshot automático:** `trg_landing_pages_snapshot_on_publish` (AFTER INSERT/UPDATE) grava em `landing_page_versions` quando status muda para `'published'`. Audit trail automático.
+- **Cache TTL 60s:** EF GET retorna `Cache-Control: public, s-maxage=60`. Webhook é optimization, não correctness.
+- **lp.archprime.io = SPA:** webhook retorna null. Cache é client-side via TanStack Query (1min staleTime) — flush via reload.
+- **Active vs status:** ortogonais. `status='published'` (publicada editorialmente) + `active=true` (acessível runtime) → renderiza. `published` + `active=false` → redireciona via redirect_to. `draft`/`archived` → 404 (não acessível para anonymous).
 
 ---
 

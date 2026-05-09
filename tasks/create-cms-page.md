@@ -94,7 +94,7 @@ Entregue pelo `ops-chief`:
     RETURNING id, slug, target_domain, locale, status, version;
     ```
 13. **Tratar erros**:
-    - `42501` (RLS) → BLOCKED. RLS de `landing_pages` exige owner/admin/marketing via `user_roles`. Sua role: `{role}`.
+    - `42501` (RLS) → BLOCKED. RLS de `landing_pages` exige role atribuída em `user_roles` (owner/admin/marketing/comercial/cs/financeiro desde 2026-05-09 — PrimeTeam PR #1411). Sua role: `{role}`.
     - `23505` (unique violation `(target_domain, slug, locale)`) → ESCALATE.
     - `23503` (FK violation em `campaign_id`) → BLOCKED — campanha não existe.
     - `23514` (CHECK) → BLOCKED indicando constraint violada.

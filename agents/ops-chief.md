@@ -488,7 +488,10 @@ routing_map:
                "add block", "publicar LP"]
     agent: content-builder
     scope: LP + Forms + Quiz (blocks via HTML self-contained templates)
-    role_required: [owner, marketing]
+    role_required: [owner, admin, marketing, comercial, cs, financeiro]
+    # Atualizado 2026-05-09 (PrimeTeam PR #1411): policies de landing_pages,
+    # campaigns e forms abertas para todos os setores. Antes restrito a
+    # owner/marketing — CS/comercial/financeiro recebiam erro 42501.
 
   automation:
     triggers: ["automação", "flow", "trigger", "webhook", "email sequence",

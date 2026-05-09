@@ -92,8 +92,16 @@ Cobre: LP blocks (17 types), forms, quiz, automation flows (via JSON).
 | Role | Acesso | Scope |
 |------|--------|-------|
 | owner | ✅ | Tudo |
-| marketing | ✅ | LPs, forms, quiz que tem role marketing permite |
-| Outros | ❌ (RLS em `landing_pages`) | Exceto ver LPs públicas publicadas |
+| admin | ✅ | LPs, campaigns, forms full CRUD |
+| marketing | ✅ | LPs, campaigns, forms full CRUD |
+| comercial | ✅ | LPs, campaigns, forms full CRUD (desde 2026-05-09) |
+| cs | ✅ | LPs, campaigns, forms full CRUD (desde 2026-05-09) |
+| financeiro | ✅ | LPs, campaigns, forms full CRUD (desde 2026-05-09) |
+| Sem role atribuída | ❌ (RLS em `landing_pages`) | Exceto ver LPs públicas publicadas |
+
+**Histórico:** PrimeTeam PR #1411 (2026-05-09) abriu policies de `landing_pages`,
+`campaigns` e `forms` para todos os setores. Antes era restrito a
+`owner/admin/marketing` — CS/comercial/financeiro recebiam erro 42501.
 
 ---
 

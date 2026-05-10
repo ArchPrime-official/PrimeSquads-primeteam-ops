@@ -35,7 +35,7 @@ Entregue pelo `ops-chief`:
   - `location_city`, `location_country`, `location_state` (opcional)
   - `tags` (array de strings)
   - `custom` (JSON free-form)
-  - `profession`, `income_currency`, `income_value` (opcional, para scoring)
+  - `profession`, `income_currency` (default DB: 'EUR'), `income_value` (opcional, para scoring)
   - `main_desire`, `main_pain` (free-form para qualification data)
 
 ### output
@@ -101,7 +101,10 @@ Entregue pelo `ops-chief`:
 11. **Tratar erros**:
     - 42501 (RLS) → BLOCKED com role explanation
     - 23502 (NOT NULL) → BLOCKED indicando campo
+    - 23503 (FK violation, ex: campaign_id ou owner_id inexistente) → BLOCKED
+      indicando qual FK falhou + sugestão de validar antes (list_campaigns)
     - 23505 (unique violation, ex: email duplicate se houver constraint) → BLOCKED
+    - 23514 (CHECK constraint) → BLOCKED indicando campo violado
     - 5xx → retry 1x, persistir → ESCALATE
 12. **Suggest next step** — baseado em input context:
     - Se user mencionou "qualificar" ou "presales user X": sugerir qualify_lead

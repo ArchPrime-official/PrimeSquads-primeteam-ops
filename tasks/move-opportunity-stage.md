@@ -1,6 +1,6 @@
 # Task: move-opportunity-stage
 
-> Task atômica para transicionar `opportunities.stage` entre estados (LEAD_OPPORTUNITY → STRATEGIC_SESSION → NEGOTIATION → SALE_DONE / LOST / etc.). Valida enum, auto-set closed_at em terminais, exige campos extras para WON (value) e LOST (reason).
+> Task atômica para transicionar `opportunities.stage` entre estados. Enum real (validado contra produção 2026-05-10): LEAD_OPPORTUNITY, STRATEGIC_SESSION, NEGOTIATION, CHECKOUT, REGISTERED, SALE_DONE, LOST, NO_SHOW_RECONTACT, NON_INTERESSATO (9 stages). Valida enum, auto-set closed_at em terminais (SALE_DONE/LOST/NON_INTERESSATO), exige campos extras para SALE_DONE (value) e LOST (reason).
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
@@ -108,10 +108,10 @@ Entregue pelo `ops-chief`:
    SET stage = {new_stage},
        updated_at = now(),
        closed_at = CASE
-         WHEN {new_stage} IN ('SALE_DONE', 'LOST') THEN now()
-         WHEN {new_stage} IN ('RECONTACT_FUTURE', 'NO_SHOW_RECONTACT',
-                              'LEAD_OPPORTUNITY', 'STRATEGIC_SESSION',
-                              'NEGOTIATION') THEN NULL  -- reopen, clear closed_at
+         WHEN {new_stage} IN ('SALE_DONE', 'LOST', 'NON_INTERESSATO') THEN now()
+         WHEN {new_stage} IN ('NO_SHOW_RECONTACT', 'LEAD_OPPORTUNITY',
+                              'STRATEGIC_SESSION', 'NEGOTIATION',
+                              'CHECKOUT', 'REGISTERED') THEN NULL  -- reopen
          ELSE closed_at
        END,
        sales_proposal_value = CASE
@@ -154,6 +154,8 @@ Entregue pelo `ops-chief`:
 - **[A6] Non-specified fields preserved:** UPDATE NÃO nulla campos não mencionados (sales_user_id, presales_info, etc.).
 - **[A7] RLS clarity:** 42501 → BLOCKED com role explanation.
 - **[A8] next_step_suggestion:** sempre preenchido (pode ser null para casos "close cycle"). SALE_DONE sempre sugere Finance route.
+- **[A9] Currency echo defensivo:** se new_stage=SALE_DONE e currency NÃO foi explicitamente passada, ESCALATE com warning "DB default sales_proposal_currency='BRL' (legado). Confirma EUR ou outra?". NUNCA aceitar omissão silenciosa que vira BRL.
+- **[A10] Stage enum atualizado:** valid_stages reflete valores reais em produção (9 stages, audit 2026-05-10). Inputs como 'RECONTACT_FUTURE' ou 'ON_HOLD' (legado, fora do enum atual) → ESCALATE com sugestão de equivalente real.
 
 ---
 

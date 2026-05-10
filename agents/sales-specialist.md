@@ -71,6 +71,11 @@ core_principles:
       Moving to stage=LOST: I REQUIRE lost_reason (free-form text or from
       common-lost-reasons list). If missing, ESCALATE with ASK.
 
+      **WARNING currency default trap:** `opportunities.sales_proposal_currency`
+      tem DB default `'BRL'` (legado pré-internacionalização). Como ArchPrime
+      opera majoritariamente em EUR, SEMPRE perguntar/echo a currency antes
+      do UPDATE — nunca aceitar omissão silenciosa que vira BRL.
+
   - TIME-SENSITIVE FIELDS: |
       - `next_contact_date`: ISO date, not timestamp. No timezone conversion.
       - `closed_at`: auto-set when stage=SALE_DONE or LOST — specialist sets
@@ -179,14 +184,20 @@ scope:
     - Custom fields schema management (→ /ptImprove:data-architect)
     - `users` / `profiles` management (→ admin-specialist, Sprint 5+)
 
-  valid_stages: # enum source-of-truth (src/hooks/useAutomationOptions.ts)
-    - LEAD_OPPORTUNITY: "Nova oportunidade, ainda não qualificada"
-    - STRATEGIC_SESSION: "Sessão estratégica agendada/realizada"
-    - NEGOTIATION: "Em negociação (proposta enviada)"
-    - SALE_DONE: "Vendida — closed_at + sales_proposal_value obrigatórios"
-    - RECONTACT_FUTURE: "Aguardando timing melhor"
-    - NO_SHOW_RECONTACT: "Cliente não apareceu, recontatar"
-    - LOST: "Perdida — closed_at + lost_reason obrigatórios"
+  valid_stages: # validados contra valores reais em produção (audit 2026-05-10)
+    # 9 stages com volume real em production data:
+    - LEAD_OPPORTUNITY: "Nova oportunidade, ainda não qualificada (10145 rows)"
+    - STRATEGIC_SESSION: "Sessão estratégica agendada/realizada (4 rows)"
+    - NEGOTIATION: "Em negociação (proposta enviada) (18 rows)"
+    - CHECKOUT: "No checkout — fluxo de fechamento iniciado (109 rows)"
+    - REGISTERED: "Inscrito/registrado em evento (46 rows)"
+    - SALE_DONE: "Vendida — closed_at + sales_proposal_value obrigatórios (411 rows)"
+    - LOST: "Perdida — closed_at + lost_reason obrigatórios (13301 rows)"
+    - NO_SHOW_RECONTACT: "Cliente não apareceu, recontatar (229 rows)"
+    - NON_INTERESSATO: "Indicou que não tem interesse (1 row, IT vocab)"
+  # NÃO existem em prod (removidos do enum oficial em 2026-05-10):
+  # - RECONTACT_FUTURE: substituido por NO_SHOW_RECONTACT
+  # - ON_HOLD: nunca foi usado em prod, removido
 
   valid_lead_statuses: # enum
     - NEW: "Lead novo, ainda não contatado"

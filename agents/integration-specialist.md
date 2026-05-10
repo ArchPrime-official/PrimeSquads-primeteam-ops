@@ -815,11 +815,19 @@ playbooks:
   trigger_meta_sync:
     description: >
       Invoca edge function `sync-meta-billing` (ou similar) para re-sync
-      incremental (padrão) ou full (opcional).
+      incremental (padrão) ou full (opcional). **Open op** — qualquer role
+      autorizada (marketing/comercial/admin/owner) pode rodar.
+    task_file: tasks/run-meta-sync.md
+    role_required: ['marketing', 'comercial', 'admin', 'owner']
     confirmation_required: true
+    quota_guard: "30s cooldown entre non-fast syncs"
     params:
       sync_type: 'fast' | 'incremental' | 'full' (default 'incremental')
       account_id: opcional (se múltiplas contas)
+    pre_check_token_health: |
+      Antes de invocar, SELECT meta_ads_sync_status para detectar last_error
+      recente com pattern '%token%'. Se sim → ESCALATE redirecionando para
+      update_meta_sync_config (admin-only). Esta task NUNCA renova token.
     confirmation_pattern: |
       "Vou disparar sync Meta Ads:
        - tipo: {sync_type}
@@ -836,6 +844,37 @@ playbooks:
     on_success: |
       "✓ Sync completa. {N} campaigns + {M} ads + {P} insights atualizados.
        Último sync: now. Log: meta_ads_sync_status id={row_id}"
+
+  update_meta_sync_config:
+    description: >
+      Alterar credenciais ou config de meta_ads_config (token rotation,
+      account_id swap, sync interval, toggle active). **Admin-only** —
+      tokens são credentials sensíveis (scope ads_management + billing).
+    task_file: tasks/update-meta-sync-config.md
+    role_required: ['admin', 'owner']  # STRICT — sem escalation
+    executor_handoff: "admin-specialist gate primário"
+    note_on_executor: >
+      Esta task é registrada aqui (integration-specialist) por
+      discoverability — escopo Meta Ads — mas o executor REAL é
+      admin-specialist devido ao gate admin/owner-only.
+    actions_supported:
+      - rotate_token (UPDATE access_token + token_rotated_at)
+      - update_account_id (UPDATE meta_ad_accounts.meta_account_id)
+      - update_sync_interval (UPDATE sync_interval_minutes em 15..1440)
+      - toggle_active (UPDATE is_active bool)
+    dupla_confirmation_diferenciada:
+      rotate_token: "digite 'ROTACIONA' (uppercase)"
+      update_account_id: "digite 'TROCA CONTA' (uppercase)"
+      update_sync_interval: "digite 'confirma'"
+      toggle_active: "digite 'confirma'"
+    token_redaction_obrigatorio: >
+      Activity logs e handoff cards NUNCA contêm token completo. Apenas
+      hash SHA-256 dos primeiros 8 chars + length total.
+    smoke_test_post_rotation: >
+      Após rotate_token, invoca sync-meta-billing fast para validar token
+      novo. HTTP 401 → ROLLBACK automático (UPDATE de volta) + ESCALATE.
+    audit_strict: "activity_logs INSERT failure = ROLLBACK mutation"
+    quality_guardian_audit: MANDATORY
 
   campaign_performance_summary:
     description: >

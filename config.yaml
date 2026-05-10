@@ -226,6 +226,25 @@ tasks:
     purpose: Read campanhas Meta com aggregates + underperformer flags
     agent: integration-specialist
 
+  - id: run-meta-sync
+    file: tasks/run-meta-sync.md
+    purpose: >
+      Invoca edge sync-meta-billing para refresh meta_ads_*_cache +
+      insights_daily. Open op (marketing/comercial/admin/owner). Quota guard
+      30s entre non-fast syncs. Detecta token expirado e redireciona para
+      update-meta-sync-config (NÃO renova token). Confirmation obrigatório.
+    agent: integration-specialist
+
+  - id: update-meta-sync-config
+    file: tasks/update-meta-sync-config.md
+    purpose: >
+      Token rotation, account_id swap, sync interval, toggle active em
+      meta_ads_config. Admin/owner-only (gate primário admin-specialist).
+      Dupla confirmation diferenciada (ROTACIONA/TROCA CONTA literal),
+      tokens redacted em audit logs (hash SHA-256 + length), smoke test
+      pós-rotation com rollback automático em 401.
+    agent: admin-specialist  # gate primário (admin/owner-only)
+
   - id: request-role-change
     file: tasks/request-role-change.md
     purpose: >

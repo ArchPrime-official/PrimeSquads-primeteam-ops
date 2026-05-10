@@ -135,6 +135,32 @@ tasks:
     purpose: Marcar tarefa como completa + atualizar project rollup
     agent: platform-specialist
 
+  - id: update-task
+    file: tasks/update-task.md
+    purpose: >
+      UPDATE atomic em uma row de tasks com authorization pre-check do PRD F-08.3.
+      Mudança de due_date por NÃO-creator, NÃO-owner dispara workflow F-08.3
+      (REQUEST_CREATED). Demais campos (title/priority/urgency/status/tags) =
+      UPDATE direto + audit em task_date_changes se due_date mudou.
+    agent: platform-specialist
+
+  - id: request-task-date-change
+    file: tasks/request-task-date-change.md
+    purpose: >
+      Cria row em task_date_change_requests quando user NÃO autorizado pede
+      mudança de due_date. Approver = task.created_by. Pre-check redireciona
+      creator/owner para update-task (UPDATE direto). Implementa F-08.3.
+    agent: platform-specialist
+
+  - id: approve-task-date-change
+    file: tasks/approve-task-date-change.md
+    purpose: >
+      Aprovar (UPDATE task + INSERT task_date_changes audit + UPDATE request)
+      ou rejeitar (UPDATE request) uma task_date_change_requests pendente.
+      Authorization restrita a approver_id (creator) ou owner. Race-safe via
+      WHERE due_date = current_due_date guard.
+    agent: platform-specialist
+
   - id: create-finance-transaction
     file: tasks/create-finance-transaction.md
     purpose: Lançar transação financeira (income/expense) com categoria
@@ -199,6 +225,23 @@ tasks:
     file: tasks/list-meta-campaigns.md
     purpose: Read campanhas Meta com aggregates + underperformer flags
     agent: integration-specialist
+
+  - id: request-role-change
+    file: tasks/request-role-change.md
+    purpose: >
+      FR5 (PRD 01-auth) — NÃO-owners pedem ascensão para roles restritas
+      (admin/financeiro/owner) via INSERT em role_requests. Owner aprova depois
+      via approve-role-request. Pre-checks bloqueiam self-grant e duplicates.
+    agent: platform-specialist  # listada em admin-specialist por discoverability mas executor é platform
+
+  - id: approve-role-request
+    file: tasks/approve-role-request.md
+    purpose: >
+      FR5 (PRD 01-auth) — owner aprova/rejeita role_request pendente. Approve
+      dispara INSERT user_roles + UPDATE request. Reject só UPDATE request.
+      Owner-only gate, dupla confirmation (tripla se requested_role='owner').
+      Audit STRICT (falha audit = ABORT) + quality-guardian flag mandatory.
+    agent: admin-specialist
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Workflows registry (7 workflows multi-fase)

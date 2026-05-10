@@ -2,7 +2,25 @@
 
 > Read-only buscar/filtrar assets creative studio (banners, vídeos, templates). marketing/admin.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical incerta — `creative_assets` NÃO existe em prod. Candidatos prováveis: `content_items`, `tracked_creators`, `ugc_videos`. Specialist deve mapear antes de query (Sprint futuro pode unificar em `creative_studio_assets`).
+**✅ SCHEMA ADAPTED (2026-05-10):** `creative_assets` NÃO existe — adaptado para query UNION em 3 tabelas reais:
+- `content_items` (banners, templates editorial)
+- `ugc_videos` (vídeos creators)
+- `tracked_creators` (perfis creators monitorados)
+
+**Query adaptada (UNION):**
+```sql
+SELECT 'content' AS type, id, title, asset_url, thumbnail_url, tags, created_at
+FROM content_items WHERE {filter}
+UNION ALL
+SELECT 'video' AS type, id, title, video_url AS asset_url, thumbnail_url, tags, created_at
+FROM ugc_videos WHERE {filter}
+UNION ALL
+SELECT 'creator' AS type, id, handle AS title, profile_url AS asset_url, avatar_url AS thumbnail_url, '[]'::text[] AS tags, created_at
+FROM tracked_creators WHERE {filter}
+ORDER BY created_at DESC LIMIT {limit};
+```
+
+Sprint futuro pode unificar em `creative_studio_assets` view materializada.
 
 **Cumpre:** HO-TP-001
 

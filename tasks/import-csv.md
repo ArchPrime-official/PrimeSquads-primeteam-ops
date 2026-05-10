@@ -2,11 +2,28 @@
 
 > Import CSV unificado (leads/opps/transactions). admin/owner. Dry-run obrigatório, batch async.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela `data_imports` NÃO existe em prod. Tracking pode usar:
-- `activity_logs` com `action='import-csv.{table}'` + `details.batch_metadata` (preferido — sem nova table)
-- OU criar tabela `data_imports` via migration nova.
+**✅ SCHEMA ADAPTED (2026-05-10):** Tabela `data_imports` NÃO existe — adaptado para usar `activity_logs` com `action='imports-specialist.import_csv.{target_table}'` + `details.batch_metadata` (parsed_rows, valid_rows, errors_count, imported_count, source_url, dedup_strategy). `import_batch_id` field é gerado UUID e propagado em todas rows inseridas (target tables como `leads`, `finance_transactions` já têm coluna `import_batch_id`).
 
-`import_batch_id` field exists em alguns target tables (leads, finance_transactions per agent docs) — usar como GROUP key.
+**Tracking adaptado:**
+```sql
+INSERT INTO activity_logs
+  (user_id, action, resource_type, resource_id, details, created_at)
+VALUES
+  (auth.uid(),
+   'imports-specialist.import_csv.{table}',
+   'csv_batch',
+   {batch_uuid},
+   jsonb_build_object(
+     'parsed_rows', N,
+     'valid_rows', V,
+     'errors_count', E,
+     'imported_count', I,
+     'source_url', {csv_url},
+     'dedup_strategy', {strategy},
+     'target_table', {table}
+   ),
+   NOW());
+```
 
 **Cumpre:** HO-TP-001
 

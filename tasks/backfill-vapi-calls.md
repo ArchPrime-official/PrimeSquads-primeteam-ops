@@ -2,7 +2,7 @@
 
 > Recuperar chamadas Vapi perdidas via webhook replay. Incident response. admin/owner only.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical é `telephony_calls`. UNIQUE constraint via `call_id` externo. Edge `vapi-backfill-calls` precisa existir; verificar antes de invoke.
+**✅ SCHEMA ADAPTED (2026-05-10):** Tabela canonical = `telephony_calls` (UNIQUE via `call_id` externo). Edge canonical = `call-backfill` (single) ou `call-backfill-single` (per-call). `vapi-bulk-call` + `vapi-retroactive-enqueue` também existem para casos específicos.
 
 **Cumpre:** HO-TP-001
 
@@ -42,7 +42,7 @@
      Estimated cost: $0 (Vapi list é free; custos foram já cobrados)
    ```
 5. Se `dry_run=false`: confirmation literal "BACKFILL VAPI" uppercase.
-6. **Invoke edge** `vapi-backfill-calls` com period.
+6. **Invoke edge** `call-backfill` com period.
 7. Activity log STRICT: action='integration-specialist.backfill_telephony_calls', details com counts.
 8. Echo: imported_count + warnings.
 

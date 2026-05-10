@@ -2,7 +2,13 @@
 
 > Enviar mensagem WhatsApp via Business API. Comercial/CS usam diariamente. Open op para roles autorizadas + confirmation. Implementa F-11.1 do PRD.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** `whatsapp_templates` table NÃO existe em prod — templates approved são gerenciados na Meta Business API direto. Specialist deve consultar Meta API ou cache local específico por edge function. Tabelas reais: `whatsapp_conversations`, `whatsapp_messages`, `whatsapp_sessions`.
+**✅ SCHEMA ADAPTED (2026-05-10):** `whatsapp_templates` table NÃO existe — templates approved são gerenciados pela Meta Business API direto. Specialist invoca edge `whatsapp-send` que valida template_id contra Meta API runtime (template não aprovado = 470 error surfaced em handler). Tabelas REAIS de persistence:
+- `whatsapp_conversations` — threads de conversa
+- `whatsapp_messages` — histórico messages enviados
+- `whatsapp_sessions` — sessões ativas (memory:rls-public-tables-checklist 2026-05-06)
+- `wa_send_queue` — queue de outbound (RLS habilitado em PR #1282)
+
+**Edge canonical:** `whatsapp-send` (existe em `supabase/functions/whatsapp-send/`).
 
 **Cumpre:** HO-TP-001
 

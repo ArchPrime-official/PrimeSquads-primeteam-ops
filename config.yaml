@@ -245,6 +245,162 @@ tasks:
       pós-rotation com rollback automático em 401.
     agent: admin-specialist  # gate primário (admin/owner-only)
 
+  # ── Wave 6 Tier 1: 20 tasks adicionais cobrindo módulos 02/05/09/10/11/13/17 ──
+
+  - id: create-event
+    file: tasks/create-event.md
+    purpose: >
+      Criar evento (workshop/immersione/lancio/live) orquestrando LP draft +
+      products fiscais (handoff admin) + email sequence. Marketing/owner.
+      F-17.2 + F-17.6 PRD.
+    agent: content-builder
+
+  - id: launch-lancio-online
+    file: tasks/launch-lancio-online.md
+    purpose: >
+      Wizard estruturado para Lancio Online (pré + carrinho + thank-you +
+      upsell). Cria 4 LPs draft + 3 email sequences + 1 flow upsell.
+      Marketing/owner. Tripla confirmation "CONFIRMA LANCIO". F-17.3 PRD.
+    agent: content-builder
+
+  - id: list-event-registrants
+    file: tasks/list-event-registrants.md
+    purpose: >
+      Read-only inscritos de evento com filtros (status/presença/conversão).
+      CS/marketing/admin/owner. Stats + conversion rate. F-17.5 PRD.
+    agent: sales-specialist
+
+  - id: update-event-status
+    file: tasks/update-event-status.md
+    purpose: >
+      Atualizar status de inscrito (confirmed→attended→converted).
+      State machine validation, cs/marketing/admin/owner. F-17.5 PRD.
+    agent: sales-specialist
+
+  - id: send-whatsapp-message
+    file: tasks/send-whatsapp-message.md
+    purpose: >
+      Send WhatsApp via Business API. Comercial/cs/marketing/admin/owner.
+      24h window enforcement (text fora = template only Meta policy).
+      Quota guard 10/60s. Phone redaction em logs. F-11.1 PRD.
+    agent: integration-specialist
+
+  - id: launch-vapi-call
+    file: tasks/launch-vapi-call.md
+    purpose: >
+      Disparar chamada AI Vapi. Comercial/admin/owner. Opt-out enforcement
+      hard. Cool-down 24h. Cost estimate antes de confirmar. F-11.2 PRD.
+    agent: integration-specialist
+
+  - id: list-vapi-calls
+    file: tasks/list-vapi-calls.md
+    purpose: >
+      Read-only listar chamadas Vapi com filtros (período/status/lead/cost).
+      Comercial/cs/admin/owner. Stats + transcripts opt-in (payload pesado).
+    agent: integration-specialist
+
+  - id: create-sales-invoice
+    file: tasks/create-sales-invoice.md
+    purpose: >
+      Emitir nota fiscal (sales_invoices) com número sequencial atomico
+      (advisory lock). Admin/owner via has_invoice_access. Tripla confirm
+      "EMITE NOTA". Imutável após criação. F-13.3 PRD.
+    agent: admin-specialist
+
+  - id: bulk-reissue-invoices
+    file: tasks/bulk-reissue-invoices.md
+    purpose: >
+      Reemitir batch de NFEs (correções, refresh customer data). VOID old +
+      INSERT new sequencial. Admin/owner. Tripla confirm "REISSUE BATCH".
+      Reason obrigatório. Linkagem old↔new. F-13.4 PRD.
+    agent: admin-specialist
+
+  - id: sync-seller-commission
+    file: tasks/sync-seller-commission.md
+    purpose: >
+      Calcular + persistir comissões de sellers para período mensal.
+      Admin/owner via has_invoice_access. Dry_run default true (preview).
+      Persist requer "PERSISTE COMISSÃO" literal. F-13.6 PRD.
+    agent: platform-specialist
+
+  - id: create-session-note
+    file: tasks/create-session-note.md
+    purpose: >
+      INSERT em cs_session_notes (call/email/check-in summary + next steps).
+      cs/admin/owner. FK integrity (opp/lead linka customer). F-05.2 PRD.
+    agent: platform-specialist
+
+  - id: create-onboarding-form
+    file: tasks/create-onboarding-form.md
+    purpose: >
+      Criar template de formulário (NPS/satisfação/onboarding) em
+      evaluation_forms. cs/marketing/admin/owner. Status starts draft —
+      publish é task separada. F-05.3 PRD.
+    agent: content-builder
+
+  - id: publish-onboarding-form
+    file: tasks/publish-onboarding-form.md
+    purpose: >
+      Toggle status form draft↔published. Após publish, form aceita
+      submissões públicas. Optional notify customer via email. F-05.3 PRD.
+    agent: content-builder
+
+  - id: bulk-update-opportunities
+    file: tasks/bulk-update-opportunities.md
+    purpose: >
+      Atualizar batch de opps (stage/owner/product/tags). Comercial/admin/
+      owner. Reason obrigatório, max 200, tripla confirm "BULK UPDATE",
+      atomic per-opp via SAVEPOINT. F-02.4 PRD.
+    agent: sales-specialist
+
+  - id: verify-opportunity
+    file: tasks/verify-opportunity.md
+    purpose: >
+      Marcar opp como verified/duplicate/suspicious. Admin/owner only.
+      duplicate exige merged_into_id. Reversível via 'unverify'. F-02.6 PRD.
+    agent: sales-specialist
+
+  - id: update-landing-page
+    file: tasks/update-landing-page.md
+    purpose: >
+      UPDATE landing_pages (blocks/html_content/title/redirect/etc). NÃO
+      publica. Conditional confirmation (published='UPDATE LIVE' uppercase,
+      draft=simple). Lovarch warning se html_content em lovarch/archprime
+      domain. Optimistic lock via version. F-09.1 PRD.
+    agent: content-builder
+
+  - id: generate-landing-page-ai
+    file: tasks/generate-landing-page-ai.md
+    purpose: >
+      Disparar LLM-driven LP generation (brief → blocks JSON via edge
+      landing-page-ai-generator). Marketing/admin/owner. Cost estimate.
+      LP starts draft. F-09.2 PRD.
+    agent: content-builder
+
+  - id: create-automation-flow
+    file: tasks/create-automation-flow.md
+    purpose: >
+      INSERT automation_flows (nodes/edges DAG). DAG validation (sem ciclos,
+      trigger sem incoming). Status starts draft. AI flag opcional para
+      tracking. F-10.1 PRD.
+    agent: automation-specialist
+
+  - id: activate-automation-flow
+    file: tasks/activate-automation-flow.md
+    purpose: >
+      Toggle status draft/paused → active. Authority: creator OR owner.
+      Tripla confirm "ATIVA FLOW". confirm_test_passed required (incentiva
+      dry-run). Após ativação, trigger executa real ações. F-10.1 PRD.
+    agent: automation-specialist
+
+  - id: deactivate-automation-flow
+    file: tasks/deactivate-automation-flow.md
+    purpose: >
+      Toggle status active → paused. Authority creator/owner. Pending
+      executions preservadas (default) ou canceladas (cancel_pending=true).
+      Reversible. F-10.1 PRD.
+    agent: automation-specialist
+
   - id: request-role-change
     file: tasks/request-role-change.md
     purpose: >

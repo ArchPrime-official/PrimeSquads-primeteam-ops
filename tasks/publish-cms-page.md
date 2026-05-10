@@ -1,6 +1,8 @@
 # Task: publish-cms-page
 
 > Task atômica para publicar/despublicar uma `landing_pages`. Toggle `status` entre `'draft'`/`'archived'` e `'published'`. Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages`. Conteúdo é `html_content` raw — valida que não está vazio antes de publicar. Webhook automático (`cms-revalidate` EF) bypass cache em `lovarch.com` / `archprime.io` (lp.archprime.io é SPA, sem ISR).
+>
+> ⚠️ **DEBT TÉCNICO LOVARCH:** publish em `lovarch.com` aciona renderer Next.js no repo separado `ByPabloRuanL/lovarch`. Se mexer no shape de retorno da `cms-pages-api` EF ou nos eventos `cms-track`, abrir PR companion lá no mesmo dia. Ver `data/cms-vs-landing-pages.md`.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 

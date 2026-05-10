@@ -157,8 +157,10 @@ tasks:
 
   - id: create-landing-page
     file: tasks/create-landing-page.md
-    purpose: Criar LP (sempre active=false) validando slug uniqueness
+    purpose: "[DEPRECATED 2026-05-10 — use create-cms-page] Spec pré-convergência cms_pages→landing_pages (PR #1226). Faltam target_domain/locale obrigatórios. Mantida só pra referência histórica."
     agent: content-builder
+    deprecated: true
+    superseded_by: create-cms-page
 
   - id: create-cms-page
     file: tasks/create-cms-page.md

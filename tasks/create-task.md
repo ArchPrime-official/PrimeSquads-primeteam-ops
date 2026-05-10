@@ -12,7 +12,7 @@
 `Create Task`
 
 ### status
-`pending` *(default até execução pelo platform-specialist dentro de um cycle)*
+`pending` *(default da própria task anatomy até execução pelo platform-specialist dentro de um cycle — não confundir com o campo `status` da tabela `tasks`, cujos valores válidos são `'todo' | 'doing' | 'done'`)*
 
 ### responsible_executor
 `platform-specialist` (Sprint 2 scope: Tasks module only)
@@ -31,8 +31,8 @@ Entregue pelo `ops-chief` via `*handoff` ceremony:
   - `title` (string, obrigatório — se ausente, task FAIL com ESCALATE `ask_user_for_title`)
   - `description` (string, opcional)
   - `due_date` (string — pode ser natural like "amanhã 15h" ou ISO)
-  - `priority` (int 1..4, opcional — se ausente, ASK ou inferir)
-  - `urgency` (int 1..4, opcional — se ausente, ASK ou inferir)
+  - `priority` (int 1..10, opcional — se ausente, ASK ou inferir; `5` = neutro)
+  - `urgency` (int 1..10, opcional — se ausente, ASK ou inferir; `5` = neutro)
   - `estimated_duration_minutes` (int, opcional)
   - `project_id` (uuid, opcional)
 
@@ -58,13 +58,18 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
 2. **Validar title** — não pode ser string vazia nem só whitespace. Se falhar, ESCALATE com `suggested_user_message: "Qual o título da tarefa?"`
 3. **Resolver timestamps** — se `due_date` vier em linguagem natural (ex: "amanhã 15h"), converter para Europe/Rome local e depois UTC. ECHOAR ambos no confirmation message.
 4. **Inferir Eisenhower** — se priority/urgency ausentes:
-   - Se contexto claro (ex: "urgente e importante"): inferir Q1, priority=4 urgency=4
+   - Se contexto claro (ex: "urgente e importante"): inferir Q1, priority=9 urgency=9
    - Se ambíguo: ASK via ESCALATE rather than invent
-5. **Classificar quadrante** — aplicar matriz Eisenhower:
-   - priority >=3 + urgency >=3 → Q1 (fazer agora)
-   - priority >=3 + urgency <3 → Q2 (planejar)
-   - priority <3 + urgency >=3 → Q3 (delegar)
-   - priority <3 + urgency <3 → Q4 (deletar/adiar)
+   - Convenção verbal → numérica (escala 1..10):
+     - "baixa" → 2-3
+     - "média" → 5-6
+     - "alta" → 7-8
+     - "crítica" / "máxima" → 9-10
+5. **Classificar quadrante** — aplicar matriz Eisenhower com threshold ≥7 (escala 1..10):
+   - priority ≥7 + urgency ≥7 → Q1 (fazer agora — importante e urgente)
+   - priority ≥7 + urgency <7 → Q2 (planejar — importante, não urgente)
+   - priority <7 + urgency ≥7 → Q3 (delegar — urgente, não importante)
+   - priority <7 + urgency <7 → Q4 (deletar/adiar)
 6. **Confirmation message** — apresentar ao user (via chief echo) com:
    ```
    Vou criar: «{title}»
@@ -83,12 +88,17 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
    VALUES
      ({title}, {desc}, {due_utc}, {p}, {u},
       {est_min}, {proj_id},
-      auth.uid(), auth.uid(), 'pending', 'work');
+      auth.uid(), auth.uid(), 'todo', 'task');
    ```
+   **Valores válidos enforced pelo schema (CHECK constraint):**
+   - `status` ∈ `'todo' | 'doing' | 'done'` (default `'todo'` — pode omitir)
+   - `block_type` ∈ `'task' | 'meeting' | 'focus_time' | 'personal' | 'unavailable'` (default `'task'`)
+   - `priority`, `urgency` ∈ `1..10` (CHECK constraint, default `5`)
 9. **Capturar response** — Supabase retorna `data.id` (uuid) + row inserted.
 10. **Tratar erros**:
     - PGRST301 / 42501 (RLS denial) → BLOCKED, reportar role + policy
     - 23502 (not null violation) → BLOCKED, reportar campo
+    - 23514 (CHECK constraint) → BLOCKED, reportar campo violado (status/block_type/priority/urgency fora do enum/range)
     - 5xx / timeout → retry 1x; se persistir, ESCALATE
 11. **Retornar ao chief** — announcement V10 + handoff card V18 com `task_id`, `quadrant`, `row_snapshot`.
 
@@ -102,6 +112,7 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
 - **[A6] Error clarity:** se RLS ou constraint violation acontece, o handoff card tem `verdict = BLOCKED`, error code, e a mensagem original do Supabase (não mascarada).
 - **[A7] Idempotency note:** a task NÃO é idempotente por design (cada execução cria uma nova row). Mas o handoff card AVISA se o title/due_date match com uma row recente (últimas 24h) para detecção de duplicata acidental.
 - **[A8] No scope creep:** mesmo que request mencione finance/cs/etc., esta task SOMENTE cria linha em `tasks`. Outros módulos = ESCALATE.
+- **[A9] Schema enums respected:** o INSERT NUNCA envia valores fora dos enums do schema. `status` ∈ `('todo','doing','done')`, `block_type` ∈ `('task','meeting','focus_time','personal','unavailable')`, `priority` e `urgency` ∈ `1..10`. Se request do user pedir valor fora do enum, ESCALATE com tradução para o valor mais próximo válido.
 
 ---
 
@@ -120,12 +131,12 @@ Task: create-task
 
 1. Title = "revisar PRD fiscal engine"
 2. "sexta" (hoje = qua 2026-04-23) → 2026-04-25 18:00 Europe/Rome → 2026-04-25T16:00Z UTC
-3. "alta prioridade" → priority=4. Urgency não explícita, 2 dias de prazo → urgency=3 (inferência ecoada).
-4. Quadrant: priority=4 + urgency=3 → Q1 (fazer agora, há prazo curto)
+3. "alta prioridade" → priority=8 (alta = 7-8). Urgency não explícita, 2 dias de prazo → urgency=7 (inferência ecoada).
+4. Quadrant: priority=8 + urgency=7 → Q1 (fazer agora, importante e urgente)
 5. Confirmation:
    ```
    Vou criar: «revisar PRD fiscal engine»
-   priority=4 urgency=3 (Eisenhower Q1 — fazer agora, prazo curto)
+   priority=8 urgency=7 (Eisenhower Q1 — fazer agora, importante e urgente)
    due_date=2026-04-25T16:00Z (sexta 18h Europe/Rome)
    description: —
    Confirma?
@@ -140,8 +151,8 @@ Task: create-task
    eisenhower_quadrant: Q1
    due_date_utc: 2026-04-25T16:00:00Z
    due_date_local: 2026-04-25 18:00 Europe/Rome
-   row_snapshot: { title, priority, urgency, due_date, created_by, owner_id, status: pending }
-   convention_check: UTC ✓ | RLS ✓ | session RO ✓ | i18n N/A
+   row_snapshot: { title, priority: 8, urgency: 7, due_date, created_by, owner_id, status: 'todo', block_type: 'task' }
+   convention_check: UTC ✓ | RLS ✓ | session RO ✓ | i18n N/A | enums ✓
    ```
 
 ### Exemplo 2 — Title ausente (ESCALATE)

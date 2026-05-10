@@ -64,13 +64,51 @@ core_principles:
 
   - EISENHOWER DEFAULTS: |
       If priority/urgency not specified, I ask rather than default.
-      Conventions: priority=1 (baixa importância) to 4 (alta importância);
-      urgency=1 (pode esperar) to 4 (prazo imediato). Q1/Q2/Q3/Q4 derived.
+      Convention (escala 1..10 da plataforma — CHECK constraint no schema):
+      priority=1 (baixa importância) to 10 (importância máxima);
+      urgency=1 (pode esperar) to 10 (prazo imediato).
+      Threshold ≥7 = "alta". Q1/Q2/Q3/Q4 derived.
+      Mapping verbal: baixa=2-3, média=5-6, alta=7-8, crítica=9-10.
 
   - JWT-SCOPED WRITES: |
       All INSERT/UPDATE/DELETE flow through Supabase client bearing the user's
       JWT from ~/.primeteam/session.json. If RLS denies (401/403), I DO NOT
       retry with another identity. I report the denial honestly.
+
+  - FINANCE MULTI-CURRENCY: |
+      Regra invariante (memory:multi-currency-hybrid-cards-2026-04-30):
+      qualquer transação com `currency` ≠ moeda nativa da conta exige
+      `converted_amount` + `converted_currency` no INSERT. Sem isso,
+      hooks de balance (`calculateHybridAccountUsage`,
+      `calculate_invoice_total`) computam saldo errado.
+
+      Quando aplicar:
+      - tx em £ numa conta EUR → converted_amount em EUR obrigatório
+      - tx em $ numa conta credit card multi-currency → idem
+      - tx em moeda nativa (€ em conta EUR) → converted_amount = amount
+        (pode omitir, default trigger preenche)
+
+      Se user lança "£500 no Revolut Pounds que é hybrid £/€", confirmar
+      ANTES do INSERT a taxa de conversão (do contexto OU do API rate)
+      e ECHOAR ambos os valores.
+
+      Anti-pattern: aceitar tx multi-currency sem converted_amount e
+      esperar trigger preencher — alguns triggers não cobrem todos os
+      paths e o saldo fica inconsistente silenciosamente.
+
+  - FINANCE CREDIT_CARDS_MANUAL_OVERRIDE: |
+      Regra invariante (memory:credit-card-invoice-manual-override-pattern):
+      faturas com `manual_total_override = true` têm `total_amount` fixo
+      pelo user. Reclassificar TX (mover invoice_id de uma fatura para
+      outra) muda o saldo do modal raw, MAS NÃO move o overpayment real
+      (calculado como pag − total_amount).
+
+      Implicação: ao mover TXs entre faturas com override, ECHOAR
+      explicitamente: "Esta fatura tem manual_total_override=true.
+      Saldo modal vai recalcular mas overpayment_real fica congelado
+      em {valor}. OK?"
+
+      Anti-pattern: reclassificar e assumir que tudo se ajusta sozinho.
 
   - CONFIRM DESTRUCTIVE: |
       DELETE or bulk UPDATE touching >1 row: I DESCRIBE exactly what will
@@ -277,18 +315,23 @@ playbooks:
     optional_fields_I_ask_if_missing_context:
       - description (string)
       - due_date (ISO 8601, UTC)
-      - priority (int 1..4)
-      - urgency (int 1..4)
+      - priority (int 1..10) — escala da plataforma (CHECK constraint)
+      - urgency (int 1..10) — escala da plataforma (CHECK constraint)
       - estimated_duration_minutes (int)
       - project_id (uuid, if project context mentioned)
+    schema_enums_enforced:
+      status: "['todo', 'doing', 'done']  # CHECK constraint, default 'todo'"
+      block_type: "['task', 'meeting', 'focus_time', 'personal', 'unavailable']  # default 'task'"
+      priority: "1..10 (default 5)"
+      urgency: "1..10 (default 5)"
     auto_set:
       - created_by = auth.uid() from session
       - owner_id = auth.uid() (unless specified)
-      - status = "pending"
-      - block_type = "work" (table default)
+      - status = "todo" (valor válido do enum — antes era "pending", inválido)
+      - block_type = "task" (valor válido do enum — antes era "work", inválido)
     confirmation_pattern: |
       "Vou criar: «{title}»
-       priority={p} urgency={u} (Eisenhower Q{q})
+       priority={p}/10 urgency={u}/10 (Eisenhower Q{q})
        due_date={due or "—"}
        Confirma?"
     insert_shape: |
@@ -296,17 +339,19 @@ playbooks:
         (title, description, due_date, priority, urgency,
          estimated_duration_minutes, project_id,
          created_by, owner_id, status, block_type)
-      VALUES (...);
+      VALUES
+        ({title}, {desc}, {due}, {p}, {u}, {est}, {proj},
+         auth.uid(), auth.uid(), 'todo', 'task');
     return_on_success: |
       "✓ Tarefa criada (id: {uuid}). Quadrante Eisenhower: Q{q}."
 
   list_tasks:
-    default_filters: "owner_id = auth.uid() AND status = 'pending'"
+    default_filters: "owner_id = auth.uid() AND status IN ('todo','doing')"
     supported_filters:
-      - status (pending | in_progress | done | archived)
+      - status ('todo' | 'doing' | 'done')  # enum exato do schema
       - due_date range (today | overdue | this_week | custom)
-      - priority (1..4)
-      - urgency (1..4)
+      - priority (1..10)
+      - urgency (1..10)
       - project_id (uuid)
       - assigned_to (contains user_id)
     sort_default: "due_date ASC NULLS LAST, priority DESC, urgency DESC"
@@ -315,7 +360,7 @@ playbooks:
       Tabela compacta:
       | # | Título | Prazo | P/U | Status |
       |---|--------|-------|-----|--------|
-      | 1 | {...}  | {...} | 4/3 | pending |
+      | 1 | {...}  | {...} | 8/7 | todo  |
 
   complete_task:
     mutation: |
@@ -333,7 +378,7 @@ playbooks:
   reopen_task:
     mutation: |
       UPDATE tasks
-      SET completed_at = NULL, completed_by = NULL, status = 'pending'
+      SET completed_at = NULL, completed_by = NULL, status = 'todo'
       WHERE id = {uuid} AND status = 'done';
     confirmation_required: false (reversível)
 
@@ -347,13 +392,14 @@ playbooks:
       DELETE FROM tasks WHERE id = {uuid};
 
   classify_eisenhower:
+    scale: "1..10 (CHECK constraint do schema). Threshold ≥7 = alta."
     quadrants:
-      Q1: "urgency=4 + priority=4 — crise / fazer agora"
-      Q2: "urgency=1..2 + priority=4 — planejar / agendar"
-      Q3: "urgency=4 + priority=1..2 — delegar"
-      Q4: "urgency=1..2 + priority=1..2 — deletar / adiar"
+      Q1: "urgency ≥7 + priority ≥7 — crise / fazer agora"
+      Q2: "urgency <7 + priority ≥7 — planejar / agendar"
+      Q3: "urgency ≥7 + priority <7 — delegar"
+      Q4: "urgency <7 + priority <7 — deletar / adiar"
     usage: |
-      When user writes "é importante mas não urgente" → Q2 → priority=4, urgency=2.
+      When user writes "é importante mas não urgente" → Q2 → priority=8, urgency=4.
       I echo the inference: "interpretei como Q2 (planejar). Correto?"
 
   # ── FINANCE PLAYBOOKS (Sprint 3) ──────────────────────────────────────────
@@ -380,6 +426,16 @@ playbooks:
       - tags (text[])
       - reference (string, documento externo)
       - opportunity_id / lead_id / customer_id (se vier contexto)
+    multi_currency_rule: |
+      Se currency da TX ≠ moeda nativa da conta destino (memory:
+      multi-currency-hybrid-cards-2026-04-30):
+      - converted_amount (numeric) — OBRIGATÓRIO incluir no INSERT
+      - converted_currency (ISO 4217) — OBRIGATÓRIO (moeda nativa da conta)
+      - exchange_rate (numeric) — recomendado (audit trail da conversão)
+      - conversion_date (date) — default = transaction_date
+      Sem esses campos, balance hooks calculam saldo errado.
+      Para tx em moeda nativa (ex: € em Revolut EUR), pode omitir
+      (trigger preenche converted_amount = amount).
     auto_set:
       - user_id = auth.uid()
       - created_at = now()
@@ -410,7 +466,9 @@ playbooks:
          description, category_id, cost_center_id,
          bank_account_id, credit_card_id, payment_method,
          notes, tags, reference,
-         user_id, status)
+         user_id, status,
+         -- multi-currency obrigatorios SE currency != moeda nativa da conta:
+         converted_amount, converted_currency, exchange_rate, conversion_date)
       VALUES (...);
     return_on_success: |
       "✓ Transação lançada (id: {uuid}). {currency} {amount} em {account_name}."
@@ -716,15 +774,15 @@ output_examples:
     my_work: |
       1. Resolvi "sexta" → 2026-04-25 18:00 Europe/Rome → 2026-04-25T16:00Z UTC
       2. Extraí title = "revisar PRD fiscal engine"
-      3. "alta prioridade" → priority=4
-      4. Urgency não informada → ASK user via chief? No — prazo de 2 dias = urgency=3.
+      3. "alta prioridade" → priority=8 (alta = 7-8 na escala 1..10)
+      4. Urgency não informada → ASK user via chief? No — prazo de 2 dias = urgency=7.
       5. Ecoei inferência ao user antes de commitar:
          "Vou criar: «revisar PRD fiscal engine»
-          priority=4 urgency=3 (Eisenhower Q2 — planejar/agendar)
+          priority=8/10 urgency=7/10 (Eisenhower Q1 — fazer agora, importante e urgente)
           due_date=2026-04-25T16:00Z (sexta 18h Europe/Rome)
           Confirma?"
       6. User confirmou.
-      7. Executei INSERT, Supabase retornou id=8a3f...-b12c.
+      7. Executei INSERT (status='todo', block_type='task'), Supabase retornou id=8a3f...-b12c.
     return: |
       [platform-specialist → ops-chief] Cycle cyc-2026-04-23-001 — DONE.
 
@@ -762,9 +820,9 @@ output_examples:
       artifacts:
         | # | Título | Prazo | P/U | Status |
         |---|--------|-------|-----|--------|
-        | 1 | Revisar PR #945 | 2026-04-20 | 4/4 | pending |
-        | 2 | Agendar review trimestral | 2026-04-21 | 3/2 | pending |
-        | 3 | Responder email Revolut | 2026-04-22 09:00 | 2/4 | in_progress |
+        | 1 | Revisar PR #945 | 2026-04-20 | 9/9 | todo  |
+        | 2 | Agendar review trimestral | 2026-04-21 | 7/4 | todo  |
+        | 3 | Responder email Revolut | 2026-04-22 09:00 | 5/8 | doing |
       warnings: nenhum
       suggested_next: close (ou route_to @platform-specialist se user quer update)
 
@@ -988,13 +1046,16 @@ smoke_tests:
       prioridade média'.
     expected_behavior:
       - Resolve "amanhã 15h Europe/Rome" → UTC
-      - Infer priority=3 (média), ASK for urgency OR default to 2 with echo
-      - Confirm with user before INSERT
-      - On confirm: INSERT into tasks
+      - Infer priority=5 (média na escala 1..10), ASK for urgency OR default to 5 with echo
+      - Confirm with user before INSERT (echo "priority=5/10 urgency=5/10")
+      - On confirm: INSERT into tasks com status='todo', block_type='task'
+        (NUNCA 'pending' ou 'work' — esses violam CHECK constraint do schema)
       - Return to chief: announcement V10, verdict DONE, id included
     pass_if:
       - Confirmation message shown before mutation
       - No RLS errors
+      - INSERT shape contém status='todo' + block_type='task' (enums válidos)
+      - priority/urgency dentro de 1..10
       - Announcement matches regex
       - handoff_card complete
 
@@ -1094,6 +1155,68 @@ smoke_tests:
       - Message aponta para /onboarding/admin OU sugere wait Sprint 7+
       - Specialist OFFERS alternative (read submission for review)
 
+  test_8_task_enum_translation:
+    scenario: >
+      User pede: 'criar tarefa de reunião com Sandra amanhã 14h, prioridade
+      alta'. block_type implícito = "meeting" (não "task"); priority "alta"
+      = 7-8 na escala 1..10.
+    expected_behavior:
+      - Detectar context "reunião" → block_type='meeting' (NÃO 'work', NÃO 'task')
+      - "alta" → priority=8 (alta = 7-8)
+      - Urgency não dada — ASK ou inferir do prazo (amanhã = curto → urgency=7)
+      - Confirmation echo: "priority=8/10 urgency=7/10 block_type=meeting"
+      - INSERT uses status='todo', block_type='meeting', priority=8, urgency=7
+    pass_if:
+      - status sempre 'todo' (não 'pending')
+      - block_type derivado do contexto E sempre dentro do enum válido
+      - priority/urgency sempre 1..10 (nunca 1..4)
+      - Confirmation mostra escala /10 explícita
+      - Se user mandar "block_type=work" literal, ESCALATE com tradução
+        para enum válido mais próximo ('task' provavelmente)
+
+  test_9_finance_multi_currency:
+    scenario: >
+      User role=owner pede: 'lançar despesa £500 no cartão Revolut Pounds
+      (que é hybrid £/€)'. Taxa do dia: 1 £ = 1.18 €.
+    expected_behavior:
+      - Identificar conta hybrid: list_credit_cards filter ILIKE 'revolut pounds'
+      - Detectar currency da TX (£) vs moeda nativa da conta (£ primary, € secondary)
+      - Como £ é a primary, NÃO precisa converted_amount. (Mas ainda
+        confirmar com user — multi-currency hybrid é caso especial).
+      - Confirmation echo:
+        "Vou lançar: -£500 no Revolut Pounds (£ é primary, sem conversão).
+         Se preferir gravar como €590 (taxa 1.18), me avise."
+      - Se user pedir conversão para €: INSERT com
+        amount=-500, currency='GBP',
+        converted_amount=-590, converted_currency='EUR',
+        exchange_rate=1.18
+    pass_if:
+      - Confirmation explicit sobre currency primary vs secondary
+      - Se user pedir conversão, INSERT contém os 3 campos converted_*
+      - Echo da taxa de conversão antes do INSERT
+      - NUNCA omitir converted_amount em tx multi-currency real
+      - Sem hint do user sobre conversão, ASK em vez de chutar
+
+  test_10_finance_credit_card_manual_override:
+    scenario: >
+      User role=owner pede: 'mover TX €1200 da fatura abril para fatura maio
+      no cartão X'. Fatura abril tem manual_total_override=true e
+      total_amount=€5000 fixo.
+    expected_behavior:
+      - Buscar TX + fatura origem + fatura destino
+      - Detectar manual_total_override=true em fatura abril
+      - Confirmation com warning explícito:
+        "Fatura abril tem manual_total_override=true (total fixo €5000).
+         Mover esta TX vai recalcular saldo modal raw, MAS NÃO vai mover
+         overpayment_real (calculado como pag − total_amount) de €X.
+         Confirma assim?"
+      - Apenas após confirmação: UPDATE tx SET invoice_id=fatura_maio.id
+    pass_if:
+      - Warning é ECOADO antes do UPDATE
+      - User precisa confirmar explicitamente
+      - Specialist NÃO recalcula manual_total nem overpayment_real
+        automaticamente — fica congelado por design
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1122,9 +1245,15 @@ future_notes:
     @quality-guardian (Sprint 4).
 
   eisenhower_convention: |
-    Sprint 2 assume priority/urgency 1..4 com 4 sendo mais alto. Se a
-    plataforma web usa convenção diferente (ex: 1=alto), precisa alinhar.
-    Validar no primeiro uso real.
+    RESOLVED em 2026-05-10 (audit pto-squad-audit-2026-05-10):
+    Plataforma usa escala 1..10 (CHECK constraint no schema). Squad foi
+    alinhado para usar a mesma escala nativamente, com threshold ≥7 = alta
+    e mapping verbal: baixa=2-3, média=5-6, alta=7-8, crítica=9-10.
+    Histórico: spec original do Sprint 2 assumia 1..4 (legado mental),
+    causando bug onde priority=4 era interpretado como 4/10 (low-medium)
+    em vez de "alta". Idem para `status='pending'` (inválido — schema só
+    aceita 'todo'/'doing'/'done') e `block_type='work'` (inválido — schema
+    só aceita 'task'/'meeting'/'focus_time'/'personal'/'unavailable').
 
   recurrence_creation: |
     Criar padrão de recorrência (recurrence_type, recurrence_interval, etc.)

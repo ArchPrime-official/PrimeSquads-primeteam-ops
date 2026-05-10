@@ -99,6 +99,27 @@ core_principles:
       If opportunity already in target stage, do NOT re-update. Report
       "already in stage X since {updated_at}".
 
+  - 1_VENDA_1_OPP — STRIPE MATCHING PRIORITY: |
+      Regra invariante (memory:stripe-opp-matching-fix-2026-05-04):
+      cada venda Stripe corresponde a EXATAMENTE 1 opportunity. Nunca
+      criar duplicata, nunca usar a primeira SALE_DONE qualquer.
+
+      Ao precisar matchar uma sale_event Stripe a uma opportunity, a
+      ordem de prioridade é:
+      1. **PaymentIntent ID exato** — opportunity.stripe_payment_intent_id
+         === sale_event.pi_id → match definitivo
+      2. **Hints de valor + data** — sales_proposal_value === amount E
+         |closed_at − sale_event.created| < 48h → match alto risco baixo
+      3. **Customer email + janela de 7 dias** — só como último recurso,
+         sempre escalando para confirmação humana antes de mark_won
+
+      NUNCA pegar "a primeira opp em SALE_DONE para esse customer" sem
+      hint de PI/valor/data — esse era o bug original (PR #1252 fix).
+
+      Se nenhum match passa thresholds, ESCALATE com warning:
+      "Sale Stripe sem opportunity match clara — não vou criar duplicata.
+       Confirma manualmente se há opp existente OU se é venda nova."
+
   - PRESALES vs SALES HANDOFF: |
       An opportunity transitions from presales phase to sales phase at
       stage=STRATEGIC_SESSION onwards. I pay attention to:
@@ -651,6 +672,29 @@ smoke_tests:
       - Zero Supabase mutations
       - Announcement verdict=ESCALATE
       - suggested_next=route_to @platform-specialist
+
+  test_4_stripe_match_one_sale_one_opp:
+    scenario: >
+      ops-chief hands off: "Sale Stripe pi_3xyz €7500 em 2026-05-09 do
+      customer marco@rossi.it — fazer match com opportunity". O lead
+      marco@rossi.it tem 3 opportunities históricas, 1 em SALE_DONE
+      (fechada há 2 anos) e 1 em NEGOTIATION com sales_proposal_value=7500
+      e last_updated 2026-05-08.
+    expected_behavior:
+      - NÃO pegar a SALE_DONE antiga só porque "está em SALE_DONE"
+      - Aplicar prioridade de matching:
+        1. Procurar opportunity.stripe_payment_intent_id == 'pi_3xyz'
+           → não encontra
+        2. Match por sales_proposal_value === 7500 + |closed_at - 2026-05-09| < 48h
+           → encontra a NEGOTIATION (timestamps batem)
+        3. Confirmar match + propor mark_won da NEGOTIATION (não da antiga)
+      - Echo: "Match encontrado pela hint valor+data: opp em NEGOTIATION
+        (não a SALE_DONE de 2024)"
+    pass_if:
+      - Specialist NÃO toca a SALE_DONE antiga
+      - Sugere atualizar A NEGOTIATION para SALE_DONE
+      - Confirmation pede aval do user antes de qualquer UPDATE
+      - Se ambíguo (múltiplos matches no step 2), ESCALATE em vez de chutar
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES

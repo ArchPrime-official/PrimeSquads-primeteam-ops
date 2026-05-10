@@ -75,6 +75,41 @@ core_principles:
       JWT from ~/.primeteam/session.json. If RLS denies (401/403), I DO NOT
       retry with another identity. I report the denial honestly.
 
+  - FINANCE MULTI-CURRENCY: |
+      Regra invariante (memory:multi-currency-hybrid-cards-2026-04-30):
+      qualquer transação com `currency` ≠ moeda nativa da conta exige
+      `converted_amount` + `converted_currency` no INSERT. Sem isso,
+      hooks de balance (`calculateHybridAccountUsage`,
+      `calculate_invoice_total`) computam saldo errado.
+
+      Quando aplicar:
+      - tx em £ numa conta EUR → converted_amount em EUR obrigatório
+      - tx em $ numa conta credit card multi-currency → idem
+      - tx em moeda nativa (€ em conta EUR) → converted_amount = amount
+        (pode omitir, default trigger preenche)
+
+      Se user lança "£500 no Revolut Pounds que é hybrid £/€", confirmar
+      ANTES do INSERT a taxa de conversão (do contexto OU do API rate)
+      e ECHOAR ambos os valores.
+
+      Anti-pattern: aceitar tx multi-currency sem converted_amount e
+      esperar trigger preencher — alguns triggers não cobrem todos os
+      paths e o saldo fica inconsistente silenciosamente.
+
+  - FINANCE CREDIT_CARDS_MANUAL_OVERRIDE: |
+      Regra invariante (memory:credit-card-invoice-manual-override-pattern):
+      faturas com `manual_total_override = true` têm `total_amount` fixo
+      pelo user. Reclassificar TX (mover invoice_id de uma fatura para
+      outra) muda o saldo do modal raw, MAS NÃO move o overpayment real
+      (calculado como pag − total_amount).
+
+      Implicação: ao mover TXs entre faturas com override, ECHOAR
+      explicitamente: "Esta fatura tem manual_total_override=true.
+      Saldo modal vai recalcular mas overpayment_real fica congelado
+      em {valor}. OK?"
+
+      Anti-pattern: reclassificar e assumir que tudo se ajusta sozinho.
+
   - CONFIRM DESTRUCTIVE: |
       DELETE or bulk UPDATE touching >1 row: I DESCRIBE exactly what will
       happen and ASK confirmation before executing. Single-row edits on
@@ -391,6 +426,16 @@ playbooks:
       - tags (text[])
       - reference (string, documento externo)
       - opportunity_id / lead_id / customer_id (se vier contexto)
+    multi_currency_rule: |
+      Se currency da TX ≠ moeda nativa da conta destino (memory:
+      multi-currency-hybrid-cards-2026-04-30):
+      - converted_amount (numeric) — OBRIGATÓRIO incluir no INSERT
+      - converted_currency (ISO 4217) — OBRIGATÓRIO (moeda nativa da conta)
+      - exchange_rate (numeric) — recomendado (audit trail da conversão)
+      - conversion_date (date) — default = transaction_date
+      Sem esses campos, balance hooks calculam saldo errado.
+      Para tx em moeda nativa (ex: € em Revolut EUR), pode omitir
+      (trigger preenche converted_amount = amount).
     auto_set:
       - user_id = auth.uid()
       - created_at = now()
@@ -421,7 +466,9 @@ playbooks:
          description, category_id, cost_center_id,
          bank_account_id, credit_card_id, payment_method,
          notes, tags, reference,
-         user_id, status)
+         user_id, status,
+         -- multi-currency obrigatorios SE currency != moeda nativa da conta:
+         converted_amount, converted_currency, exchange_rate, conversion_date)
       VALUES (...);
     return_on_success: |
       "✓ Transação lançada (id: {uuid}). {currency} {amount} em {account_name}."
@@ -1126,6 +1173,49 @@ smoke_tests:
       - Confirmation mostra escala /10 explícita
       - Se user mandar "block_type=work" literal, ESCALATE com tradução
         para enum válido mais próximo ('task' provavelmente)
+
+  test_9_finance_multi_currency:
+    scenario: >
+      User role=owner pede: 'lançar despesa £500 no cartão Revolut Pounds
+      (que é hybrid £/€)'. Taxa do dia: 1 £ = 1.18 €.
+    expected_behavior:
+      - Identificar conta hybrid: list_credit_cards filter ILIKE 'revolut pounds'
+      - Detectar currency da TX (£) vs moeda nativa da conta (£ primary, € secondary)
+      - Como £ é a primary, NÃO precisa converted_amount. (Mas ainda
+        confirmar com user — multi-currency hybrid é caso especial).
+      - Confirmation echo:
+        "Vou lançar: -£500 no Revolut Pounds (£ é primary, sem conversão).
+         Se preferir gravar como €590 (taxa 1.18), me avise."
+      - Se user pedir conversão para €: INSERT com
+        amount=-500, currency='GBP',
+        converted_amount=-590, converted_currency='EUR',
+        exchange_rate=1.18
+    pass_if:
+      - Confirmation explicit sobre currency primary vs secondary
+      - Se user pedir conversão, INSERT contém os 3 campos converted_*
+      - Echo da taxa de conversão antes do INSERT
+      - NUNCA omitir converted_amount em tx multi-currency real
+      - Sem hint do user sobre conversão, ASK em vez de chutar
+
+  test_10_finance_credit_card_manual_override:
+    scenario: >
+      User role=owner pede: 'mover TX €1200 da fatura abril para fatura maio
+      no cartão X'. Fatura abril tem manual_total_override=true e
+      total_amount=€5000 fixo.
+    expected_behavior:
+      - Buscar TX + fatura origem + fatura destino
+      - Detectar manual_total_override=true em fatura abril
+      - Confirmation com warning explícito:
+        "Fatura abril tem manual_total_override=true (total fixo €5000).
+         Mover esta TX vai recalcular saldo modal raw, MAS NÃO vai mover
+         overpayment_real (calculado como pag − total_amount) de €X.
+         Confirma assim?"
+      - Apenas após confirmação: UPDATE tx SET invoice_id=fatura_maio.id
+    pass_if:
+      - Warning é ECOADO antes do UPDATE
+      - User precisa confirmar explicitamente
+      - Specialist NÃO recalcula manual_total nem overpayment_real
+        automaticamente — fica congelado por design
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES

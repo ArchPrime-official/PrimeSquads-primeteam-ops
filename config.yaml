@@ -401,6 +401,124 @@ tasks:
       Reversible. F-10.1 PRD.
     agent: automation-specialist
 
+  # ── Wave 7 Tier 1: 13 tasks UI-vs-CLI gaps (cobre ops diárias UI fazia/CLI não) ──
+
+  - id: update-finance-transaction
+    file: tasks/update-finance-transaction.md
+    purpose: >
+      UPDATE finance_transactions (description, amount, category, status,
+      cost_center, etc). Joyce/Larissa op DIÁRIA. has_finance_access
+      (owner+financeiro, admin EXCLUDED). Multi-currency: converted_*
+      mandatory se currency != native. Parent recurrence guard.
+    agent: platform-specialist
+
+  - id: delete-finance-transaction
+    file: tasks/delete-finance-transaction.md
+    purpose: >
+      Hard DELETE finance_transactions single ou bulk (max 50). Reason
+      obrigatório. has_finance_access (admin BLOCKED). Tripla "DELETE TX".
+      Cascade opt-in para recurrence/installments. SAVEPOINT atomic.
+    agent: platform-specialist
+
+  - id: update-commission-level
+    file: tasks/update-commission-level.md
+    purpose: >
+      Atualizar commission_levels params (fixed_bonus, targets, rate, etc).
+      has_invoice_access (owner+admin). Tripla "UPDATE LEVEL". Reason
+      obrigatório. Affected sellers count + recalc warning. Quarterly review.
+    agent: admin-specialist
+
+  - id: update-lead
+    file: tasks/update-lead.md
+    purpose: >
+      UPDATE leads (name/email/phone/status/owner/tags/score/opted_out).
+      Comercial/cs/admin/owner. Email+phone validation, status transition
+      guards (converted=terminal). PII redaction logs. Opt-out side-effect
+      cancela sequences ativas (compliance LGPD/GDPR).
+    agent: sales-specialist
+
+  - id: delete-opportunity
+    file: tasks/delete-opportunity.md
+    purpose: >
+      Soft delete opp (deleted_at) reversible 30d, ou hard delete admin/
+      owner only. Comercial deleta próprias; admin deleta qualquer.
+      Won + invoice = BLOCKED (compliance HMRC). Tripla "DELETE OPP" hard.
+    agent: sales-specialist
+
+  - id: update-onboarding-form
+    file: tasks/update-onboarding-form.md
+    purpose: >
+      UPDATE evaluation_forms metadata (name/description/slug/target_customer/
+      form_type). NÃO publica. URL change warning se published. Optimistic
+      lock via version. cs/marketing/admin/owner.
+    agent: content-builder
+
+  - id: manage-form-fields
+    file: tasks/manage-form-fields.md
+    purpose: >
+      CRUD granular de form_fields (add/update/delete/reorder). Type-immutable
+      se form tem submissions. Max 50 fields. Reorder atomic. Submissions
+      preservation em delete. cs/marketing/admin/owner.
+    agent: content-builder
+
+  - id: toggle-campaign-status
+    file: tasks/toggle-campaign-status.md
+    purpose: >
+      Toggle campaign status (active/paused/archived). Sandra op DIÁRIA.
+      marketing/admin/owner. Confirmation com counts (LPs ativas + leads
+      queue). Status transition validation.
+    agent: content-builder
+
+  - id: bulk-delete-leads
+    file: tasks/bulk-delete-leads.md
+    purpose: >
+      Bulk delete leads (cleanup periódico). admin/owner only. Tripla
+      "BULK DELETE LEADS". Reason obrigatório. Max 200. FK protection
+      (won opps preserved). Opted_out warning compliance.
+    agent: sales-specialist
+
+  - id: delete-task
+    file: tasks/delete-task.md
+    purpose: >
+      Hard delete tasks single/bulk (max 50). Authority creator/owner/PM.
+      Filter authorized vs unauthorized antes de confirmar. Tripla "DELETE
+      TASKS" se batch >5. Surface skipped count.
+    agent: platform-specialist
+
+  - id: reschedule-task
+    file: tasks/reschedule-task.md
+    purpose: >
+      UPDATE due_date/scheduled_at com F-08.3 integration (non-creator/
+      non-owner → REQUEST_CREATED). Conflict detection com tasks +
+      calendar_events. force_conflict opt-in. Audit em task_date_changes.
+    agent: platform-specialist
+
+  - id: send-message
+    file: tasks/send-message.md
+    purpose: >
+      INSERT em channel_messages. Operação MAIS frequente do time. Membership
+      check, archived BLOCKED. Skip confirmation se < 200 chars sem mentions.
+      Activity log selectivo (evita spam). Notification side-effect non-
+      blocking. Thread integrity (no nested). F-07.1 PRD.
+    agent: platform-specialist
+
+  - id: create-channel
+    file: tasks/create-channel.md
+    purpose: >
+      Criar channel + initial membership atomic. admin/owner only (estrutura
+      organizacional). Name kebab-case + uniqueness. Members existem +
+      active. F-07.1 PRD.
+    agent: platform-specialist
+
+  - id: create-schedule-block
+    file: tasks/create-schedule-block.md
+    purpose: >
+      Criar block na agenda (focus_time/meeting/personal/unavailable/task).
+      Self-block default; cross-user requer admin/owner. Conflict detection +
+      force_conflict opt-in. Google Calendar sync side-effect non-blocking.
+      F-06 + F-08 PRD.
+    agent: platform-specialist
+
   - id: request-role-change
     file: tasks/request-role-change.md
     purpose: >

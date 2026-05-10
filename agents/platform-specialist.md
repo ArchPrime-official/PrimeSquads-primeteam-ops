@@ -391,6 +391,102 @@ playbooks:
     mutation: |
       DELETE FROM tasks WHERE id = {uuid};
 
+  # ── TASK UPDATE + F-08.3 WORKFLOW (Sprint 4) ──────────────────────────────
+  # Workflow F-08.3 do PRD (docs/prd-v2/modules/08-tasks.md): mudança de
+  # due_date por NÃO-criador exige aprovação. Implementado via 3 tasks:
+  # update-task (com pre-check), request-task-date-change, approve-task-date-change.
+
+  update_task:
+    task_file: tasks/update-task.md
+    description: >
+      UPDATE atomic em uma row de `tasks` com authorization pre-check baseado
+      no PRD F-08.3. Maioria dos campos (title, description, priority, urgency,
+      status, tags, etc.) é UPDATE direto. Mudança de `due_date` por user
+      NÃO autorizado dispara workflow F-08.3 (REQUEST_CREATED).
+    authorization_pre_check:
+      always_allowed_direct_update:
+        - "Updates simples (title, description, priority, urgency, status, tags, block_type, project_id, assigned_to)"
+        - "User é `created_by` da task (criador tem direito total)"
+        - "User tem role 'owner' (top da hierarquia, bypassa F-08.3)"
+      workflow_F_08_3_required:
+        condition: "updates contém due_date AND user != created_by AND role != owner"
+        action: "NÃO executar UPDATE — INSERT em task_date_change_requests + verdict=REQUEST_CREATED"
+    direct_update_mutation: |
+      UPDATE tasks SET {fields} WHERE id = {uuid};
+      -- Se due_date mudou: INSERT INTO task_date_changes (audit trail)
+    enum_validation_inline:
+      status: ['todo', 'doing', 'done']
+      block_type: ['task', 'meeting', 'focus_time', 'personal', 'unavailable']
+      priority: 1..10
+      urgency: 1..10
+    error_handling:
+      "42501 (RLS)": BLOCKED
+      "23514 (CHECK)": BLOCKED com campo violado
+      "23503 (FK)": BLOCKED
+    echo_on_request_created: |
+      "Você não criou esta tarefa nem é owner. Sua mudança de prazo
+       (de {current} para {suggested}) foi enviada como **request** —
+       aguardando aprovação de **{creator_name}**.
+       Para forçar aprovação imediata, peça ao owner do projeto."
+
+  request_task_date_change:
+    task_file: tasks/request-task-date-change.md
+    description: >
+      Cria row em task_date_change_requests quando user NÃO autorizado quer
+      mudar due_date. Geralmente invocada como side-effect de update_task,
+      mas pode ser chamada direta se user explicitamente quer "pedir mudança".
+    when_to_invoke:
+      - "User explicitamente: 'pede aprovação para mudar prazo da task X'"
+      - "Side-effect de update_task quando authorization pre-check classifica como F-08.3"
+    pre_check: >
+      SE user.id = task.created_by OR user.role = 'owner' →
+      ESCALATE com `redirect_to: update-task` (UPDATE direto autorizado).
+    duplicate_detection: >
+      Antes de INSERT, SELECT pending requests do mesmo (user, task) — se já
+      existe, ESCALATE com request_id existente em vez de criar duplicata.
+    confirmation_required: true
+    mutation: |
+      INSERT INTO task_date_change_requests
+        (task_id, requested_by, approver_id,
+         current_due_date, suggested_due_date, reason, status)
+      VALUES (..., 'pending');
+    echo_after_creation: |
+      "Pedido enviado ✓
+       Aguardando aprovação de: {approver_name}
+       Para acelerar: peça ao approver ou ao owner para forçar override."
+
+  approve_task_date_change:
+    task_file: tasks/approve-task-date-change.md
+    description: >
+      Aprovar OU rejeitar uma task_date_change_requests pendente. Approve
+      dispara 3 mutations atômicas: UPDATE tasks + INSERT task_date_changes
+      + UPDATE request status='approved'. Reject só atualiza request.
+    authorization:
+      who_can_approve:
+        - "user.id = request.approver_id (creator original)"
+        - "user.role = 'owner' (override hierarchy top)"
+      others: "BLOCKED com mensagem clara explicando quem pode aprovar"
+    idempotency_via_status:
+      check: "request.status MUST = 'pending'"
+      already_responded: "BLOCKED — request já foi {approved|rejected} em {responded_at}"
+    race_safety: >
+      UPDATE tasks com WHERE clause `due_date = request.current_due_date` —
+      se 0 rows updated, BLOCKED (alguém mudou direto entre request e approve).
+    approve_mutations_sequential:
+      step_1_update_task: "UPDATE tasks SET due_date = request.suggested_due_date ..."
+      step_2_audit_insert: "INSERT INTO task_date_changes (audit trail)"
+      step_3_update_request: "UPDATE task_date_change_requests SET status='approved', responded_by=auth.uid()"
+      partial_failure_handling: >
+        Se step_1 OK mas step_2 ou step_3 falham, tentar reverter step_1 +
+        ESCALATE com manual_cleanup_needed. NÃO rollback automático silencioso.
+    reject_mutation_simple: |
+      UPDATE task_date_change_requests
+      SET status = 'rejected', responded_by = auth.uid(), responded_at = NOW()
+      WHERE id = {request_id};
+    echo:
+      approve: "Pedido aprovado ✓ — task «{title}» agora vence em {new_due_date}. {requester_name} foi notificado."
+      reject: "Pedido rejeitado. Task continua com due_date {current}. {requester_name} foi notificado{ + ': ' + response_message se houver}."
+
   classify_eisenhower:
     scale: "1..10 (CHECK constraint do schema). Threshold ≥7 = alta."
     quadrants:

@@ -332,6 +332,82 @@ playbooks:
       WHERE ur.role = {role}
       ORDER BY p.full_name;
 
+  # ── FR5 ROLE REQUEST WORKFLOW (Sprint 13.1) ────────────────────────────────
+  # PRD docs/prd-v2/modules/01-auth.md FR5: roles restritas (admin/financeiro/
+  # owner) podem ser solicitadas por qualquer user via role_requests. Apenas
+  # OWNERS aprovam. Implementa via 2 tasks: request-role-change (NÃO-owners)
+  # + approve-role-request (owner-only).
+
+  request_role_change:
+    task_file: tasks/request-role-change.md
+    description: >
+      NÃO-owners pedem ascensão para roles restritas (admin/financeiro/owner)
+      via INSERT em role_requests. Owner aprova depois via approve_role_request.
+    note_executor: >
+      Esta task NÃO é executada pelo admin-specialist (que é owner-only).
+      É executada pelo platform-specialist com escopo restrito a role_requests.
+      Listada aqui no admin-specialist apenas para discoverability — quem
+      aprova depois é admin-specialist.
+    pre_checks:
+      - "requested_role ∈ ('admin', 'financeiro', 'owner') — restritas only"
+      - "user ainda não tem a role requested_role"
+      - "user não é owner (owners atribuem direto via grant_role)"
+      - "sem pending duplicate request (mesmo user + mesmo role)"
+    confirmation_required: true
+    mutation: |
+      INSERT INTO role_requests (user_id, requested_role, reason, status)
+      VALUES (auth.uid(), {requested_role}, {reason}, 'pending');
+    echo_after_creation: |
+      "Pedido enviado ✓
+       Aguardando aprovação de qualquer owner.
+       Quando aprovado, capabilities da role estarão disponíveis na próxima sessão
+       (logout/login pode ser necessário se token cached)."
+
+  approve_role_request:
+    task_file: tasks/approve-role-request.md
+    description: >
+      Aprovar OU rejeitar uma role_requests pendente. Approve = INSERT
+      user_roles + UPDATE request. Reject = só UPDATE request.
+    owner_only_gate: |
+      is_owner(auth.uid()) MUST = TRUE.
+      Se FALSE → BLOCKED imediato com mensagem clara explicando quem pode aprovar.
+    idempotency_via_status:
+      check: "request.status MUST = 'pending'"
+      already_responded: "BLOCKED — já foi {approved|rejected} em {reviewed_at}"
+    confirmation_layers:
+      step_1_preview: "Mostra target user + capabilities + reason"
+      step_2_literal:
+        approve_normal: "digite 'confirma'"
+        approve_owner_promotion: "digite 'CONFIRMA OWNER' (uppercase) — caso especial"
+        reject: "digite 'confirma'"
+    approve_mutations:
+      step_1_insert_user_roles: |
+        INSERT INTO user_roles (user_id, role, assigned_by, assigned_at)
+        VALUES ({request.user_id}, {request.requested_role}, auth.uid(), NOW())
+        ON CONFLICT (user_id, role) DO NOTHING;
+      step_2_update_request: |
+        UPDATE role_requests SET status='approved',
+          reviewed_by=auth.uid(), reviewed_at=NOW()
+        WHERE id={request_id};
+    reject_mutation: |
+      UPDATE role_requests SET status='rejected',
+        reviewed_by=auth.uid(), reviewed_at=NOW()
+      WHERE id={request_id};
+    audit_strict: >
+      activity_logs INSERT é STRICT — falha = ABORT cycle (admin-specialist rule
+      sobre user/role mutations). Sem audit, sem mutation.
+    quality_guardian_audit: MANDATORY (admin op)
+    echo:
+      approve: |
+        "Pedido aprovado ✓
+         {target_name} agora tem role «{requested_role}».
+         Capabilities ganhas: {list}
+         Recomende ao user fazer logout/login se token cached."
+      reject: |
+        "Pedido rejeitado.
+         {target_name} continua com roles: {current}.
+         {response_message ? 'Mensagem para o user: ' + response_message : ''}"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMANDS
 # ═══════════════════════════════════════════════════════════════════════════════

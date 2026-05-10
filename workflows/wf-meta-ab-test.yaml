@@ -254,5 +254,38 @@ notes:
     advanced testing methodology.
 
   ab_test_results_table: |
-    Sprint 17 assume existência de `ab_test_results` OR aggregation
-    em-memória no workflow. Sprint 18+ pode formalizar migration + index.
+    ⚠️ PREREQUISITE NOT MET (verificado 2026-05-10):
+    Tabela `ab_test_results` NÃO existe em produção. Antes de executar este
+    workflow em modo persistido, criar via migration:
+
+    ```sql
+    CREATE TABLE public.ab_test_results (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      ab_test_id text NOT NULL,
+      variant_id text NOT NULL,         -- ex: 'control' | 'variant_a'
+      campaign_id uuid REFERENCES meta_ad_campaigns(id),
+      metric text NOT NULL,             -- 'ctr', 'cpl', 'conversion_rate', etc.
+      value numeric NOT NULL,
+      sample_size int NOT NULL,
+      window_start timestamptz NOT NULL,
+      window_end timestamptz NOT NULL,
+      created_at timestamptz DEFAULT now()
+    );
+    CREATE INDEX ab_test_results_lookup_idx
+      ON public.ab_test_results (ab_test_id, variant_id, metric);
+    -- RLS: marketing/owner/admin podem ler/escrever
+    ALTER TABLE public.ab_test_results ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "ab_test_results_read_authenticated"
+      ON public.ab_test_results FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "ab_test_results_write_marketing"
+      ON public.ab_test_results FOR ALL TO authenticated
+      USING (is_owner(auth.uid()) OR is_admin(auth.uid())
+             OR has_role(auth.uid(), 'marketing'::app_role))
+      WITH CHECK (is_owner(auth.uid()) OR is_admin(auth.uid())
+                  OR has_role(auth.uid(), 'marketing'::app_role));
+    ```
+
+    Workflow é spec válido mas inexecutável (em persisted mode) até a
+    migration rodar. Modo in-memory aggregation continua funcional para
+    sessões one-shot — integration-specialist deve declarar qual mode
+    usa em cada cycle.

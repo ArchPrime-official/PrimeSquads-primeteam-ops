@@ -821,6 +821,74 @@ smoke_tests:
       - suggested_user_message lista 3 squads de expertise relevantes
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (15 tasks owned por content-builder, registradas em config.yaml)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 15
+  pre_wave_4:
+    - id: create-landing-page
+      file: tasks/create-landing-page.md
+      deprecated: true
+      superseded_by: create-cms-page
+    - id: create-cms-page
+      file: tasks/create-cms-page.md
+    - id: list-cms-pages
+      file: tasks/list-cms-pages.md
+      kind: read-only
+    - id: publish-cms-page
+      file: tasks/publish-cms-page.md
+      auth: any authorized role (Wave 5 decision — open op)
+  wave_6:
+    - id: create-event
+      file: tasks/create-event.md
+      auth: marketing/owner
+    - id: launch-lancio-online
+      file: tasks/launch-lancio-online.md
+      auth: marketing/owner
+      confirmation: tripla "CONFIRMA LANCIO"
+      orchestrates: "4 LPs + 3 sequences + 1 flow"
+    - id: update-landing-page
+      file: tasks/update-landing-page.md
+      auth: marketing/admin/owner
+      lovarch_warning: true
+    - id: generate-landing-page-ai
+      file: tasks/generate-landing-page-ai.md
+      auth: marketing/admin/owner
+      cost_aware: true
+    - id: create-onboarding-form
+      file: tasks/create-onboarding-form.md
+      auth: cs/marketing/admin/owner
+    - id: publish-onboarding-form
+      file: tasks/publish-onboarding-form.md
+      auth: cs/marketing/admin/owner
+  wave_7:
+    - id: update-onboarding-form
+      file: tasks/update-onboarding-form.md
+      auth: cs/marketing/admin/owner
+    - id: manage-form-fields
+      file: tasks/manage-form-fields.md
+      auth: cs/marketing/admin/owner
+      kind: CRUD granular consolidado
+    - id: toggle-campaign-status
+      file: tasks/toggle-campaign-status.md
+      auth: marketing/admin/owner
+  wave_8:
+    - id: create-editorial-post
+      file: tasks/create-editorial-post.md
+      auth: marketing/admin/owner
+    - id: list-landing-page-analytics
+      file: tasks/list-landing-page-analytics.md
+      auth: marketing/admin/owner
+      kind: read-only
+    - id: clone-landing-page
+      file: tasks/clone-landing-page.md
+      auth: marketing/admin/owner
+    - id: search-creative-studio
+      file: tasks/search-creative-studio.md
+      auth: marketing/admin/owner
+      kind: read-only
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:

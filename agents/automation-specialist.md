@@ -702,6 +702,35 @@ smoke_tests:
       - List de flows afetados no warnings
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (5 tasks owned por automation-specialist)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 5
+  pre_wave_4:
+    - id: list-automation-flows
+      file: tasks/list-automation-flows.md
+      kind: read-only
+  wave_6:
+    - id: create-automation-flow
+      file: tasks/create-automation-flow.md
+      auth: marketing/comercial/admin/owner
+      validation: DAG (sem ciclos, trigger sem incoming)
+    - id: activate-automation-flow
+      file: tasks/activate-automation-flow.md
+      auth: creator/owner
+      confirmation: tripla "ATIVA FLOW"
+      requires: confirm_test_passed
+    - id: deactivate-automation-flow
+      file: tasks/deactivate-automation-flow.md
+      auth: creator/owner
+      reversible: true
+  wave_8:
+    - id: clone-automation-flow
+      file: tasks/clone-automation-flow.md
+      auth: marketing/comercial/admin/owner
+      kind: deep copy, status reset draft
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:

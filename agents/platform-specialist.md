@@ -1317,6 +1317,101 @@ smoke_tests:
         automaticamente — fica congelado por design
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (22 tasks owned por platform-specialist — module Tasks/Finance/CS)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 22
+  pre_wave_4:
+    - id: create-task
+      file: tasks/create-task.md
+      auth: any authenticated
+    - id: list-tasks
+      file: tasks/list-tasks.md
+      kind: read-only
+    - id: complete-task
+      file: tasks/complete-task.md
+    - id: create-finance-transaction
+      file: tasks/create-finance-transaction.md
+      auth: has_finance_access (owner+financeiro, admin EXCLUDED)
+    - id: list-customers
+      file: tasks/list-customers.md
+      kind: read-only
+  wave_4:
+    - id: update-task
+      file: tasks/update-task.md
+      workflow: F-08.3 integration (non-creator/non-owner → REQUEST)
+    - id: request-task-date-change
+      file: tasks/request-task-date-change.md
+      workflow: F-08.3 (PRD 08-tasks)
+    - id: approve-task-date-change
+      file: tasks/approve-task-date-change.md
+      auth: approver_id (creator) OR owner
+      workflow: F-08.3
+  wave_6:
+    - id: create-session-note
+      file: tasks/create-session-note.md
+      auth: cs/admin/owner
+    - id: sync-seller-commission
+      file: tasks/sync-seller-commission.md
+      auth: has_invoice_access (owner+admin)
+      confirmation: tripla "PERSISTE COMISSÃO"
+  wave_7:
+    - id: update-finance-transaction
+      file: tasks/update-finance-transaction.md
+      auth: has_finance_access (admin EXCLUDED)
+    - id: delete-finance-transaction
+      file: tasks/delete-finance-transaction.md
+      auth: has_finance_access
+      confirmation: tripla "DELETE TX"
+    - id: delete-task
+      file: tasks/delete-task.md
+      auth: creator/owner/PM
+    - id: reschedule-task
+      file: tasks/reschedule-task.md
+      workflow: F-08.3 integration
+    - id: send-message
+      file: tasks/send-message.md
+      auth: channel members only
+      kind: most frequent op
+    - id: create-channel
+      file: tasks/create-channel.md
+      auth: admin/owner
+    - id: create-schedule-block
+      file: tasks/create-schedule-block.md
+      side_effect: Google Calendar sync
+  wave_8:
+    - id: bulk-update-transactions
+      file: tasks/bulk-update-transactions.md
+      auth: has_finance_access
+      confirmation: tripla "BULK UPDATE TX"
+    - id: update-bank-account
+      file: tasks/update-bank-account.md
+      auth: has_finance_access
+    - id: update-credit-card
+      file: tasks/update-credit-card.md
+      auth: has_finance_access
+    - id: update-customer-avatar
+      file: tasks/update-customer-avatar.md
+      auth: cs/admin/owner
+    - id: edit-message
+      file: tasks/edit-message.md
+      auth: creator only
+    - id: delete-message
+      file: tasks/delete-message.md
+      auth: creator/channel_admin/owner
+    - id: manage-channel-members
+      file: tasks/manage-channel-members.md
+      auth: channel_admin/owner
+    - id: view-activity-log
+      file: tasks/view-activity-log.md
+      auth: owner only
+    - id: manage-task-projects
+      file: tasks/manage-task-projects.md
+    - id: manage-radar-meetings
+      file: tasks/manage-radar-meetings.md
+      auth: admin/owner
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:

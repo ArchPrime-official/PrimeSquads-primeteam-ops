@@ -4,13 +4,16 @@
 
 pack:
   name: primeteam-ops
-  version: 1.2.0
+  version: 1.3.0
   description: >
     CLI squad que opera a plataforma PrimeTeam via Claude Code. Execution layer
     que substitui editores visuais (LP, Automação, Radar) e acelera operações
     rotineiras. Respeita RLS via JWT de usuário (Google OAuth browser-callback).
-    Fase 3 (v1.2.0) deixou o CLI usável por não-devs (setup wizard, i18n 3 idiomas,
-    copy humanizada, session hygiene hook, onboarding guiado).
+    v1.3.0 (Waves 4-8, 2026-05-10): 80 tasks cobrindo ~100% dos fluxos manuais
+    da plataforma + 2 workflows formais de aprovação (F-08.3 task date change +
+    FR5 role request). Authorization model enforced em cada task: has_finance_access
+    (owner+financeiro, admin EXCLUDED), has_invoice_access (owner+admin),
+    hierarchy owner > admin = financeiro > comercial = cs = marketing.
   icon: "⚙️"
   slash_prefix: PrimeteamOps
 

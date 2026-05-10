@@ -2,7 +2,21 @@
 
 > Read-only — listar inscritos de um evento com filtros (status, presença, conversão). CS usa diariamente durante eventos ativos. Implementa F-17.5 do PRD.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela dedicada `event_registrations` NÃO existe em prod. Schema atual usa **`opportunities`** filtered por `campaign_id` linkado ao evento, OU **`onboarding_submissions`/`strategic_session_forms`** para pré-qualificação. Antes do primeiro uso, identificar fonte real do specialist + adaptar query (specialist deve listar via `opportunities` se for pré/pós-conversão; via forms se for pré-qualificação anônima).
+**✅ SCHEMA ADAPTED (2026-05-10):** Tabela dedicada `event_registrations` NÃO existe em prod — adaptado para usar `opportunities` filtered by `campaign_id` linkado ao evento. Adicionalmente: `onboarding_submissions` ou `strategic_session_forms` para inscritos em pré-qualificação que ainda não viraram opportunity. Specialist faz UNION das duas fontes se necessário (default = opportunities only).
+
+**Query adaptada:**
+```sql
+SELECT
+  l.id AS lead_id, l.name, l.email, l.phone,
+  o.stage AS status,
+  o.metadata->>'attended_at' AS attended_at,
+  o.id AS converted_opportunity_id,
+  o.created_at, o.last_email_sent_at
+FROM opportunities o
+JOIN leads l ON l.id = o.lead_id
+WHERE o.campaign_id = {event.campaign_id}
+ORDER BY o.created_at DESC;
+```
 
 **Cumpre:** HO-TP-001
 

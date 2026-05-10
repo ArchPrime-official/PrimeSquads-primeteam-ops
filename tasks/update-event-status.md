@@ -2,7 +2,13 @@
 
 > Atualizar status de inscrito em evento (presença, no-show, conversão). CS usa durante e pós-evento. Implementa F-17.5 do PRD.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela dedicada `event_registrations` NÃO existe em prod. Status de inscrito é mantido em `opportunities.stage` ou `opportunities.metadata` linkado via `campaign_id`. Adaptar UPDATE target conforme schema real do specialist (usar `opportunities` é o caminho recomendado).
+**✅ SCHEMA ADAPTED (2026-05-10):** Tabela `event_registrations` NÃO existe — adaptado para usar `opportunities` (linkado via campaign_id). Status de inscrito mantido em `opportunities.stage` (enum existente: `lead_opportunity, qualified, sale_done, lost`); presença/conversão mantidos em `opportunities.metadata` JSONB para flexibilidade.
+
+**Mapping:**
+- `confirmed` → `opportunities.stage='qualified'`
+- `attended` → `opportunities.metadata.attended_at = NOW()`
+- `no_show` → `opportunities.metadata.no_show=true`
+- `converted` → `opportunities.stage='sale_done'`
 
 **Cumpre:** HO-TP-001
 

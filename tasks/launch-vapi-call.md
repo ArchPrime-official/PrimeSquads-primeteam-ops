@@ -2,7 +2,7 @@
 
 > Disparar chamada AI via Vapi para lead (qualificação inicial, follow-up). Comercial usa para automatizar prospecção. Implementa F-11.2 do PRD.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical é `telephony_calls` (não `vapi_calls`). Assistants Vapi NÃO são persistidos localmente — são IDs externos da Vapi API. SELECT em `vapi_assistants` substituir por API call direta ou enum local.
+**✅ SCHEMA ADAPTED (2026-05-10):** Tabela canonical = `telephony_calls`. Edge canonical = `vapi-start-call` (não `vapi-launch-call`). Assistants Vapi NÃO persistidos localmente — IDs externos da Vapi API; specialist valida via `vapi-check-config` edge ou enum hardcoded em config local.
 
 **Cumpre:** HO-TP-001
 
@@ -75,7 +75,7 @@
 7. **Aguardar "sim"** ou (se urgente sem consent) "CONFIRMA SEM CONSENT" uppercase.
 8. **Invoke edge function:**
    ```typescript
-   await supabase.functions.invoke('vapi-launch-call', {
+   await supabase.functions.invoke('vapi-start-call', {
      body: { lead_id, assistant_id, purpose, context_overrides, schedule_at },
      headers: { Authorization: `Bearer ${jwt}` }
    });
@@ -152,7 +152,7 @@ Activity log registrou tentativa para visibility.
 
 ## Notas
 
-- **Edge `vapi-launch-call`:** já existe (Sprint 11), faz call Vapi REST API + persiste record.
+- **Edge `vapi-start-call`:** já existe (Sprint 11), faz call Vapi REST API + persiste record.
 - **Webhook completion:** Vapi envia POST para `vapi-webhook` quando call termina; transcript + cost real persistidos automaticamente.
 - **Assistants:** lista mantida em Vapi dashboard. Cache local sync via cron.
 - **Compliance:** opt_out flag em `leads` é respected globally. Reset só via direct user action (UI privacy settings).

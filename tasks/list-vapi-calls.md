@@ -2,6 +2,8 @@
 
 > Read-only — listar chamadas Vapi com filtros (período, status, lead, custo). Comercial monitora outcomes; admin audita custos. Implementa F-11.2 leitura.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical é `telephony_calls`. Pode incluir Vapi+Ringover+outras providers (filtrar por `provider`/`call_strategy_id`).
+
 **Cumpre:** HO-TP-001
 
 ---
@@ -51,7 +53,7 @@
      vc.transcript_summary,
      {include_transcript} ? vc.transcript_full : NULL AS transcript_full,
      vc.outcome_classification
-   FROM vapi_calls vc
+   FROM telephony_calls vc
    LEFT JOIN leads l ON l.id = vc.lead_id
    WHERE
      ({lead_id} IS NULL OR vc.lead_id={lead_id})
@@ -71,10 +73,10 @@
      AVG(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60) AS avg_duration_min,
      COUNT(*) FILTER (WHERE status='completed' AND outcome_classification IN ('qualified','interested')) * 100.0 / NULLIF(COUNT(*), 0) AS success_rate,
      COUNT(*) FILTER (WHERE outcome_classification='converted') * 100.0 / NULLIF(COUNT(*), 0) AS conversion_rate
-   FROM vapi_calls
+   FROM telephony_calls
    WHERE started_at BETWEEN {date_from} AND {date_to};
    ```
-5. **Activity log:** `action='integration-specialist.list_vapi_calls'`, details com filtros (não conteúdo).
+5. **Activity log:** `action='integration-specialist.list_telephony_calls'`, details com filtros (não conteúdo).
 6. **Echo tabular:**
    ```
    📞 Vapi Calls — {date_from} to {date_to}
@@ -129,7 +131,7 @@
 
 ## Notas
 
-- **Tabela `vapi_calls`:** populada por `vapi-launch-call` (insert) + `vapi-webhook` (update com transcript/cost).
+- **Tabela `telephony_calls`:** populada por `vapi-launch-call` (insert) + `vapi-webhook` (update com transcript/cost).
 - **Outcome classification:** auto-classificado pelo assistant via prompt + LLM. Valores: `qualified | interested | not_interested | callback_requested | wrong_number | converted | other`.
 - **Cost reconciliation:** sync semanal `sync-vapi-billing` reconcilia custos com Vapi invoice (memory: vapi-billing-sync-broken-2026-05-07 — débito conhecido).
 

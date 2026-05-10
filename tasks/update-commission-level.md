@@ -90,7 +90,7 @@
    ```
 8. **Side-effect:** se há comissões mensais já calculadas para período futuro, surface warning de recalculation needed:
    ```
-   ⚠️ Há {N} commission_calculations já persistidas para period >= effective_from.
+   ⚠️ Há {N} commission_history já persistidas para period >= effective_from.
    Recálculo recomendado via sync-seller-commission para refletir novos params.
    ```
 9. **Activity log STRICT:** action='admin-specialist.update_commission_level', details com diff + affected_sellers + reason.

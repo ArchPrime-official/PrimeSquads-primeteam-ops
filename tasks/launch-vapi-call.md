@@ -2,6 +2,8 @@
 
 > Disparar chamada AI via Vapi para lead (qualificação inicial, follow-up). Comercial usa para automatizar prospecção. Implementa F-11.2 do PRD.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical é `telephony_calls` (não `vapi_calls`). Assistants Vapi NÃO são persistidos localmente — são IDs externos da Vapi API. SELECT em `vapi_assistants` substituir por API call direta ou enum local.
+
 **Cumpre:** HO-TP-001
 
 ---
@@ -85,7 +87,7 @@
    - 5xx → retry 1x
 10. **Persist call record:**
     ```sql
-    INSERT INTO vapi_calls
+    INSERT INTO telephony_calls
       (lead_id, assistant_id, vapi_call_id, status, purpose,
        launched_by, launched_at, estimated_cost_usd)
     VALUES (...);
@@ -111,7 +113,7 @@
 - **[A4] Cost transparency:** estimate antes de confirmar.
 - **[A5] Consent surfacing:** echo flagueia se lead não tem consent registrado (não bloqueia mas avisa).
 - **[A6] Idempotency:** retry interno 1x; ESCALATE depois.
-- **[A7] Persist record:** vapi_calls table tem row antes de echo final.
+- **[A7] Persist record:** telephony_calls table tem row antes de echo final.
 - **[A8] Schedule support:** `schedule_at` futuro vai para queue.
 
 ---

@@ -2,6 +2,13 @@
 
 > Editar mensagem própria em canal interno. Apenas creator pode editar (RLS). Mantém edit history.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** Tabela `channel_message_edits` NÃO existe em prod. Edit history pode ser preservado via:
+- Coluna JSONB `edit_history` em `channel_messages` (criar via migration), OU
+- Tabela nova `channel_message_edits` (criar via migration), OU
+- Skip edit history (apenas `edited_at` + `edit_count` nas próprias channel_messages).
+
+Specialist deve declarar approach antes de mutate.
+
 **Cumpre:** HO-TP-001
 
 ---

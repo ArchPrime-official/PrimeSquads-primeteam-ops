@@ -2,6 +2,8 @@
 
 > Atualizar status de inscrito em evento (presença, no-show, conversão). CS usa durante e pós-evento. Implementa F-17.5 do PRD.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** Tabela dedicada `event_registrations` NÃO existe em prod. Status de inscrito é mantido em `opportunities.stage` ou `opportunities.metadata` linkado via `campaign_id`. Adaptar UPDATE target conforme schema real do specialist (usar `opportunities` é o caminho recomendado).
+
 **Cumpre:** HO-TP-001
 
 ---

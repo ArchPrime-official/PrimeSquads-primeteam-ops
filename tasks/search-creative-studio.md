@@ -2,6 +2,8 @@
 
 > Read-only buscar/filtrar assets creative studio (banners, vídeos, templates). marketing/admin.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical incerta — `creative_assets` NÃO existe em prod. Candidatos prováveis: `content_items`, `tracked_creators`, `ugc_videos`. Specialist deve mapear antes de query (Sprint futuro pode unificar em `creative_studio_assets`).
+
 **Cumpre:** HO-TP-001
 
 ---

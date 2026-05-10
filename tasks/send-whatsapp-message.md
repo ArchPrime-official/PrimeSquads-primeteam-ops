@@ -2,6 +2,8 @@
 
 > Enviar mensagem WhatsApp via Business API. Comercial/CS usam diariamente. Open op para roles autorizadas + confirmation. Implementa F-11.1 do PRD.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** `whatsapp_templates` table NÃO existe em prod — templates approved são gerenciados na Meta Business API direto. Specialist deve consultar Meta API ou cache local específico por edge function. Tabelas reais: `whatsapp_conversations`, `whatsapp_messages`, `whatsapp_sessions`.
+
 **Cumpre:** HO-TP-001
 
 ---

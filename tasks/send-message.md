@@ -39,7 +39,7 @@
 1. **Role check:** any authenticated user (todos podem enviar em canais que são membros).
 2. **Resolver channel:**
    ```sql
-   SELECT id, name, is_archived FROM channels WHERE id={channel_id} OR name={channel_name};
+   SELECT id, name, is_archived FROM internal_channels WHERE id={channel_id} OR name={channel_name};
    ```
    Archived → BLOCKED.
 3. **Verificar membership:**

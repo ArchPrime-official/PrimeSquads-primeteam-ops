@@ -2,6 +2,12 @@
 
 > Import CSV unificado (leads/opps/transactions). admin/owner. Dry-run obrigatório, batch async.
 
+**⚠️ SCHEMA NOTE (2026-05-10):** Tabela `data_imports` NÃO existe em prod. Tracking pode usar:
+- `activity_logs` com `action='import-csv.{table}'` + `details.batch_metadata` (preferido — sem nova table)
+- OU criar tabela `data_imports` via migration nova.
+
+`import_batch_id` field exists em alguns target tables (leads, finance_transactions per agent docs) — usar como GROUP key.
+
 **Cumpre:** HO-TP-001
 
 ---

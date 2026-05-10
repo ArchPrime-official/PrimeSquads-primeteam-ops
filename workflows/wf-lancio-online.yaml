@@ -1,0 +1,263 @@
+# Workflow: Lancio Online (wf-lancio-online)
+#
+# Multi-phase orchestration de lançamento estruturado ArchPrime
+# (formato launch: pré-lançamento → carrinho aberto → encerramento).
+# Refatoração da task launch-lancio-online em workflow com checkpoints
+# entre fases — visibility de batch criado vs ativação manual de cada fase.
+#
+# Sprint 2026-05 — Sandra/owner usam para Lancio Maggio + futuros lançamentos.
+
+metadata:
+  id: wf-lancio-online
+  title: Lancio Online — Setup + Phase Activations + Cart Close
+  description: >
+    Workflow de 6 fases para lançamento online estruturado. Cria 4 LPs +
+    3 email sequences + 1 flow upsell em DRAFT (fase 1), depois user
+    ativa cada fase manualmente conforme calendar de lançamento. Cada
+    transição é checkpoint visível ao chief.
+  version: "1.0.0"
+  phases: 6
+  orchestrator: ops-chief
+  specialists_involved:
+    - content-builder      # LPs + email sequences
+    - automation-specialist # flow upsell
+    - admin-specialist     # products fiscais (opcional via wf bridge)
+  estimated_time: setup ~10min + 5-15 dias de fases ativas
+  requires_auth: true
+  rls_requirement: marketing OR owner
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INVARIANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+invariants:
+  - id: INV-LO-01
+    name: phase_dates_strictly_ordered
+    rule: >
+      pre_launch_start < cart_open < cart_close, todos futuros, janela
+      cart >= 24h. Workflow rejeita configs inválidas em phase_1.
+
+  - id: INV-LO-02
+    name: drafts_only_phase_1
+    rule: >
+      Phase 1 cria TUDO em status='draft'. Zero items publicados. User
+      ativa cada artifact via task separada (publish-cms-page,
+      activate-automation-flow) nos checkpoints das fases seguintes.
+
+  - id: INV-LO-03
+    name: tripla_confirmation_setup
+    rule: >
+      Phase 1 mutation requer "CONFIRMA LANCIO" uppercase literal
+      (8 artifacts simultâneos = misclick = cleanup tedioso).
+
+  - id: INV-LO-04
+    name: event_id_linkage_mandatory
+    rule: >
+      Todos os 8 artifacts devem linkar event_id (rastreabilidade).
+      Quality-guardian audita em phase_6.
+
+  - id: INV-LO-05
+    name: products_must_exist_pre_setup
+    rule: >
+      Event_id deve já ter products vinculados antes do workflow rodar.
+      Se ausente, phase_1 ESCALATE redirecionando para create-event ou
+      create-evento-products.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+
+  - id: phase_1_setup_drafts
+    name: Setup batch — 4 LPs + 3 sequences + 1 flow (drafts)
+    actor: content-builder
+    duration: 2-5 min (server-side)
+    description: >
+      Atomic batch INSERT de TUDO em status='draft'. Single confirmation
+      tripla "CONFIRMA LANCIO" + linkagem event_id em todos os 8
+      artifacts.
+    inputs_from_chief:
+      - cycle_id (cyc-YYYY-MM-DD-NNN)
+      - user_jwt
+      - request_payload:
+          event_id: uuid
+          lancio_name: string
+          phases:
+            pre_launch_start: ISO date
+            cart_open: ISO date
+            cart_close: ISO date
+          products: array uuid (existing)
+          templates: object (opcional — pre_lp/cart_lp/thank_you/upsell)
+    delegated_task: tasks/launch-lancio-online.md
+    veto_conditions:
+      - INV-LO-01 violation (dates inválidas) → ESCALATE
+      - INV-LO-05 violation (sem products) → ESCALATE redirect
+    output:
+      - lancio_id
+      - lp_ids (4 UUIDs: pre_capture, cart, thank_you, upsell)
+      - email_sequence_ids (3 UUIDs: pre_launch, cart_open, cart_close)
+      - flow_id (1 UUID: upsell automation)
+
+  - id: phase_2_review_drafts
+    name: Review + Edit Draft Artifacts (manual)
+    actor: marketing user (Sandra) — manual
+    duration: 1-7 dias (calendar-dependent)
+    description: >
+      User edita cada LP via update-landing-page (ou UI editor),
+      refina email sequences, configura flow nodes. Workflow parou
+      em modo aguardando — chief volta ao user periodicamente
+      (`pto status` mostra phase atual + checklist).
+    checklist:
+      - LP pre_capture content + tracking pixel configurado
+      - 5 emails da pre_launch sequence escritos
+      - LP cart com products vinculados + Stripe checkout
+      - LP thank_you com upsell trigger
+      - Automation flow nodes definidos + tested em dry-run
+    user_command_to_advance: "lancio confirma fase 2 — pronto pra ativar pré"
+    next_phase_trigger: phase_3_activate_pre_launch (manual)
+
+  - id: phase_3_activate_pre_launch
+    name: Activate Pre-Launch (LP + sequence)
+    actor: content-builder + automation-specialist
+    duration: 5min
+    description: >
+      Em D0 do pre_launch_start: publish LP pre_capture + activate
+      pre_launch email sequence. Cart LP continua draft (não público
+      ainda). Workflow espera atingir cart_open date.
+    delegated_tasks:
+      - publish-cms-page (LP pre_capture)
+      - activate-automation-flow (pre_launch sequence — se sequence é flow)
+    output:
+      - pre_launch_active_at: timestamp
+      - pre_capture_url: public
+
+  - id: phase_4_activate_cart
+    name: Activate Cart (LP + cart sequence) — D-cart_open
+    actor: content-builder + automation-specialist
+    duration: 5min
+    description: >
+      Em cart_open date: publish LP cart + activate cart_open email
+      sequence (lançamento + urgência). Pre_launch LP continua ativa
+      (transição soft). Pode ser disparado manualmente ANTES da date
+      se Sandra/owner quiser antecipar.
+    delegated_tasks:
+      - publish-cms-page (LP cart)
+      - activate-automation-flow (cart_open sequence)
+    output:
+      - cart_active_at: timestamp
+      - cart_url: public
+
+  - id: phase_5_close_cart
+    name: Close Cart (cart_close emails + redirect) — D-cart_close
+    actor: content-builder + automation-specialist
+    duration: 10min
+    description: >
+      Em cart_close date: ativa cart_close emails (última chance + waiting
+      list announcement). Updates cart LP para redirect_to=waiting_list ou
+      thank_you LP. Pre_launch + cart sequences pausadas (deactivate).
+    delegated_tasks:
+      - activate-automation-flow (cart_close sequence)
+      - update-landing-page (cart LP redirect)
+      - deactivate-automation-flow (pre_launch + cart_open sequences)
+    output:
+      - cart_closed_at: timestamp
+      - waiting_list_url
+
+  - id: phase_6_audit_close
+    name: Quality-Guardian Audit + Close Cycle
+    actor: quality-guardian
+    duration: 30s
+    description: >
+      Audita TODA a orquestração:
+      - INV-LO-04: event_id propagado em 8 artifacts ✓
+      - LPs final state (published vs archived)
+      - Sequences final state (paused após cart_close)
+      - Flow upsell (active se houve compras)
+      - activity_logs cycle_id consistency
+    decision_tree:
+      pass: close cycle, generate retro report
+      concerns: log warnings, close cycle
+      fail: ESCALATE com cleanup needed
+    output:
+      - audit_verdict: PASS | CONCERNS | FAIL
+      - retro_report: markdown summary com KPIs
+      - changelog_entry
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES
+# ═══════════════════════════════════════════════════════════════════════════════
+examples:
+
+  - name: lancio_basta_aspettare_maggio
+    trigger: "Sandra: lança Basta Aspettare Maggio com 3 products já criados"
+    trace:
+      - phase_1: 8 artifacts created drafts (lancio_id=la1-..., 4 LPs + 3 seq + 1 flow)
+      - phase_2: 5 dias de edição (Sandra refina copy + Pablo revisa)
+      - phase_3: 2026-05-12 ativação pre_launch
+      - phase_4: 2026-05-19 ativação cart (7d depois)
+      - phase_5: 2026-05-22 fechamento cart (3d janela)
+      - phase_6: audit PASS, retro com 47 conversões / €18.7k revenue
+    total: ~10 dias
+
+  - name: cancel_mid_workflow_phase_2
+    trigger: Sandra decide adiar 1 mês durante phase_2 (review)
+    trace:
+      - phase_1-2: artifacts criados, edição parcial
+      - user: "cancela lancio, archiva tudo"
+      - chief: deleta drafts via delete-task (LPs/sequences/flow) ou archive
+      - workflow ESCALATE com cleanup_completed
+    note: "Drafts cleanup é seguro — nada público foi exposto"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAILURE MODES
+# ═══════════════════════════════════════════════════════════════════════════════
+failure_modes:
+  - mode: phase_1_partial_failure
+    handling: >
+      Se 6/8 artifacts criados mas 2 falham: log warning + cleanup option
+      (delete os 6 OK + retry). Não rollback automático (preserva audit
+      trail completo).
+  - mode: phase_3_lp_publish_fails
+    handling: >
+      LP pre_capture publish 401/RLS → BLOCKED, workflow pausa em phase_3.
+      User corrige permissions + retry sem perder state.
+  - mode: phase_5_redirect_loop
+    handling: >
+      Se cart LP redirect_to aponta para si mesmo (typo): edge function
+      cms-revalidate detecta + reverte. Workflow continua para audit.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+references:
+  - tasks/launch-lancio-online.md (phase_1 atomic batch)
+  - tasks/publish-cms-page.md (phase_3-5 LP toggles)
+  - tasks/activate-automation-flow.md (phase_3-5 sequence/flow toggles)
+  - tasks/deactivate-automation-flow.md (phase_5 cleanup)
+  - tasks/update-landing-page.md (phase_2 edits + phase_5 redirect)
+  - agents/content-builder.md (specialist primário)
+  - agents/quality-guardian.md (phase_6 audit)
+  - workflows/wf-platform-operation.yaml (pattern base)
+
+notes:
+  why_workflow_not_atomic: |
+    launch-lancio-online já existe como task atômica (Wave 6) — cria 8
+    artifacts em single confirmation. Workflow é diferente: separa
+    SETUP (atomic) de FASE-ATIVAÇÃO (manual checkpoints). Em launch
+    real, há 5-7 dias entre fases — workflow dá visibility "em qual
+    fase estamos" sem precisar lembrar manualmente.
+
+  manual_advance_intentional: |
+    Phase transitions 2→3, 3→4, 4→5 são MANUAL por design — Sandra/owner
+    pode antecipar (ex: cart_open antes da date prometida) ou atrasar
+    (ex: pre_launch precisa de mais 2 dias). Auto-trigger por date seria
+    rígido demais para realidade de lançamentos.
+
+  retro_report_format: |
+    Phase 6 gera markdown com:
+    - Total visitors / conversion rate por fase
+    - Revenue total + breakdown por product tier
+    - Email sequence performance (open/click rates)
+    - Flow upsell performance (% que comprou upsell)
+    - Tempo médio entre eventos (visit → form → checkout)
+    Saved em changelog/retros/{lancio_id}.md.

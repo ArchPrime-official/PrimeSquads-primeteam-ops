@@ -46,7 +46,7 @@
 4. **Pre-check duplicate run:**
    ```sql
    SELECT id, calculated_at, persisted_at
-   FROM commission_calculations
+   FROM commission_history
    WHERE period={period} AND seller_id IN ({seller_ids})
      AND status='persisted';
    ```
@@ -72,9 +72,9 @@
    Status: PREVIEW (dry_run=true)
    Para persistir: re-run com dry_run=false após review.
    ```
-7. **Se `dry_run=false`:** confirmation literal "PERSISTE COMISSÃO" uppercase + INSERT em `commission_calculations` + `commission_payments` (status='pending'):
+7. **Se `dry_run=false`:** confirmation literal "PERSISTE COMISSÃO" uppercase + INSERT em `commission_history` + `commission_payments` (status='pending'):
    ```sql
-   INSERT INTO commission_calculations
+   INSERT INTO commission_history
      (seller_id, period, sales_count, gross_revenue, commission_amount,
       calculated_at, calculated_by, persisted_at, status)
    VALUES (..., NOW(), auth.uid(), NOW(), 'persisted')

@@ -53,7 +53,7 @@
 5. **Atomic INSERT:**
    ```sql
    BEGIN;
-   INSERT INTO channels (name, description, is_private, topic, created_by)
+   INSERT INTO internal_channels (name, description, is_private, topic, created_by)
    VALUES ({name}, {description}, {is_private}, {topic}, auth.uid())
    RETURNING id;
 

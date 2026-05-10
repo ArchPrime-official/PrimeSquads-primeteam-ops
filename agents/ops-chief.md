@@ -515,7 +515,13 @@ routing_map:
                "welcome flow", "email template"]
     agent: automation-specialist
     scope: Automação module (flows + email templates; edit nodes/edges em flows inativos)
-    role_required: [owner, admin, marketing]
+    role_required: [owner, admin, marketing, comercial, cs]
+    # Atualizado 2026-05-10 (audit Wave 3 AG1-5):
+    # - comercial adicionado: sales podem criar email follow-up sequences
+    # - cs adicionado: Jessica/Andrea criam welcome flows pra novos alunos
+    # RLS no banco continua sendo source of truth — pre-check é apenas
+    # otimização para evitar round-trip 42501 quando role obviamente
+    # incompatível com flow builder.
 
   radar:
     triggers: ["radar", "comitê", "reunião semanal", "KPIs", "plano de ação"]

@@ -80,7 +80,7 @@
    ```
 10. **Tratar erros**:
     - `0 rows` → CONFLICT (version mismatch). ESCALATE: re-listar.
-    - `42501` (RLS) → BLOCKED: role exige owner/admin/marketing.
+    - `42501` (RLS) → BLOCKED: requer role atribuída (owner/admin/marketing/comercial/cs/financeiro desde 2026-05-09).
     - `5xx` → retry 1x → ESCALATE.
 11. **Webhook side-effect** (não-blocking):
     - Para `lovarch.com` / `archprime.io`: chama EF `cms-revalidate` para invalidar Vercel ISR.
@@ -102,7 +102,7 @@
 - **[A5]** Optimistic lock via `WHERE version = {expected}`.
 - **[A6]** CHECK constraint `(status='published' AND published_at IS NOT NULL)` respeitado pelo trigger.
 - **[A7]** Webhook non-blocking — falha não falha a task.
-- **[A8]** RLS via user_roles (owner/admin/marketing).
+- **[A8]** RLS via user_roles (owner/admin/marketing/comercial/cs/financeiro desde 2026-05-09).
 - **[A9]** Activity log fail-tolerant.
 
 ---

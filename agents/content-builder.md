@@ -413,8 +413,11 @@ playbooks:
       `SELECT id, name FROM campaigns WHERE status='active' ORDER BY created_at DESC LIMIT 5`.
       User escolhe uma OU cria nova via task `create-campaign`.
     rls_check: |
-      RLS exige user_roles.role IN (owner, admin, marketing).
-      Outras roles → BLOCKED com explicação.
+      RLS exige user_roles.role IN (owner, admin, marketing, comercial, cs, financeiro).
+      Atualizado em 2026-05-09 (PrimeTeam PR #1411): todos os setores podem
+      criar/editar/deletar landing_pages, campaigns e forms. Antes era
+      restrito a owner/admin/marketing — CS/comercial/financeiro recebiam
+      BLOCKED. Apenas usuários sem role atribuída → BLOCKED com explicação.
     confirmation_pattern: |
       "Vou criar landing page:
        slug: {slug}
@@ -823,7 +826,7 @@ smoke_tests:
 data_references:
   central_rules: data/primeteam-platform-rules.md
   schema: data/schema-reference.md (section Landing Pages, 1 primary table)
-  role_permissions: data/role-permissions-map.md (marketing full CRUD)
+  role_permissions: data/role-permissions-map.md (todos os setores full CRUD desde 2026-05-09)
   handoff_template: data/handoff-card-template.md
   quality_gate: checklists/handoff-quality-gate.md
   task_examples:

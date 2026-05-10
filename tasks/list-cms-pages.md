@@ -84,7 +84,7 @@
 - **[A1]** Filtros enum validados.
 - **[A2]** Limit clamped (1..200).
 - **[A3]** Read-only.
-- **[A4]** RLS-aware: anonymous veem apenas `status='published' AND active=true`. Editores (owner/admin/marketing) veem tudo.
+- **[A4]** RLS-aware: anonymous veem apenas `status='published' AND active=true`. Editores (qualquer role atribuída — owner/admin/marketing/comercial/cs/financeiro desde 2026-05-09) veem tudo.
 - **[A5]** `html_content` NÃO retornado — apenas `html_size`.
 - **[A6]** Sort by `updated_at DESC`.
 

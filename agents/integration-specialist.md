@@ -1597,6 +1597,54 @@ smoke_tests:
       - Edge function invoked (not direct API)
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (9 tasks owned por integration-specialist)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 9
+  pre_wave_4:
+    - id: list-calendar-events
+      file: tasks/list-calendar-events.md
+      kind: read-only
+    - id: list-revolut-balances
+      file: tasks/list-revolut-balances.md
+      kind: read-only
+    - id: list-meta-campaigns
+      file: tasks/list-meta-campaigns.md
+      kind: read-only
+  wave_5:
+    - id: run-meta-sync
+      file: tasks/run-meta-sync.md
+      auth: marketing/comercial/admin/owner
+      kind: open op + quota guard + token health check
+    - id: update-meta-sync-config
+      file: tasks/update-meta-sync-config.md
+      auth: admin/owner (gate primário admin-specialist)
+      confirmation: dupla diferenciada (ROTACIONA/TROCA CONTA)
+      audit: STRICT + token redaction
+  wave_6:
+    - id: send-whatsapp-message
+      file: tasks/send-whatsapp-message.md
+      auth: comercial/cs/marketing/admin/owner
+      enforcement: 24h window Meta policy
+    - id: launch-vapi-call
+      file: tasks/launch-vapi-call.md
+      auth: comercial/admin/owner
+      enforcement: opt-out hard + cooldown 24h
+    - id: list-vapi-calls
+      file: tasks/list-vapi-calls.md
+      kind: read-only
+  wave_8:
+    - id: backfill-vapi-calls
+      file: tasks/backfill-vapi-calls.md
+      auth: admin/owner
+      confirmation: tripla "BACKFILL VAPI"
+      kind: incident response
+    - id: check-meta-sync-health
+      file: tasks/check-meta-sync-health.md
+      auth: marketing/comercial/admin/owner
+      kind: read-only diagnostics
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:

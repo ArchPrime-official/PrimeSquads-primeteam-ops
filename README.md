@@ -180,7 +180,7 @@ primeteam-ops/
 │   ├── update.ts        # git fetch/pull + npm install condicional
 │   └── ...
 ├── agents/              # 10 agents Claude Code (ops-chief + 9 specialists)
-├── tasks/               # 12 tasks HO-TP-001
+├── tasks/               # 80 tasks HO-TP-001 (cobertura ~100% UI manual flows)
 ├── workflows/           # 7 workflows multi-fase
 ├── checklists/          # handoff quality gate
 ├── data/                # rules centrais, schemas, activity-logging spec
@@ -257,12 +257,19 @@ Scaffold, config, central rules, handoff infra, ops-chief + auth-specialist.
 ### ✅ Fase 2 — Operational MVP (v1.1.0)
 17 sprints mergeados. 10 agents, 7 workflows, 12 tasks HO-TP-001, CLI PKCE, 4 boundaries externas (Calendar, Revolut, Meta, Phone), activity logging integrado.
 
-### 🚧 Fase 3 — CLI para humanos (v1.2.0, em progresso)
-- Sprint 22 ✅ — CLI DX base (`pto setup`/`start`/`doctor`/`update`/`refresh`)
-- Sprint 23 🚧 — Humanizar copy + HOW-TO.md (este PR)
-- Sprint 24 ⏳ — i18n PT-BR + IT + EN + runtime switching
-- Sprint 25 ⏳ — Session hygiene (hook Claude Code com avisos de sessão longa)
-- Sprint 26 ⏳ — Onboarding guiado no ops-chief (opcional)
+### ✅ Fase 3 — CLI para humanos (v1.2.0)
+Setup wizard, i18n 3 idiomas (PT-BR + IT + EN), copy humanizada, session hygiene hook, onboarding guiado, bin `pto` global.
+
+### ✅ Fase 4 — Cobertura ~100% da plataforma (v1.3.0, sessão 2026-05-10)
+- Wave 4 ✅ — F-08.3 (task date change request/approve) + FR5 (role change request/approve) workflows
+- Wave 5 ✅ — meta-sync split: `run-meta-sync` (open op) + `update-meta-sync-config` (admin-only)
+- Wave 6 ✅ — 20 tasks cobrindo 7 módulos PRD não cobertos (Eventos/Chiamate/Fiscal/CS/CRM/LP/Auto)
+- Wave 7 ✅ — 13 tasks UI-vs-CLI gaps (operações diárias)
+- Wave 8 ✅ — 24 tasks Tier 2+3 backlog completo
+
+**Resultado:** 16 → 80 tasks. ~30% → ~100% UI coverage. Authorization model enforced em cada task com hierarchy + workflows formais (F-08.3 + FR5) + compliance (LGPD/GDPR opt-out, HMRC won+invoice protection, last-owner/admin protection).
+
+**Skip legítimo permanente:** Chat AI (UI cobre) + aArchPrime (estático).
 
 ### ⏳ Fase 4 — Strategic
 - AI chat agent

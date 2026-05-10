@@ -592,6 +592,61 @@ smoke_tests:
       - message explains workaround (grant owner to other user first)
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (8 tasks owned por admin-specialist — owner/admin gates)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 8
+  wave_4:
+    - id: approve-role-request
+      file: tasks/approve-role-request.md
+      auth: owner only (FR5 workflow)
+      confirmation: dupla (tripla "CONFIRMA OWNER" se requested_role=owner)
+      audit: STRICT
+  wave_5:
+    - id: update-meta-sync-config
+      file: tasks/update-meta-sync-config.md
+      auth: admin/owner (gate primário)
+      confirmation: dupla diferenciada (ROTACIONA/TROCA CONTA)
+      audit: STRICT + token redaction
+  wave_6:
+    - id: create-sales-invoice
+      file: tasks/create-sales-invoice.md
+      auth: has_invoice_access (owner+admin)
+      confirmation: tripla "EMITE NOTA"
+      kind: número sequencial atomico (pg_advisory_xact_lock)
+    - id: bulk-reissue-invoices
+      file: tasks/bulk-reissue-invoices.md
+      auth: has_invoice_access
+      confirmation: tripla "REISSUE BATCH"
+  wave_7:
+    - id: update-commission-level
+      file: tasks/update-commission-level.md
+      auth: has_invoice_access
+      confirmation: tripla "UPDATE LEVEL"
+  wave_8:
+    - id: create-evento-products
+      file: tasks/create-evento-products.md
+      auth: has_invoice_access
+      confirmation: tripla "CRIA PRODUCTS"
+      bridge: M-13 + M-17
+    - id: revoke-role
+      file: tasks/revoke-role.md
+      auth: owner only
+      enforcement: last-owner protection
+    - id: deactivate-user
+      file: tasks/deactivate-user.md
+      auth: owner only
+      confirmation: tripla "DEACTIVATE USER"
+      cascade: assignments reassign opt-in
+    - id: manage-monthly-goals
+      file: tasks/manage-monthly-goals.md
+      auth: owner only (FR12)
+    - id: diagnose-database
+      file: tasks/diagnose-database.md
+      auth: owner only
+      kind: read-only metadata diagnostics
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:

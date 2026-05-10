@@ -708,6 +708,55 @@ smoke_tests:
       - Se ambíguo (múltiplos matches no step 2), ESCALATE em vez de chutar
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (todas as tasks que este agent owns, registradas em config.yaml)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 10
+  pre_wave_4:
+    - id: create-lead
+      file: tasks/create-lead.md
+      auth: comercial/cs/marketing/admin/owner
+    - id: move-opportunity-stage
+      file: tasks/move-opportunity-stage.md
+      auth: comercial/admin/owner
+  wave_6:
+    - id: list-event-registrants
+      file: tasks/list-event-registrants.md
+      auth: marketing/cs/admin/owner
+      kind: read-only
+    - id: update-event-status
+      file: tasks/update-event-status.md
+      auth: cs/marketing/admin/owner
+    - id: bulk-update-opportunities
+      file: tasks/bulk-update-opportunities.md
+      auth: comercial/admin/owner
+      confirmation: tripla "BULK UPDATE"
+      reason_required: true
+    - id: verify-opportunity
+      file: tasks/verify-opportunity.md
+      auth: admin/owner
+  wave_7:
+    - id: update-lead
+      file: tasks/update-lead.md
+      auth: comercial/cs/admin/owner
+      compliance: LGPD/GDPR opt-out enforcement
+    - id: delete-opportunity
+      file: tasks/delete-opportunity.md
+      auth: comercial (próprias) / admin/owner (qualquer)
+      confirmation: dupla (hard delete tripla "DELETE OPP")
+      blocks: won + invoice (HMRC)
+    - id: bulk-delete-leads
+      file: tasks/bulk-delete-leads.md
+      auth: admin/owner only
+      confirmation: tripla "BULK DELETE LEADS"
+      reason_required: true
+  wave_8:
+    - id: export-opportunities-csv
+      file: tasks/export-opportunities-csv.md
+      auth: comercial/admin/owner
+      kind: async export, signed URL 24h
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DATA REFERENCES
 # ═══════════════════════════════════════════════════════════════════════════════
 data_references:

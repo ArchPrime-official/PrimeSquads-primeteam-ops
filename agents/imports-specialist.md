@@ -443,6 +443,19 @@ handoff_to:
       route_to: null
       reason: "Verify count rows pós delete (novo cycle se preciso)"
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TASK REGISTRY (1 task owned por imports-specialist)
+# ═══════════════════════════════════════════════════════════════════════════════
+task_registry:
+  total: 1
+  wave_8:
+    - id: import-csv
+      file: tasks/import-csv.md
+      auth: admin/owner
+      confirmation: tripla "IMPORT CSV"
+      kind: async job, dedup strategy explicit, dry-run default
+      side_effect: email notification on completion
+
 data_references:
   central_rules: data/primeteam-platform-rules.md
   schema: data/schema-reference.md (import_batch_id fields em leads + finance_transactions)

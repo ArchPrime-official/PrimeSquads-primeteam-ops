@@ -150,9 +150,9 @@ tasks:
     purpose: Mover oportunidade no pipeline Kanban
     agent: sales-specialist
 
-  - id: list-students
-    file: tasks/list-students.md
-    purpose: Listar estudantes CS com filtros (health/manager/onboarding)
+  - id: list-customers
+    file: tasks/list-customers.md
+    purpose: Listar customers (alunos no vocab UI, tabela `customers` no DB) com filtros (health/manager/onboarding) — renomeada 2026-05-10
     agent: platform-specialist
 
   - id: create-landing-page

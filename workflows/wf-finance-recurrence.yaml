@@ -76,12 +76,18 @@ phases:
     description: >
       Chief coleta do user todos os parâmetros da recorrência. Se falta algo
       crítico, ASK. NÃO gerar com defaults inventados.
+    inputs_from_chief:
+      - cycle_id (cyc-YYYY-MM-DD-NNN, gerado pelo chief no step_1_receive
+        de wf-platform-operation. INV-02 desse workflow exige propagação)
+      - user_jwt (de ~/.primeteam/session.json)
+      - user_role (informativa — RLS valida no Supabase)
     required_params:
       - frequency: "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly" | "custom"
       - count_or_end:
           option_a: recurrence_count (int 2..36)
           option_b: recurrence_end_date (date, max +3 years)
       - amount: numeric (can be negative/positive)
+      - currency: ISO 4217 (default 'EUR'; ECHO se != EUR para confirmar)
       - type: "expense" | "income"
       - category_id (or category_name resolved)
       - first_date: when first occurrence happens (Europe/Rome)
@@ -90,7 +96,10 @@ phases:
       - recurrence_due_day (if monthly with specific day)
       - cost_center_id / bank_account_id / description
       - installment flag (se is installment-style vs standalone recurrence)
-      - opportunity_id / customer_id (para linkage)
+      - opportunity_id / customer_id (para linkage — INV-FR-05 propaga)
+      - exchange_rate (numeric — OBRIGATÓRIO se currency ≠ moeda nativa
+        da conta destino; sem isso, balance hooks calculam errado)
+      - conversion_date (date — default = first_date)
 
   - id: phase_2_generate_dry_run
     name: Generate Dry-Run Preview
@@ -134,7 +143,27 @@ phases:
          recurrence_type=X, etc.) → obter parent_id
       2. INSERT N children transactions (parent_transaction_id=parent_id,
          recurrence_number=1..N, transaction_date=date_i, etc.)
-      All com user_id=auth.uid(), status='confirmed'.
+
+      Each row uses:
+      - user_id = auth.uid()
+      - status = 'completed' (canonical value em prod, NÃO 'confirmed' que é
+        legacy. Outros válidos: 'predicted' (forecasts) | 'cancelled')
+      - cycle_id propagated from ops-chief phase_1 (mantém trace audit)
+
+      MULTI-CURRENCY (memory:multi-currency-hybrid-cards-2026-04-30):
+      Se a currency da TX ≠ moeda nativa da conta destino, cada child
+      INSERT exige obrigatoriamente:
+      - converted_amount (numeric, equivalente em moeda nativa)
+      - converted_currency (ISO 4217, moeda nativa da conta)
+      - exchange_rate (numeric, audit trail)
+      - conversion_date (date, default=transaction_date do child)
+      Sem esses campos, calculateHybridAccountUsage e
+      calculate_invoice_total computam saldo errado.
+
+      OPPORTUNITY_ID (INV-FR-05 enforcement):
+      Se parent.opportunity_id IS NOT NULL, propagar opportunity_id para
+      TODOS os N children (não só parent). Quebra de linkage = bug em
+      reporting de installments.
     rls_enforced: has_finance_access() for all inserts
     on_partial_failure: >
       Se N-1 filhos inseridos e 1 falha: log warning com list de
@@ -155,10 +184,24 @@ phases:
       - All children linkados via parent_transaction_id
       - Dates consistent (skip_weekends respeitado)
       - opportunity_id propagated se aplicável (INV-FR-05)
+      - Multi-currency: se TX currency != native, converted_amount presente
+        em todos os N children
+      - status='completed' (não 'confirmed' legacy)
+      - cycle_id propagated em activity_logs
+
+      Specialist retorna ao chief com:
+      - V10 announcement: "[platform-specialist → ops-chief] Cycle {cycle_id}
+        — BATCH_INSERT_PARENT_CHILDREN DONE."
+      - V11 output package: summary + artifacts + warnings + suggested_next +
+        convention_check
+      - V18 handoff card (data/handoff-card-template.md)
     output:
       - parent_transaction_id
       - children_transaction_ids (array N items)
       - total_amount_sum
+      - cycle_id (echo for audit trail)
+      - warnings (FX rate used, partial failure, etc.)
+      - suggested_next (close OR retry partial OR manual cleanup)
       - changelog entry
 
 # ═══════════════════════════════════════════════════════════════════════════════

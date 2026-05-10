@@ -270,9 +270,36 @@ notes:
     (per-row) seria ineficiente + quebra de FX API quota.
 
   fx_rate_cache_table: |
-    Workflow assume existência de `fx_rate_cache` (date, from_currency,
-    to_currency, rate, source) OU cria on-demand por row. Sprint 15+ pode
-    formalizar essa table com migration + indexes.
+    ⚠️ PREREQUISITE NOT MET (verificado 2026-05-10):
+    Tabela `fx_rate_cache` NÃO existe em produção. Antes de executar este
+    workflow, criar via migration:
+
+    ```sql
+    CREATE TABLE public.fx_rate_cache (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      date date NOT NULL,
+      from_currency text NOT NULL,
+      to_currency text NOT NULL,
+      rate numeric(18,8) NOT NULL,
+      source text NOT NULL CHECK (source IN ('ecb', 'revolut', 'manual')),
+      created_at timestamptz DEFAULT now(),
+      UNIQUE (date, from_currency, to_currency, source)
+    );
+    CREATE INDEX fx_rate_cache_lookup_idx
+      ON public.fx_rate_cache (date, from_currency, to_currency);
+    -- RLS: SELECT permissivo (qualquer authenticated lê),
+    -- INSERT only via integration-specialist (has_finance_access)
+    ALTER TABLE public.fx_rate_cache ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "fx_rate_cache_read_authenticated"
+      ON public.fx_rate_cache FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "fx_rate_cache_insert_finance"
+      ON public.fx_rate_cache FOR INSERT TO authenticated
+      WITH CHECK (has_finance_access(auth.uid()));
+    ```
+
+    Workflow é spec válido mas inexecutável até a migration rodar.
+    Se preferir lazy-create per-row, integration-specialist precisa
+    documentar essa lógica (não está implementada).
 
   ecb_vs_revolut_trade_offs: |
     - ECB (European Central Bank): official daily rates, trusted, but

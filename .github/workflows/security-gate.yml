@@ -1,0 +1,197 @@
+name: Security Gate
+
+# Espelha o padrão do PrimeTeam mas adaptado para repo TS/Node CLI.
+# Roda em todo PR pra main e escaneia padrões perigosos comuns em CLI:
+# secrets hardcoded, eval, prototype pollution, exec sem sanitização,
+# referências a localhost em código, e env vars expostas sem .env.example.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Security scan on TS/CLI changes
+        run: |
+          BLOCKED=false
+          WARNINGS=""
+
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+
+          echo "========================================="
+          echo "  SECURITY GATE — Scanning PR changes"
+          echo "========================================="
+          echo ""
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          # Filtra apenas .ts / .mjs / .js / .json relevantes para scan.
+          # Não escaneia o próprio workflow nem .md (docs frequentemente trazem
+          # exemplos de tokens que NÃO são reais).
+          SCAN_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|mjs|cjs|js|json)$' | grep -v '^\.github/workflows/' | grep -v '^package-lock\.json$' || true)
+
+          if [ -z "$SCAN_FILES" ]; then
+            echo "No scannable code files changed — skipping."
+            exit 0
+          fi
+
+          # ─────────────────────────────────────────
+          # 1. Hardcoded secrets / tokens
+          # ─────────────────────────────────────────
+          echo "--- Scanning for hardcoded secrets ---"
+
+          # Padrões observados em produção (Stripe, Supabase, GitHub, Slack, OpenAI, Anthropic).
+          # Comprimento mínimo evita false-positives em UUIDs/hashes curtos.
+          SECRET_PATTERNS='(sk-(proj-)?[a-zA-Z0-9_-]{30,}|sk-ant-[a-zA-Z0-9_-]{30,}|sbp_[a-zA-Z0-9]{30,}|sb_[a-z]+_[a-zA-Z0-9]{30,}|ghp_[a-zA-Z0-9]{30,}|gho_[a-zA-Z0-9]{30,}|ghu_[a-zA-Z0-9]{30,}|xox[baprs]-[a-zA-Z0-9-]{20,}|eyJ[a-zA-Z0-9_-]{60,}\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)'
+
+          for file in $SCAN_FILES; do
+            if [ ! -f "$file" ]; then continue; fi
+            if grep -qE "$SECRET_PATTERNS" "$file"; then
+              MATCH=$(grep -nE "$SECRET_PATTERNS" "$file" | head -3)
+              WARNINGS="$WARNINGS\n BLOCKED: $file contains hardcoded secret/token\n$MATCH"
+              BLOCKED=true
+            fi
+          done
+
+          # ─────────────────────────────────────────
+          # 2. Dynamic code execution (eval / Function)
+          # ─────────────────────────────────────────
+          echo "--- Scanning for eval / dynamic Function ---"
+
+          for file in $SCAN_FILES; do
+            if [ ! -f "$file" ]; then continue; fi
+
+            # `eval(` or `new Function(` — both allow arbitrary code execution.
+            # Strip comments crudely (line-prefix //) to reduce false positives.
+            STRIPPED=$(grep -vE '^\s*//' "$file" || true)
+
+            if echo "$STRIPPED" | grep -qE '\beval\s*\('; then
+              WARNINGS="$WARNINGS\n BLOCKED: $file uses eval()"
+              BLOCKED=true
+            fi
+
+            if echo "$STRIPPED" | grep -qE '\bnew\s+Function\s*\('; then
+              WARNINGS="$WARNINGS\n BLOCKED: $file uses new Function() (dynamic code)"
+              BLOCKED=true
+            fi
+          done
+
+          # ─────────────────────────────────────────
+          # 3. Unsafe child_process patterns
+          # ─────────────────────────────────────────
+          echo "--- Scanning for unsafe child_process ---"
+
+          for file in $SCAN_FILES; do
+            if [ ! -f "$file" ]; then continue; fi
+
+            # exec/execSync com template literal (interpolação de variável) é
+            # o vetor clássico de command injection. execFile/spawn com array
+            # de args são seguros e não são bloqueados.
+            if grep -qE '(child_process\.)?exec(Sync)?\s*\(\s*`[^`]*\$\{' "$file"; then
+              WARNINGS="$WARNINGS\n BLOCKED: $file uses exec/execSync with template-string interpolation (command injection risk). Prefer execFile/spawn with array args."
+              BLOCKED=true
+            fi
+          done
+
+          # ─────────────────────────────────────────
+          # 4. Prototype pollution patterns
+          # ─────────────────────────────────────────
+          echo "--- Scanning for prototype pollution ---"
+
+          for file in $SCAN_FILES; do
+            if [ ! -f "$file" ]; then continue; fi
+
+            # Atribuição direta a __proto__ ou constructor.prototype.
+            if grep -qE '\[\s*["'\'']__proto__["'\'']\s*\]\s*=' "$file"; then
+              WARNINGS="$WARNINGS\n BLOCKED: $file assigns to __proto__ (prototype pollution)"
+              BLOCKED=true
+            fi
+
+            if grep -qE '\.constructor\.prototype\s*\[' "$file"; then
+              WARNINGS="$WARNINGS\n WARNING: $file mutates constructor.prototype — review manually"
+            fi
+          done
+
+          # ─────────────────────────────────────────
+          # 5. localhost references in code (não em .md / config)
+          # ─────────────────────────────────────────
+          echo "--- Scanning for localhost references ---"
+
+          for file in $SCAN_FILES; do
+            if [ ! -f "$file" ]; then continue; fi
+
+            # localhost em string literal (fora de comentário). É um warning,
+            # não um block, porque test fixtures legítimos podem usar.
+            if grep -nE '["'\''`]https?://(localhost|127\.0\.0\.1)' "$file" | grep -vE '^\s*[0-9]+:\s*//' > /dev/null 2>&1; then
+              MATCH=$(grep -nE '["'\''`]https?://(localhost|127\.0\.0\.1)' "$file" | head -2)
+              WARNINGS="$WARNINGS\n WARNING: $file references localhost in code:\n$MATCH"
+            fi
+          done
+
+          # ─────────────────────────────────────────
+          # 6. process.env vars sem .env.example
+          # ─────────────────────────────────────────
+          echo "--- Scanning for env vars missing from .env.example ---"
+
+          ENV_EXAMPLE=""
+          if [ -f ".env.example" ]; then
+            ENV_EXAMPLE=$(cat .env.example)
+          fi
+
+          # Coleta todos os process.env.X dos arquivos modificados.
+          USED_VARS=$(for file in $SCAN_FILES; do
+            [ -f "$file" ] || continue
+            grep -oE 'process\.env\.[A-Z_][A-Z0-9_]+' "$file" || true
+          done | sort -u | sed 's/process\.env\.//')
+
+          MISSING_VARS=""
+          for var in $USED_VARS; do
+            # Whitelist: vars padrão do Node e do GitHub Actions.
+            case "$var" in
+              NODE_ENV|HOME|USER|PATH|PWD|SHELL|TERM|CI|GITHUB_*|RUNNER_*|DEBUG)
+                continue
+                ;;
+            esac
+
+            if ! echo "$ENV_EXAMPLE" | grep -qE "^${var}="; then
+              MISSING_VARS="$MISSING_VARS $var"
+            fi
+          done
+
+          if [ -n "$MISSING_VARS" ]; then
+            WARNINGS="$WARNINGS\n WARNING: env vars used in code mas ausentes em .env.example:$MISSING_VARS"
+          fi
+
+          # ─────────────────────────────────────────
+          # RESULTS
+          # ─────────────────────────────────────────
+          echo ""
+          echo "========================================="
+          echo "  SCAN RESULTS"
+          echo "========================================="
+
+          if [ -n "$WARNINGS" ]; then
+            echo -e "$WARNINGS"
+            echo ""
+          fi
+
+          if [ "$BLOCKED" = true ]; then
+            echo ""
+            echo "RESULT: PR BLOCKED — requires manual review by an admin"
+            echo ""
+            echo "This PR contains patterns that could compromise the CLI"
+            echo "or expose secrets. Fix the flagged items or add an admin"
+            echo "approval comment to override."
+            exit 1
+          else
+            echo ""
+            echo "RESULT: PASSED — no blocking security issues detected"
+            echo ""
+          fi

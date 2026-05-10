@@ -206,6 +206,23 @@ operational_frameworks:
               details={ request, routing_plan=null (TBD), cycle_status='Received' }
             Se INSERT falha: warning silent em handoff card
             (activity_log_write_failed=true), continue cycle.
+          cycle_id_format: |
+            REGEX: ^cyc-\d{4}-\d{2}-\d{2}-\d{3}$
+            EXEMPLO: "cyc-2026-05-10-001"
+            COMPONENTES:
+              - "cyc-" prefix literal
+              - YYYY-MM-DD = data UTC do dia em que cycle abriu
+              - NNN = sequencial 001..999 dentro do dia (zero-padded)
+            GERAÇÃO:
+              - Query SELECT count(*) FROM activity_logs
+                WHERE action='cycle_opened'
+                  AND date(created_at AT TIME ZONE 'UTC') = today
+              - cycle_seq = count + 1, formatted as 3 digits
+              - cycle_id = "cyc-{YYYY}-{MM}-{DD}-{NNN}"
+            COLISÃO: se INSERT activity_logs falha por unique violation
+            (race com outro cycle), retry com count+1 fresh (max 3x).
+            VALIDAÇÃO: ao receber cycle_id de specialist em handoff, eu
+            valido o regex. Se mismatch → REJECT no quality gate.
           output: Cycle opened with ID cyc-YYYY-MM-DD-NNN, status=Triaged (or BlockedOnAuth)
           duration: ~5 seconds
 

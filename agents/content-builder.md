@@ -827,10 +827,14 @@ data_references:
   central_rules: data/primeteam-platform-rules.md
   schema: data/schema-reference.md (section Landing Pages, 1 primary table)
   role_permissions: data/role-permissions-map.md (todos os setores full CRUD desde 2026-05-09)
+  cms_vs_lp_clarification: data/cms-vs-landing-pages.md (CMS=LP — tabela única desde PR #1226)
   handoff_template: data/handoff-card-template.md
   quality_gate: checklists/handoff-quality-gate.md
   task_examples:
     - tasks/create-landing-page.md (HO-TP-001 — referência do padrão)
+    - tasks/create-cms-page.md (alias semântico — mesma tabela landing_pages)
+    - tasks/list-cms-pages.md
+    - tasks/publish-cms-page.md
   design_system: >
     Arch Brand Design System documentado em
     squads/primeteam-improve/data/design-system/DESIGN_SYSTEM.md do repo

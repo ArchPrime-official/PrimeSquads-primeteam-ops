@@ -1,8 +1,18 @@
 # Task: create-landing-page
 
-> Task atômica para criar uma nova linha em `landing_pages`. **SEMPRE active=false** na criação — publicação é operação separada (`activate_lp` playbook). Valida slug kebab-case + uniqueness + html_content mínimo. Resolve campaign/booking_event por nome.
+> ⚠️ **DEPRECATED desde 2026-05-10** — use [`create-cms-page.md`](./create-cms-page.md) em vez disso.
+>
+> Esta task foi escrita PRÉ-convergência (antes do PR #1226 do primeteam em 2026-05-04, que consolidou `cms_pages` em `landing_pages`). Ela ignora campos obrigatórios pós-convergência: `target_domain` (NOT NULL), `locale` (NOT NULL), `status`, `version`. Também usa apenas `slug` no uniqueness check, mas a constraint real é `(target_domain, slug, locale)`.
+>
+> **Use `create-cms-page.md`** — mesma tabela `landing_pages`, shape moderno, suporta os 3 domínios (`lp.archprime.io`, `lovarch.com`, `archprime.io`), campos completos.
+>
+> Esta spec é mantida só para referência histórica do que era "Sprint 7" pre-consolidação. Pode ser removida em sprint futuro.
+>
+> ---
+>
+> Task atômica (legacy) para criar uma nova linha em `landing_pages`. **SEMPRE active=false** na criação — publicação é operação separada (`activate_lp` playbook). Valida slug kebab-case + uniqueness + html_content mínimo. Resolve campaign/booking_event por nome.
 
-**Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
+**Cumpre:** HO-TP-001 (Task Anatomy — 8 campos) — **mas spec é legado (vide warning acima)**
 
 ---
 

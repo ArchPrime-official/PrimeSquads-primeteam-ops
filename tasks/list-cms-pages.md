@@ -1,6 +1,8 @@
 # Task: list-cms-pages
 
 > Task atômica para listar páginas em `landing_pages` com filtros opcionais. Read-only — não muta. Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages` (tabela única para `lp.archprime.io` + `lovarch.com` + `archprime.io`).
+>
+> Nota: como é read-only, não há débito Lovarch dual-renderer aqui (não muta nada). Mas vale lembrar: páginas em `lovarch.com`/`archprime.io` são renderizadas pelo Next.js no repo `ByPabloRuanL/lovarch`. Ver `data/cms-vs-landing-pages.md`.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 

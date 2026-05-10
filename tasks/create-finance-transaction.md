@@ -97,14 +97,27 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
        description, category_id, cost_center_id,
        bank_account_id, credit_card_id, payment_method,
        notes, tags, reference,
-       user_id, status)
+       user_id, status,
+       -- multi-currency obrigatorios SE currency != moeda nativa da conta:
+       converted_amount, converted_currency, exchange_rate, conversion_date)
     VALUES
       ({amount}, {type}, {date}, {currency},
        {desc}, {cat_id}, {cc_id},
        {bank_id}, {card_id}, {pm},
        {notes}, {tags}, {ref},
-       auth.uid(), 'confirmed');
+       auth.uid(), 'completed',
+       {conv_amount}, {conv_currency}, {fx_rate}, {date});
     ```
+    **Status enforcement:** `status='completed'` é o valor canônico para
+    transações já efetivadas (3849/4113 rows em prod usam isso). Outros
+    valores reais: `'predicted'` (forecasts) e `'cancelled'`. NUNCA usar
+    `'confirmed'`/`'pending'`/`'cleared'` — não existem em prod.
+
+    **Multi-currency rule** (memory: multi-currency-hybrid-cards-2026-04-30):
+    se currency da TX ≠ moeda nativa da conta destino, os 4 campos
+    converted_amount/converted_currency/exchange_rate/conversion_date
+    são OBRIGATÓRIOS. Sem isso, calculateHybridAccountUsage e
+    calculate_invoice_total computam saldo errado.
 11. **Tratar erros** — consulte handling em platform-specialist:
     - 42501 (RLS denial, user sem has_finance_access) → BLOCKED clear message
     - 23502 (NOT NULL violation) → BLOCKED indicando campo

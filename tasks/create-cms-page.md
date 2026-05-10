@@ -1,6 +1,8 @@
 # Task: create-cms-page
 
 > Task atômica para criar uma nova linha em `landing_pages` (tabela única para todas as landing pages multi-domain — `lp.archprime.io`, `lovarch.com`, `archprime.io`). Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages`. Conteúdo é `html_content` (HTML raw self-contained com pixel + form embutidos), não mais `blocks`. **SEMPRE status='draft'** + **campaign_id obrigatório** (sem ele attribution quebra).
+>
+> ⚠️ **DEBT TÉCNICO LOVARCH (CLAUDE.md):** se a página criada for em `target_domain='lovarch.com'`, o renderer público é o frontend Next.js no repo `ByPabloRuanL/lovarch` (mirror). LPs em `lovarch.com/page/{slug}` são renderizadas por código separado. Mexer no schema/renderer/tracking exige PR companion no repo Lovarch no mesmo dia OU LPs quebram silenciosamente. Para `archprime.io` mesmo flow (também ISR via Next). Para `lp.archprime.io` é SPA do próprio primeteam — sem dual-renderer. Ver `data/cms-vs-landing-pages.md`.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 

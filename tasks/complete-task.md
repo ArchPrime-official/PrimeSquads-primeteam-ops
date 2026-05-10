@@ -90,6 +90,8 @@ Entregue pelo `ops-chief`:
 - **[A6] RLS clarity:** denial 42501 → BLOCKED com msg clara (improvável para tasks pois policies são permissivas, mas código deve lidar se policies forem tightened).
 - **[A7] Not destructive:** task é REVERSÍVEL via `reopen-task.md` — não requer confirmation "sim".
 - **[A8] Returns task_title:** output inclui título para human reading em logs (auditoria).
+- **[A9] completed_by populated:** UPDATE seta `completed_by = auth.uid()` (audit trail). Trigger BEFORE UPDATE da plataforma também garante isso, mas spec faz explícito por defesa.
+- **[A10] Status enum strict:** UPDATE seta `status = 'done'` (literal). Idempotency check usa `WHERE status != 'done'` — coerente com enum real `('todo','doing','done')`. Nunca usar `'completed'`, `'finished'`, `'closed'` (esses não existem na tabela).
 
 ---
 

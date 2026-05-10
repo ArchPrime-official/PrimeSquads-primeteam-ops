@@ -1,6 +1,8 @@
-# Task: list-students
+# Task: list-customers
 
-> Task read-only para listar alunos (tabela `customers` no DB) com filtros típicos do dia a dia CS: health_score, CS manager, onboarding status, próximo check-in. Zero mutations.
+> Task read-only para listar customers (alunos da plataforma) com filtros típicos do dia a dia CS: health_score, CS manager, onboarding status, próximo check-in. Zero mutations.
+>
+> **Renomeada em 2026-05-10** (era `list-students`): a tabela real é `customers` — não existe `students` no schema. O termo "alunos" é vocabulário do produto, mas tecnicamente operamos sobre `customers`.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
@@ -9,7 +11,7 @@
 ## Task anatomy (HO-TP-001 — 8 campos obrigatórios)
 
 ### task_name
-`List Students` (alias: `List Customers`)
+`List Customers` (vocabulário UI: "alunos" — tabela DB `customers`)
 
 ### status
 `pending`

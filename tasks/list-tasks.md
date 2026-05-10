@@ -12,7 +12,7 @@
 `List Tasks`
 
 ### status
-`pending`
+`pending` *(status da task anatomy — não confundir com `status` da tabela `tasks`, cujos valores reais usados são `'todo' | 'doing' | 'done'`)*
 
 ### responsible_executor
 `platform-specialist` (Sprint 2+, Tasks module)
@@ -28,10 +28,10 @@ Entregue pelo `ops-chief`:
 - **User JWT** (de `~/.primeteam/session.json`)
 - **Request payload**:
   - `filters` (optional, dict):
-    - `status` ("pending" | "in_progress" | "done" | "archived" | null=all)
+    - `status` ('todo' | 'doing' | 'done' | null=all)  # enum real da tabela tasks
     - `date_range` ("today" | "overdue" | "this_week" | "this_month" | custom `{from, to}`)
-    - `priority` (int 1..4 ou array)
-    - `urgency` (int 1..4 ou array)
+    - `priority` (int 1..10 ou array)  # escala da plataforma (CHECK constraint)
+    - `urgency` (int 1..10 ou array)   # idem
     - `project_id` (uuid)
     - `assigned_to` (user_id — checa `array_contains(assigned_to, uuid)`)
     - `owner_id` (user_id — default: auth.uid())
@@ -59,7 +59,7 @@ Entregue pelo `ops-chief`:
    - Se nenhum filtro de owner/assigned: default `owner_id = auth.uid()`
    - Se `date_range=overdue`: `due_date < now() AND status != 'done'`
    - Se `date_range=today`: resolver bounds Europe/Rome day → UTC range
-   - Validar ranges numéricos (priority/urgency in 1..4)
+   - Validar ranges numéricos (priority/urgency in 1..10)
 2. **Validar limit** — cap em 200 para evitar query custosa.
 3. **Construir query** — SELECT restrito (id, title, status, priority, urgency, due_date, owner_id, project_id, is_recurring, completed_at) — NUNCA `SELECT *` (evita leak de bank_raw_data-like columns de outras tabelas).
 4. **Executar SELECT** via Supabase (user JWT).
@@ -73,7 +73,7 @@ Entregue pelo `ops-chief`:
 
 ### acceptance_criteria
 
-- **[A1] Filter defaults applied:** se user não especificou owner, query usa `owner_id = auth.uid()`. Se nenhum filtro, default é `status='pending'`.
+- **[A1] Filter defaults applied:** se user não especificou owner, query usa `owner_id = auth.uid()`. Se nenhum filtro, default é `status IN ('todo','doing')` (tarefas ativas — exclui done).
 - **[A2] No SELECT *:** query explicita as 10 colunas. Schema inteiro nunca é exposto.
 - **[A3] Limit enforced:** limit <= 200 sempre. Se user pede mais, ESCALATE suggesting pagination strategy.
 - **[A4] Timestamps converted:** `table_compact` mostra timestamps em Europe/Rome formatted (YYYY-MM-DD HH:mm). `rows` raw mantém ISO UTC.
@@ -81,6 +81,7 @@ Entregue pelo `ops-chief`:
 - **[A6] Empty result OK:** 0 rows retorna DONE com mensagem "nenhuma tarefa encontrada com esses filtros" — NÃO é BLOCKED.
 - **[A7] RLS read-scope:** se user role não permite ver owner_id de outro user, Supabase filtra silenciosamente. Task não infla resultado artificialmente.
 - **[A8] No mutation:** verdict DONE com `convention_check.read_only = true`. Zero calls de INSERT/UPDATE/DELETE.
+- **[A9] Schema enums respected:** filtros de `status` SOMENTE aceitam `'todo' | 'doing' | 'done'` (valores reais usados em produção). Nunca `'pending'`, `'in_progress'`, `'archived'` (não existem na tabela). Filtros de `priority`/`urgency` aceitam apenas inteiros 1..10. Inputs fora desses sets → BLOCKED com mensagem listando valores válidos.
 
 ---
 
@@ -114,9 +115,9 @@ total_rows: 3
 table_compact: |
   | # | Título | Prazo (Rome) | P/U | Status |
   |---|--------|--------------|-----|--------|
-  | 1 | Revisar PR #945 | 2026-04-20 18:00 | 4/4 | pending |
-  | 2 | Agendar review tri | 2026-04-21 10:00 | 3/2 | pending |
-  | 3 | Email Revolut | 2026-04-22 09:00 | 2/4 | in_progress |
+  | 1 | Revisar PR #945 | 2026-04-20 18:00 | 9/9 | todo  |
+  | 2 | Agendar review tri | 2026-04-21 10:00 | 7/4 | todo  |
+  | 3 | Email Revolut | 2026-04-22 09:00 | 5/8 | doing |
 truncated: false
 filters_applied: { owner_id: <uuid>, date_range: overdue }
 convention_check: read-only ✓, RLS ✓, UTC↔Rome ✓
@@ -135,7 +136,7 @@ convention_check: read-only ✓, RLS ✓, UTC↔Rome ✓
 total_rows: 0
 table_compact: "(nenhuma tarefa encontrada com esses filtros)"
 truncated: false
-filters_applied: { project_id: <uuid>, status: pending }
+filters_applied: { project_id: <uuid>, status: 'todo' }
 convention_check: read-only ✓, RLS ✓
 ```
 

@@ -439,7 +439,9 @@ playbooks:
     auto_set:
       - user_id = auth.uid()
       - created_at = now()
-      - status = "confirmed" (default — pode ser "pending" para recorrência)
+      - status = "completed" (valor real usado em prod — 3849/4113 rows.
+        Outros válidos: 'predicted' (forecasts), 'cancelled'. NUNCA
+        'confirmed'/'pending'/'cleared' — não existem em prod.)
     amount_parsing_rules: |
       Input patterns I handle:
       - "€500"          → 500.00  (positive, infer type from context if not given)
@@ -474,7 +476,8 @@ playbooks:
       "✓ Transação lançada (id: {uuid}). {currency} {amount} em {account_name}."
 
   list_transactions:
-    default_filters: "user_id = auth.uid() AND status = 'confirmed'"
+    default_filters: "status = 'completed'"  # finance é shared (memory:finance-shared-team-model), NÃO filtrar por user_id
+    # status enum real: 'completed' | 'predicted' | 'cancelled'
     supported_filters:
       - date_range (this_month | last_month | this_year | custom)
       - type (income | expense | transfer)
@@ -883,7 +886,7 @@ output_examples:
          WHERE bank_account_id = 'b2c...'
            AND transaction_date >= '2026-04-01'
            AND transaction_date <= '2026-04-30'
-           AND status = 'confirmed'
+           AND status = 'completed'
          ORDER BY transaction_date DESC
          LIMIT 100;
       5. Supabase retornou 14 rows.
@@ -1231,7 +1234,7 @@ data_references:
     - tasks/list-tasks.md (HO-TP-001 read-only)
     - tasks/complete-task.md (HO-TP-001 idempotent)
     - tasks/create-finance-transaction.md (HO-TP-001 Finance module)
-    - tasks/list-students.md (HO-TP-001 CS module read-only, Sprint 6)
+    - tasks/list-customers.md (HO-TP-001 CS module read-only, Sprint 6 — renomeada de list-students em 2026-05-10)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NOTES FOR FUTURE SPRINTS

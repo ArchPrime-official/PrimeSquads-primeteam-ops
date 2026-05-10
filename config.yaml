@@ -150,15 +150,17 @@ tasks:
     purpose: Mover oportunidade no pipeline Kanban
     agent: sales-specialist
 
-  - id: list-students
-    file: tasks/list-students.md
-    purpose: Listar estudantes CS com filtros (health/manager/onboarding)
+  - id: list-customers
+    file: tasks/list-customers.md
+    purpose: Listar customers (alunos no vocab UI, tabela `customers` no DB) com filtros (health/manager/onboarding) — renomeada 2026-05-10
     agent: platform-specialist
 
   - id: create-landing-page
     file: tasks/create-landing-page.md
-    purpose: Criar LP (sempre active=false) validando slug uniqueness
+    purpose: "[DEPRECATED 2026-05-10 — use create-cms-page] Spec pré-convergência cms_pages→landing_pages (PR #1226). Faltam target_domain/locale obrigatórios. Mantida só pra referência histórica."
     agent: content-builder
+    deprecated: true
+    superseded_by: create-cms-page
 
   - id: create-cms-page
     file: tasks/create-cms-page.md

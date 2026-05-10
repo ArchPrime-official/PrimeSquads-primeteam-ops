@@ -519,6 +519,202 @@ tasks:
       F-06 + F-08 PRD.
     agent: platform-specialist
 
+  # ── Wave 8 Tier 2+3: 24 tasks completam o backlog (95% → 100% UI coverage) ──
+
+  # Finance ops (setup + bulk)
+  - id: bulk-update-transactions
+    file: tasks/bulk-update-transactions.md
+    purpose: >
+      Bulk UPDATE finance_transactions (categoria/status/cost_center).
+      has_finance_access (admin EXCLUDED). Tripla "BULK UPDATE TX". Atomic
+      SAVEPOINT per-tx. Multi-currency awareness.
+    agent: platform-specialist
+
+  - id: update-bank-account
+    file: tasks/update-bank-account.md
+    purpose: >
+      UPDATE finance_bank_accounts (rename/currency/active). Setup-once.
+      has_finance_access. Currency change warn (recompute balances).
+    agent: platform-specialist
+
+  - id: update-credit-card
+    file: tasks/update-credit-card.md
+    purpose: >
+      UPDATE finance_credit_cards (limit/due_day/accepts_new). due_day 1..31.
+      accepts_new=false vs open invoice warn. has_finance_access.
+    agent: platform-specialist
+
+  # CRM/CS Tier 2
+  - id: update-customer-avatar
+    file: tasks/update-customer-avatar.md
+    purpose: >
+      UPDATE customer rich profile (avatar/segment/health_score/tags/manager).
+      cs/admin/owner. Health 1..10. Side-effect Chat AI ingestion. F-05.4.
+    agent: platform-specialist
+
+  - id: export-opportunities-csv
+    file: tasks/export-opportunities-csv.md
+    purpose: >
+      Export opportunities → CSV/XLSX com filtros + custom columns. Async
+      job, signed URL 24h expiry, count cap 50k. comercial/admin/owner.
+    agent: sales-specialist
+
+  # Marketing Tier 2
+  - id: create-editorial-post
+    file: tasks/create-editorial-post.md
+    purpose: >
+      Criar post em editorial_calendar (instagram/blog/lp/evento/email).
+      marketing/admin/owner. Channel enum, scheduled_for futuro, assignee
+      role check, notification side-effect. F-04.6.
+    agent: content-builder
+
+  # Landing Pages Tier 2
+  - id: list-landing-page-analytics
+    file: tasks/list-landing-page-analytics.md
+    purpose: >
+      Read-only LP analytics: visitors + engagement events + funnel +
+      conversion rate + top utm/devices. Custom date range max 1y. F-09.6.
+    agent: content-builder
+
+  - id: clone-landing-page
+    file: tasks/clone-landing-page.md
+    purpose: >
+      Deep copy LP com novo slug. Status reset draft. Granular clone flags
+      (blocks/html/seo). cloned_from_id audit/lineage. A/B testing + variações.
+    agent: content-builder
+
+  # Automation Tier 2
+  - id: clone-automation-flow
+    file: tasks/clone-automation-flow.md
+    purpose: >
+      Deep copy automation_flow com novo nome. Status reset draft.
+      cloned_from_id audit. Trigger clone opt-in. Safe variant creation.
+    agent: automation-specialist
+
+  # Chiamate Tier 2
+  - id: backfill-vapi-calls
+    file: tasks/backfill-vapi-calls.md
+    purpose: >
+      Recuperar chamadas Vapi perdidas via API replay. admin/owner only.
+      Period max 30d. Dry-run default. Tripla "BACKFILL VAPI". Idempotent
+      via UNIQUE vapi_call_id. Incident response.
+    agent: integration-specialist
+
+  # Settings Tier 2
+  - id: view-activity-log
+    file: tasks/view-activity-log.md
+    purpose: >
+      Read-only consulta activity_logs com filtros (user/action/resource/
+      cycle_id). owner-only (compliance). Stats agregadas top
+      actions/users/resources. Self-log RECURSIVE. F-16.3.
+    agent: platform-specialist
+
+  - id: check-meta-sync-health
+    file: tasks/check-meta-sync-health.md
+    purpose: >
+      Read-only diagnóstico cron meta-sync. Health green/yellow/red per
+      account. Cron status + queue depth + last errors. Recommendations
+      actionable. marketing/admin/owner.
+    agent: integration-specialist
+
+  # Gestão Tier 2
+  - id: search-creative-studio
+    file: tasks/search-creative-studio.md
+    purpose: >
+      Read-only busca/filtra creative_assets (banners/videos/templates/
+      images). Multi-criteria filter. Signed URLs 24h. marketing/admin.
+    agent: content-builder
+
+  - id: create-evento-products
+    file: tasks/create-evento-products.md
+    purpose: >
+      Bridge M-13/M-17. Batch create products evento (early bird/regular/
+      VIP) + Stripe Catalog sync. admin/owner via has_invoice_access.
+      Tripla "CRIA PRODUCTS". Stripe rollback on failure.
+    agent: admin-specialist
+
+  # Communication Tier 2
+  - id: edit-message
+    file: tasks/edit-message.md
+    purpose: >
+      Editar channel_message própria. Authority creator only. 24h window
+      default. Edit history em channel_message_edits. Optimistic lock.
+    agent: platform-specialist
+
+  - id: delete-message
+    file: tasks/delete-message.md
+    purpose: >
+      Soft delete channel_message (is_deleted=true, content limpo).
+      Authority creator OR channel_admin OR owner. Reason recomendado se
+      non-creator. Thread integrity preservada.
+    agent: platform-specialist
+
+  - id: manage-channel-members
+    file: tasks/manage-channel-members.md
+    purpose: >
+      Add/remove members + change role em canal. Authority channel_admin
+      OR owner. Last-admin protection, creator não removível. Atomic batch.
+    agent: platform-specialist
+
+  # Admin/RBAC Tier 2 (admin-specialist agent já tinha playbook — agora task formal)
+  - id: revoke-role
+    file: tasks/revoke-role.md
+    purpose: >
+      DELETE row em user_roles (rebaixa user). Owner-only. Last-owner
+      protection (min 1). Self-revoke owner = tripla "REMOVE OWN OWNER".
+      Reason obrigatório. Capabilities lost preview. Audit STRICT.
+    agent: admin-specialist
+
+  - id: deactivate-user
+    file: tasks/deactivate-user.md
+    purpose: >
+      Mark profile.is_active=false + revoke ALL roles + opcional cascade
+      reassign assignments. Owner-only. Last-owner protection. No self-
+      deactivate. Tripla "DEACTIVATE USER". Reversível via reactivate-user.
+    agent: admin-specialist
+
+  # Tasks Tier 3
+  - id: manage-task-projects
+    file: tasks/manage-task-projects.md
+    purpose: >
+      CRUD task_projects + project_members. Authority varies per action
+      (creator/admin/owner). Last admin protection, archive ≠ delete.
+      F-08.2.
+    agent: platform-specialist
+
+  # Goals Tier 3
+  - id: manage-monthly-goals
+    file: tasks/manage-monthly-goals.md
+    purpose: >
+      CRUD goals + goal_history (audit). Owner-only para create/update;
+      read owner+admin. Period unique per area. F-12.
+    agent: admin-specialist
+
+  # Radar Tier 3
+  - id: manage-radar-meetings
+    file: tasks/manage-radar-meetings.md
+    purpose: >
+      CRUD radar_meetings + action_plans + linkagem a tasks. admin/owner.
+      Setor enum, generate slides via edge opcional. F-14.
+    agent: platform-specialist
+
+  # Platform Utils Tier 2/3
+  - id: import-csv
+    file: tasks/import-csv.md
+    purpose: >
+      Import CSV unificado (leads/opps/transactions/customers). admin/owner.
+      Dry-run default, dedup strategy explicit, async job, tripla "IMPORT
+      CSV". Email notification on completion.
+    agent: imports-specialist
+
+  - id: diagnose-database
+    file: tasks/diagnose-database.md
+    purpose: >
+      Read-only table introspection (schema/indexes/RLS/row counts).
+      Owner-only emergency diagnostics. Max 20 tables/call. Zero PII em
+      output (apenas metadata).
+    agent: admin-specialist
+
   - id: request-role-change
     file: tasks/request-role-change.md
     purpose: >

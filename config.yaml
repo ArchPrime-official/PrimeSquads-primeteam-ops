@@ -4,18 +4,119 @@
 
 pack:
   name: primeteam-ops
-  version: 1.3.0
+  version: 1.4.0
   description: >
-    CLI squad que opera a plataforma PrimeTeam via Claude Code. Execution layer
-    que substitui editores visuais (LP, Automação, Radar) e acelera operações
-    rotineiras. Respeita RLS via JWT de usuário (Google OAuth browser-callback).
-    v1.3.0 (Waves 4-8, 2026-05-10): 80 tasks cobrindo ~100% dos fluxos manuais
-    da plataforma + 2 workflows formais de aprovação (F-08.3 task date change +
-    FR5 role request). Authorization model enforced em cada task: has_finance_access
-    (owner+financeiro, admin EXCLUDED), has_invoice_access (owner+admin),
-    hierarchy owner > admin = financeiro > comercial = cs = marketing.
+    ROOT SQUAD da PrimeTeam — Master orchestration layer + execution layer.
+    CLI binary `pto` é o entry point único da plataforma (Google OAuth + JWT).
+    ops-chief é o master orchestrator que conhece os 4 sub-squads operacionais
+    e roteia demandas para sub-chiefs apropriados via cross-squad handoff.
+
+    v1.3.0 base (Waves 4-8, 2026-05-10): 80 tasks cobrindo ~100% dos fluxos
+    manuais da plataforma + 2 workflows formais de aprovação. Authorization
+    model enforced: has_finance_access (owner+financeiro, admin EXCLUDED),
+    has_invoice_access (owner+admin), hierarchy owner > admin = financeiro >
+    comercial = cs = marketing.
+
+    v1.4.0 hierarchy refactor (2026-05-14): primeteam-ops declarado ROOT SQUAD.
+    ops-chief vira master orchestrator com sub_chief_routing. Cross-squad
+    workflows ficam first-class em workflows/cross-squad/. Activity log unified
+    via parent_squad + sub_squad metadata.
   icon: "⚙️"
   slash_prefix: PrimeteamOps
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HIERARCHY (v1.4.0 — root squad declaration)
+# ═══════════════════════════════════════════════════════════════════════════════
+hierarchy:
+  role: root_squad                    # 1 root_squad existe na PrimeTeam
+  cli_binary: pto                     # entry point físico do hub
+  master_orchestrator: "@ops-chief"   # único orchestrator que conhece sub-chiefs
+
+  sub_squads:
+    - name: creative-studio
+      sub_chief: "@creative-chief"
+      domain: "Geração de criativos (carosello, video, immagine, marketing studio)"
+      slash_prefix: creativeStudio
+      handles:
+        - "criar carosello"
+        - "criar video AI"
+        - "criar immagine"
+        - "marketing studio (Higgsfield NO PEOPLE)"
+        - "podcast clip simulado"
+        - "batch ads A/B testing"
+        - "trend reativo veloce"
+      reports_to: "@ops-chief"
+
+    - name: strategic-management
+      sub_chief: "@strategy-chief"
+      domain: "Diagnóstico estratégico + board meeting + financial analysis"
+      slash_prefix: stratMgmt
+      handles:
+        - "diagnóstico estratégico"
+        - "board meeting"
+        - "financial analysis"
+        - "growth strategy"
+        - "moonshot analysis"
+      reports_to: "@ops-chief"
+
+    - name: meta-ads
+      sub_chief: "@meta-ads-chief"
+      domain: "Paid acquisition Meta (audit, launch, scale, optimize)"
+      slash_prefix: metaAds
+      handles:
+        - "audit campanhas Meta"
+        - "launch campaign"
+        - "campaign scaling"
+        - "budget optimization"
+        - "creative analysis (performance)"
+      reports_to: "@ops-chief"
+
+    - name: primeteam-improve
+      sub_chief: "@pt-chief"
+      domain: "Melhorias da plataforma PrimeTeam (frontend, data, integrations, design)"
+      slash_prefix: ptImprove
+      handles:
+        - "design audit/improvements"
+        - "frontend refactors"
+        - "data architecture changes"
+        - "integration debugging"
+        - "QA platform issues"
+      reports_to: "@ops-chief"
+
+  meta_squads:
+    # Squads tooling/meta — não são sub-squads operacionais
+    - name: squad-creator
+      role: meta_squad
+      purpose: "Cria/audita/valida outros squads. Não opera plataforma."
+      slash_prefix: squadCreator
+
+  design_resources:
+    # Não-squads (pacotes/presets)
+    - name: lovarch-design-system
+      role: design_resource
+      purpose: "Tailwind preset + tokens Lovarch. Importável via npm."
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CROSS-SQUAD ROUTING (v1.4.0)
+# ═══════════════════════════════════════════════════════════════════════════════
+cross_squad_routing:
+  enabled: true
+  protocol: "Cycle ID + handoff card (V18) + activity_log unified"
+  workflows_folder: "workflows/cross-squad/"
+  activity_log_strategy: "parent_squad='primeteam-ops' + sub_squad=<name> + cycle_id=<UUID>"
+
+  examples:
+    - name: "Carosello publish flow"
+      flow: "ops-chief → creative-chief (gera) → ops-chief → content-builder (publish na plataforma)"
+      workflow: "workflows/cross-squad/wf-creative-to-publish.yaml"
+
+    - name: "Strategy → Creative brief"
+      flow: "ops-chief → strategy-chief (board diagnostic) → ops-chief → creative-chief (briefa novo conteúdo)"
+      workflow: "workflows/cross-squad/wf-strategy-to-creative.yaml (TODO)"
+
+    - name: "Full launch cycle"
+      flow: "ops-chief → strategy → creative → meta-ads → publish → track"
+      workflow: "workflows/cross-squad/wf-full-launch-cycle.yaml (TODO)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Agents registry (10 agents — v1.2.0)

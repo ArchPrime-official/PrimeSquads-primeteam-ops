@@ -1,6 +1,31 @@
 # primeteam-ops
 
+> **ROOT SQUAD da PrimeTeam** — Master orchestrator + execution layer da plataforma.
 > Sua caixa de ferramentas para operar a plataforma PrimeTeam via terminal — **sem precisar saber programar**.
+
+---
+
+## Squad Hierarchy (v1.4.0 — 2026-05-14)
+
+`primeteam-ops` é o **ROOT SQUAD** da PrimeTeam. O `@ops-chief` é o master orchestrator
+que conhece os 4 sub-squads operacionais:
+
+```
+primeteam-ops (ROOT — @ops-chief)
+├── creative-studio       → @creative-chief    (carosello, video, immagine, marketing)
+├── strategic-management  → @strategy-chief    (board meeting, diagnostic, growth)
+├── meta-ads              → @meta-ads-chief    (audit, launch, scale, optimize)
+└── primeteam-improve     → @pt-chief          (design, frontend, data, integration, QA)
+```
+
+Você invoca **sempre** `/PrimeteamOps:agents:ops-chief` no Claude Code.
+Ele rotearrá automaticamente para o sub-chief apropriado se a demanda exigir
+expertise especializada (criar carosello, fazer board meeting, etc.).
+
+**Cycle ID único** atravessa cross-squad workflows. Activity log é unified em
+`activity_logs` com `parent_squad='primeteam-ops'` + `sub_squad=<name>` + `cycle_id`.
+
+CLI: `pto status` mostra hierarquia atual; `pto squads list` listagem detalhada.
 
 ---
 
@@ -11,6 +36,9 @@ Um companheiro para o time da ArchPrime que substitui o trabalho repetitivo na p
 - "lança um pagamento de 250€ pra Jessica — bônus"
 - "cria uma landing page para o evento de Roma"
 - "move o lead da Maria pra 'Proposta Enviada'"
+- "criar carosello sobre Reverse Brief para architetti italiani" *(NEW: cross-squad → creative-studio)*
+- "fazer board meeting estratégico Q2" *(NEW: cross-squad → strategic-management)*
+- "audit campanhas Meta últimos 30 dias" *(NEW: cross-squad → meta-ads)*
 
 O resultado aparece imediatamente na plataforma. O navegador vira só a janela onde você **vê** — o trabalho acontece aqui.
 

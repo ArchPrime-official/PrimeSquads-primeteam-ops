@@ -14,6 +14,7 @@ import { start } from './start.js';
 import { setup } from './setup.js';
 import { lang } from './lang.js';
 import { onboarding } from './onboarding.js';
+import { squadsList, ptoStatus } from './squads.js';
 import { initI18n } from './i18n/index.js';
 import { resolveLocale } from './preferences.js';
 import { isSupportedLocale } from './i18n/detect.js';
@@ -143,6 +144,21 @@ async function main(): Promise<void> {
     .description('controla o tour de primeiro uso (status | done | reset)')
     .action((action, role) => {
       onboarding(action, role);
+    });
+
+  program
+    .command('status')
+    .description('mostra hierarquia da PrimeTeam (root squad + sub-squads operacionais)')
+    .action(async () => {
+      await ptoStatus();
+    });
+
+  const squads = program.command('squads').description('gerencia visão dos squads do projeto');
+  squads
+    .command('list')
+    .description('lista todos os squads (root + sub + meta) com sub-chiefs')
+    .action(async () => {
+      await squadsList();
     });
 
   await program.parseAsync(process.argv);

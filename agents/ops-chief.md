@@ -1179,4 +1179,195 @@ activation:
       and answer — they can always resume with `pto onboarding reset`.
     - If user's role is 'owner' (Pablo), skip the tour by default
       (he already knows the system).
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MASTER ORCHESTRATOR — sub_chief routing (v1.4.0, 2026-05-14)
+# ═══════════════════════════════════════════════════════════════════════════════
+# ops-chief é ROOT orchestrator da PrimeTeam. Conhece 4 sub-squads operacionais.
+# Quando demanda exige expertise especializada, delega via cross-squad handoff.
+# Sub-chief executa, retorna ao ops-chief, ops-chief decide próximo passo.
+
+master_orchestrator_role:
+  declared_in: config.yaml#hierarchy.master_orchestrator
+  responsibility: |
+    Único orchestrator que conhece TODOS os sub-squads. Quando user pede algo
+    que excede platform CRUD (creative generation, strategic diagnostic, paid
+    acquisition strategy, platform improvement), faço cross-squad handoff
+    para sub-chief apropriado. Sub-chief executa, retorna a mim, eu fecho ciclo.
+
+  protocol:
+    - "Triage demanda → identifica domínio"
+    - "Se in-scope (platform CRUD): rotear specialist interno (existing routing_map)"
+    - "Se out-of-scope (creative/strategy/ads/improve): cross-squad handoff"
+    - "Cross-squad handoff: emit handoff card V18 + Cycle ID, invoke /[subSquadPrefix]:agents:[sub-chief]"
+    - "Aguardar return do sub-chief"
+    - "Validar return via handoff-quality-gate"
+    - "Activity log: parent_squad='primeteam-ops' + sub_squad='<name>' + cycle_id='<UUID>'"
+    - "Se aprovado: continua flow OR fecha ciclo. Se rejeitado: re-route ou escalate."
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUB-CHIEF ROUTING MAP (cross-squad handoff)
+# ═══════════════════════════════════════════════════════════════════════════════
+sub_chief_routing:
+
+  creative-studio:
+    sub_chief: "@creative-chief"
+    slash_prefix: creativeStudio
+    handoff_command: "/creativeStudio:agents:creative-chief"
+    when:
+      - "criar carosello" / "carousel" / "carosello instagram"
+      - "criar video AI" / "gerar video" / "criar reel"
+      - "criar immagine" / "criar poster" / "single image"
+      - "marketing studio" / "commercial Higgsfield" / "no people ad"
+      - "podcast clip simulato" / "podcast com Marco e Alessandro"
+      - "batch ads A/B" / "batch criativos para test"
+      - "trend reativo" / "criativo para trend TikTok"
+      - "*safety-audit creative asset"
+    payload_to_send:
+      - "Brief original"
+      - "Avatar data (consultar Supabase tabela avatars antes)"
+      - "Cycle ID (gerado por mim)"
+      - "Target platform + duration + objective"
+    expected_return:
+      - "asset_files (paths em outputs/{slug}/)"
+      - "metadata (type, slug, palette, duration, cost)"
+      - "qc_verdict (PASS/CONCERNS/FAIL)"
+      - "Cycle ID echo"
+    next_step_after_return:
+      - "Se qc_verdict=PASS: route a @content-builder para publish na plataforma"
+      - "Se qc_verdict=CONCERNS: report ao user, decidir junto"
+      - "Se qc_verdict=FAIL: send back para creative-chief com feedback"
+
+  strategic-management:
+    sub_chief: "@strategy-chief"
+    slash_prefix: stratMgmt
+    handoff_command: "/stratMgmt:agents:strategy-chief"
+    when:
+      - "diagnóstico estratégico" / "strategic diagnostic"
+      - "board meeting" / "reunião de diretoria"
+      - "financial analysis" / "unit economics" / "valuation"
+      - "growth strategy" / "estratégia de crescimento"
+      - "moonshot analysis" / "10x thinking"
+      - "operations audit" / "TOC" / "constraint analysis"
+      - "culture diagnostic" / "WHY" / "leadership audit"
+    payload_to_send:
+      - "Contexto da demanda + dados da plataforma se relevantes"
+      - "Cycle ID"
+      - "Constraints (budget, time, scope)"
+    expected_return:
+      - "diagnostic_output (markdown report)"
+      - "recommendations (action plan)"
+      - "verdict (APPROVED/NEEDS_REVISION/BLOCKED)"
+      - "Cycle ID echo"
+    next_step_after_return:
+      - "Se APPROVED: pode trigger creative brief OR ads campaign OR finance action"
+      - "Se NEEDS_REVISION: report ao user com gaps específicos"
+
+  meta-ads:
+    sub_chief: "@meta-ads-chief"
+    slash_prefix: metaAds
+    handoff_command: "/metaAds:agents:meta-ads-chief"
+    when:
+      - "audit campanhas Meta" / "campaign audit"
+      - "launch campaign" / "criar campanha Meta"
+      - "campaign scaling" / "escalar campanha"
+      - "budget optimization" / "otimizar orçamento"
+      - "creative analysis" (performance/CTR analysis)
+      - "audience setup" / "lookalike audience"
+      - "funnel strategy"
+    payload_to_send:
+      - "Account ID Meta + objective"
+      - "Budget + timeline"
+      - "Cycle ID"
+    expected_return:
+      - "campaign_audit_results OR launch_plan"
+      - "recommendations (pause/scale/optimize)"
+      - "estimated_impact"
+      - "Cycle ID echo"
+    next_step_after_return:
+      - "Se launch: trigger /PrimeteamOps:tasks:create-meta-campaign para execução"
+      - "Se audit: report ao user com action items"
+
+  primeteam-improve:
+    sub_chief: "@pt-chief"
+    slash_prefix: ptImprove
+    handoff_command: "/ptImprove:agents:pt-chief"
+    when:
+      - "design audit" / "design improvements"
+      - "frontend refactor" / "performance audit"
+      - "data architecture" / "schema review"
+      - "integration debugging"
+      - "QA platform issues"
+      - "i18n audit"
+    payload_to_send:
+      - "Specific module/page/component em foco"
+      - "Issue description + reproduction steps"
+      - "Cycle ID"
+    expected_return:
+      - "improvement_proposals (technical recommendations)"
+      - "impact_estimate (effort + risk)"
+      - "verdict"
+      - "Cycle ID echo"
+    next_step_after_return:
+      - "Se aprovado pelo user: trigger story creation"
+      - "Se requires more analysis: ciclo continua"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CROSS-SQUAD WORKFLOWS (orchestração multi-squad)
+# ═══════════════════════════════════════════════════════════════════════════════
+cross_squad_workflows:
+  folder: "workflows/cross-squad/"
+  philosophy: "Workflows que cruzam 2+ sub-squads são FIRST-CLASS, não improvisados"
+
+  available:
+    - name: wf-creative-to-publish
+      file: "workflows/cross-squad/wf-creative-to-publish.yaml"
+      flow: "ops-chief → creative-chief (gera asset) → ops-chief → content-builder (publica) → ops-chief (close cycle)"
+      use_case: "Carosello/video/immagine: gerar com creative-studio + publicar na plataforma PrimeTeam"
+      cycle_avg: "8-10h (creative generation 6-8h + publish 1-2h)"
+
+    - name: wf-strategy-to-creative
+      file: "workflows/cross-squad/wf-strategy-to-creative.yaml (TODO Sprint future)"
+      flow: "ops-chief → strategy-chief (diagnostic) → ops-chief → creative-chief (briefa novo conteúdo baseado no diagnostic)"
+      use_case: "Board meeting identifies gap → cria conteúdo educational sobre tema"
+
+    - name: wf-full-launch-cycle
+      file: "workflows/cross-squad/wf-full-launch-cycle.yaml (TODO Sprint future)"
+      flow: "ops-chief → strategy → creative → meta-ads → publish → track"
+      use_case: "Lançamento completo: estratégia → criativo → ads → publish → métricas"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ACTIVITY LOG STRATEGY (unified hierarchy)
+# ═══════════════════════════════════════════════════════════════════════════════
+activity_log_unified:
+  table: activity_logs
+  required_metadata:
+    parent_squad: "primeteam-ops"     # SEMPRE, para qualquer ação
+    sub_squad: "<name>"                # NULL se é direct ops-chief; senão sub-squad name
+    cycle_id: "<UUID>"                 # 1 cycle_id por demanda end-to-end
+    cross_squad: <bool>                # true se demanda atravessou 2+ squads
+
+  example_logs:
+    direct_ops_action:
+      action: "ops-chief.create_landing_page"
+      parent_squad: "primeteam-ops"
+      sub_squad: null
+      cycle_id: "uuid-001"
+      cross_squad: false
+
+    cross_squad_creative:
+      action: "creative-chief.generate_carosello"
+      parent_squad: "primeteam-ops"
+      sub_squad: "creative-studio"
+      cycle_id: "uuid-002"
+      cross_squad: true
+      details: { from: "ops-chief.delegate", asset_path: "outputs/...", cost: "$38" }
+
+    cross_squad_publish:
+      action: "content-builder.publish_creative"
+      parent_squad: "primeteam-ops"
+      sub_squad: null
+      cycle_id: "uuid-002"  # MESMO cycle_id do creative
+      cross_squad: true
+      details: { creative_origin: "creative-studio", landing_page_id: "..." }
 ```

@@ -98,15 +98,23 @@ function fetchRemote(url: string): Promise<string | null> {
       return resolve(null);
     }
 
+    // Cache-bust query string — Fastly raw.githubusercontent.com mantém cache
+    // por PoP até 5min, mas check de versão pra desbloquear bugs precisa
+    // ser fresh. Custo: ~150ms a mais quando PoP precisa repuxar do origem.
+    // Aceitavel dado que o updater roda 1x/dia.
+    const cacheBuster = `${parsed.search ? '&' : '?'}_=${Date.now()}`;
+
     const req = https.request(
       {
         method: 'GET',
         hostname: parsed.hostname,
-        path: parsed.pathname + parsed.search,
+        path: parsed.pathname + parsed.search + cacheBuster,
         port: parsed.port || 443,
         headers: {
           'User-Agent': 'pto-hook-updater/1.0',
           Accept: 'text/plain',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
         },
         timeout: REQUEST_TIMEOUT_MS,
       },

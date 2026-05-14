@@ -15,6 +15,7 @@ import { setup } from './setup.js';
 import { lang } from './lang.js';
 import { onboarding } from './onboarding.js';
 import { squadsList, ptoStatus } from './squads.js';
+import { cycleStart, cycleCurrent, cycleClose, cycleSwitch } from './cycle.js';
 import { initI18n } from './i18n/index.js';
 import { resolveLocale } from './preferences.js';
 import { isSupportedLocale } from './i18n/detect.js';
@@ -159,6 +160,45 @@ async function main(): Promise<void> {
     .description('lista todos os squads (root + sub + meta) com sub-chiefs')
     .action(async () => {
       await squadsList();
+    });
+
+  // pto cycle — gerencia cross-squad cycle context manualmente
+  // (hook universal log-claude-activity.cjs já gerencia cycle por session;
+  // este CLI é complementar para uso fora do hook)
+  const cycle = program
+    .command('cycle')
+    .description('gerencia cross-squad cycle (start | current | close | switch)');
+
+  cycle
+    .command('start')
+    .description('gera novo cycle_id (UUID v4) e sobrescreve o atual')
+    .option('--sub-squad <name>', 'sub-squad inicial (creative-studio | strategic-management | meta-ads | primeteam-improve)')
+    .action(async (opts) => {
+      await cycleStart({ subSquad: opts.subSquad });
+    });
+
+  cycle
+    .command('current')
+    .description('mostra cycle_id ativo (vazio se nenhum)')
+    .option('--id-only', 'imprime apenas o UUID (útil para `CYCLE_ID=$(pto cycle current --id-only)`)')
+    .option('--json', 'imprime estado completo em JSON')
+    .action(async (opts) => {
+      await cycleCurrent({ idOnly: opts.idOnly, json: opts.json });
+    });
+
+  cycle
+    .command('close')
+    .description('fecha o cycle ativo (apaga state local)')
+    .action(async () => {
+      await cycleClose();
+    });
+
+  cycle
+    .command('switch')
+    .description('troca sub-squad mantendo o mesmo cycle_id (marca cross_squad=true)')
+    .requiredOption('--sub-squad <name>', 'novo sub-squad')
+    .action(async (opts) => {
+      await cycleSwitch({ subSquad: opts.subSquad });
     });
 
   await program.parseAsync(process.argv);

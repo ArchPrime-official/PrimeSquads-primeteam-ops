@@ -7,6 +7,7 @@ import { loadState, recordStart } from './state.js';
 import { formatRelativeTime } from './ui.js';
 import { t } from './i18n/index.js';
 import { ensureClaudeTrackingInstalled } from './claude-tracking.js';
+import { ensureHookUpToDateInBackground } from './hook-updater.js';
 
 export async function start(): Promise<void> {
   const repoRoot = getRepoRoot();
@@ -30,6 +31,11 @@ export async function start(): Promise<void> {
   // Roda em background sem output. Garante que todos os colaboradores que
   // usam o pto têm tracking ativo, sem precisar de instalação manual.
   ensureClaudeTrackingInstalled({ silent: true });
+
+  // Auto-update do hook (cobre usuários EXISTENTES — `ensureClaudeTrackingInstalled`
+  // só roda no primeiro setup). Throttled a 1x/dia, fail-soft em rede ruim.
+  // Ler versão local + GET remoto + atomic replace se semver remoto > local.
+  ensureHookUpToDateInBackground();
 
   printBriefing({
     version,

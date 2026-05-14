@@ -4,7 +4,7 @@
 
 pack:
   name: primeteam-ops
-  version: 1.4.0
+  version: 1.5.0
   description: >
     ROOT SQUAD da PrimeTeam — Master orchestration layer + execution layer.
     CLI binary `pto` é o entry point único da plataforma (Google OAuth + JWT).

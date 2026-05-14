@@ -17,6 +17,17 @@
  *  - Fire-and-forget POST with hard 1.5s timeout. Never blocks Claude Code.
  *  - Exits 0 always (failures must NOT break the user's workflow).
  *
+ * Squad hierarchy (since 2026-05-14):
+ *  - Detects active sub-squad via slash command in UserPromptSubmit
+ *    (`/PrimeteamOps`, `/creativeStudio`, `/stratMgmt`, `/metaAds`, `/ptImprove`)
+ *    or repository path heuristics (squads/<name>/).
+ *  - Generates cycle_id (UUID v4) per Claude Code session, persisted in
+ *    ~/.claude/.archprime-cycle-{sessionId}.json. Lifetime = session.
+ *  - Detects cross_squad: if 2+ different sub_squads logged in same cycle,
+ *    flips cross_squad=true on subsequent events.
+ *  - Sends parent_squad/sub_squad/cycle_id/cross_squad in body root for
+ *    log-claude-event v1.1.0+ (older versions ignore unknown keys).
+ *
  * Opt-out: set `OPT_OUT_PROMPT=1` in ~/.claude/.archprime-config.json
  *          to drop the raw prompt body and tool inputs (metadata still logged).
  */
@@ -28,6 +39,7 @@ const path = require('node:path');
 const os = require('node:os');
 const https = require('node:https');
 const http = require('node:http');
+const crypto = require('node:crypto');
 
 // Hard exit safety net: if anything goes wrong, never break Claude Code.
 process.on('uncaughtException', () => process.exit(0));
@@ -48,6 +60,213 @@ const SECRET_PATTERNS = [
   [/xoxb-[A-Za-z0-9-]{20,}/g, '[REDACTED_SLACK]'],
   [/-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]+?-----END [A-Z ]+PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]'],
 ];
+
+// ─── Squad detection ─────────────────────────────────────────────
+// Mapping de slash command (ou alias) → sub_squad name.
+// Slash commands são case-insensitive. Aliases legacy (videoCreative)
+// mapeiam para sub_squad atual (creative-studio).
+const SLASH_TO_SUB_SQUAD = {
+  // creative-studio + alias legacy
+  'creativestudio': 'creative-studio',
+  'videocreative': 'creative-studio',
+  // strategic-management
+  'stratmgmt': 'strategic-management',
+  // meta-ads
+  'metaads': 'meta-ads',
+  // primeteam-improve
+  'ptimprove': 'primeteam-improve',
+  // primeteam-ops é root — quando invocado direto, NÃO popula sub_squad
+  // (o ops-chief é orchestrator, não sub-chief).
+  'primeteamops': null,
+};
+
+const SUB_SQUAD_FROM_PATH = [
+  // Heurística por path: squads/<name>/
+  [/squads\/creative-studio\b/i, 'creative-studio'],
+  [/squads\/video-creative\b/i, 'creative-studio'], // legacy folder
+  [/squads\/strategic-management\b/i, 'strategic-management'],
+  [/squads\/meta-ads\b/i, 'meta-ads'],
+  [/squads\/primeteam-improve\b/i, 'primeteam-improve'],
+];
+
+/**
+ * Extrai sub_squad de um prompt do user, procurando por slash command.
+ * Retorna null se nenhum slash command de sub-squad encontrado.
+ *
+ * Formatos aceitos:
+ *  /creativeStudio
+ *  /creativeStudio:agents:ai-strategist
+ *  /PrimeteamOps:agents:ops-chief
+ */
+function detectSubSquadFromPrompt(prompt) {
+  if (typeof prompt !== 'string') return null;
+  const m = prompt.match(/(?:^|\s)\/([A-Za-z][A-Za-z0-9_-]*)/);
+  if (!m) return null;
+  const slash = m[1].toLowerCase();
+  return SLASH_TO_SUB_SQUAD.hasOwnProperty(slash) ? SLASH_TO_SUB_SQUAD[slash] : null;
+}
+
+/**
+ * Heurística secundária: detectar sub_squad por path do cwd ou tool_input.file_path.
+ * Útil quando user edita arquivo dentro de squads/<name>/ sem invocar slash.
+ */
+function detectSubSquadFromPath(text) {
+  if (typeof text !== 'string') return null;
+  for (const [re, name] of SUB_SQUAD_FROM_PATH) {
+    if (re.test(text)) return name;
+  }
+  return null;
+}
+
+// ─── Cycle state per Claude Code session ─────────────────────────
+// Stored as ~/.claude/.archprime-cycle-{sessionId}.json
+// Lifetime: cleared on Stop/SessionEnd events; lingering files cleaned by
+// garbage collector after 24h staleness.
+
+function cycleStatePath(sessionId) {
+  if (!sessionId || typeof sessionId !== 'string') return null;
+  // Sanitize sessionId — só [a-z0-9-] permitido (já é UUID v4 do Claude Code)
+  if (!/^[a-z0-9-]+$/i.test(sessionId)) return null;
+  return path.join(os.homedir(), '.claude', `.archprime-cycle-${sessionId}.json`);
+}
+
+function readCycleState(sessionId) {
+  const p = cycleStatePath(sessionId);
+  if (!p || !fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeCycleState(sessionId, state) {
+  const p = cycleStatePath(sessionId);
+  if (!p) return;
+  try {
+    fs.writeFileSync(p, JSON.stringify(state), { mode: 0o600 });
+  } catch {
+    /* ignore */
+  }
+}
+
+function deleteCycleState(sessionId) {
+  const p = cycleStatePath(sessionId);
+  if (!p) return;
+  try {
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  } catch {
+    /* ignore */
+  }
+}
+
+function uuidv4() {
+  // Node 14.17+ has crypto.randomUUID
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.randomBytes(16);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/**
+ * Garbage collect arquivos .archprime-cycle-*.json mais velhos que 24h.
+ * Best-effort, fire-and-forget.
+ */
+function gcStaleCycleFiles() {
+  try {
+    const dir = path.join(os.homedir(), '.claude');
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.startsWith('.archprime-cycle-') || !f.endsWith('.json')) continue;
+      const full = path.join(dir, f);
+      const stat = fs.statSync(full);
+      if (stat.mtimeMs < cutoff) fs.unlinkSync(full);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Resolve cycle_id + sub_squad + cross_squad para o evento atual.
+ *
+ * Logic:
+ *  - SessionStart/SessionEnd/Stop: limpa state, retorna cycle_id existente
+ *    (se houver) sem criar novo
+ *  - UserPromptSubmit com slash de sub-squad detectado → cria/atualiza cycle
+ *    state com sub_squad + cycle_id
+ *  - PostToolUse/PreToolUse: lê state, mantém sub_squad atual
+ *  - cross_squad: TRUE se state.squads_seen tem 2+ entries diferentes
+ */
+function resolveSquadContext(eventName, event) {
+  const sessionId = event.session_id;
+  if (!sessionId) return { sub_squad: null, cycle_id: null, cross_squad: false };
+
+  // SessionEnd / Stop — limpa state, mas preserva cycle_id atual no log final
+  if (eventName === 'SessionEnd' || eventName === 'Stop') {
+    const state = readCycleState(sessionId);
+    if (eventName === 'SessionEnd') {
+      deleteCycleState(sessionId);
+      gcStaleCycleFiles();
+    }
+    return {
+      sub_squad: state?.sub_squad ?? null,
+      cycle_id: state?.cycle_id ?? null,
+      cross_squad: (state?.squads_seen?.length ?? 0) > 1,
+    };
+  }
+
+  // UserPromptSubmit — pode iniciar novo cycle ou switch sub-squad
+  if (eventName === 'UserPromptSubmit') {
+    const subFromPrompt = detectSubSquadFromPrompt(event.prompt);
+    let state = readCycleState(sessionId) || {
+      cycle_id: uuidv4(),
+      sub_squad: null,
+      squads_seen: [],
+      created_at: new Date().toISOString(),
+    };
+
+    if (subFromPrompt && subFromPrompt !== state.sub_squad) {
+      state.sub_squad = subFromPrompt;
+      if (!state.squads_seen.includes(subFromPrompt)) {
+        state.squads_seen.push(subFromPrompt);
+      }
+      state.last_switch_at = new Date().toISOString();
+    }
+
+    writeCycleState(sessionId, state);
+    return {
+      sub_squad: state.sub_squad,
+      cycle_id: state.cycle_id,
+      cross_squad: state.squads_seen.length > 1,
+    };
+  }
+
+  // PostToolUse / PreToolUse / outros — tenta detectar sub_squad por path
+  // (mas não sobrescreve se já houver um do prompt)
+  const state = readCycleState(sessionId);
+  if (!state) return { sub_squad: null, cycle_id: null, cross_squad: false };
+
+  // Heurística secundária por path do file editado/lido
+  const filePath = event.tool_input?.file_path || event.tool_input?.path || event.cwd || '';
+  const subFromPath = detectSubSquadFromPath(filePath);
+  if (subFromPath && subFromPath !== state.sub_squad && !state.sub_squad) {
+    // Só atualiza se state.sub_squad é null (não sobrescreve detecção explícita do prompt)
+    state.sub_squad = subFromPath;
+    if (!state.squads_seen.includes(subFromPath)) {
+      state.squads_seen.push(subFromPath);
+    }
+    writeCycleState(sessionId, state);
+  }
+
+  return {
+    sub_squad: state.sub_squad,
+    cycle_id: state.cycle_id,
+    cross_squad: state.squads_seen.length > 1,
+  };
+}
 
 function sanitizeString(s) {
   if (typeof s !== 'string') return s;
@@ -170,12 +389,22 @@ function buildPayload(event, config, tenant) {
     }
   }
 
+  // ─── Squad hierarchy context ───
+  const squadCtx = resolveSquadContext(eventName, event);
+  if (squadCtx.sub_squad) details.sub_squad_active = squadCtx.sub_squad;
+  if (squadCtx.cycle_id) details.cycle_id_active = squadCtx.cycle_id;
+
   let body = {
     email: config.user_email,
     user_id: tenant.user_id,
     action,
     tool: event.tool_name || null,
     session_id: event.session_id || null,
+    // Squad metadata at root — log-claude-event v1.1.0+ persists into columns
+    parent_squad: 'primeteam-ops',
+    sub_squad: squadCtx.sub_squad,
+    cycle_id: squadCtx.cycle_id,
+    cross_squad: squadCtx.cross_squad,
     ...details,
   };
 
@@ -187,6 +416,10 @@ function buildPayload(event, config, tenant) {
       action,
       tool: event.tool_name || null,
       session_id: event.session_id || null,
+      parent_squad: 'primeteam-ops',
+      sub_squad: squadCtx.sub_squad,
+      cycle_id: squadCtx.cycle_id,
+      cross_squad: squadCtx.cross_squad,
       event: eventName,
       cwd: event.cwd,
       _oversized: true,
@@ -213,7 +446,7 @@ function postEvent(tenant, body) {
         'Content-Length': Buffer.byteLength(data),
         'Authorization': `Bearer ${tenant.token}`,
         'apikey': tenant.apikey || '',
-        'User-Agent': 'archprime-claude-hook/1.0',
+        'User-Agent': 'archprime-claude-hook/1.1',
       },
       timeout: REQUEST_TIMEOUT_MS,
     };

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hook-version 1.1.0
 /**
  * ArchPrime — Claude Code Activity Logger Hook
  *

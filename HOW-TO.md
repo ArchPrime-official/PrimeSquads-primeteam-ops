@@ -63,6 +63,34 @@ Resposta típica: lista com nome, orçamento, gastos, CPL — **com badge** nas 
 
 > ⚠️ **Lembre:** o squad só **mostra** os dados e sinaliza problemas. **Decisões estratégicas** (pausar, aumentar orçamento, criar campanha nova) você decide com o `/metaAds:ralph-burns` ou no próprio Gerenciador Meta.
 
+### Subir uma campanha Meta nova (bulk-upload)
+
+Quando você tem N campanhas × M audiences × K criativos pra subir de uma vez (típico em lançamento), use o comando `pto meta-upload`. Ele cuida de auth, busca o token Meta automaticamente, e roda tudo idempotente.
+
+**Setup uma vez** (você já fez se rodou `pto setup`):
+```bash
+pto login         # OAuth Google, abre navegador
+```
+
+**Sempre:**
+```bash
+pto meta-upload \
+    --config  scripts/meta-ads/<launch>-config.json \
+    --copies  scripts/meta-ads/<launch>-copies.json \
+    --state   scripts/meta-ads/<launch>-state.json \
+    --results scripts/meta-ads/<launch>-results.json \
+    --assets  ~/Downloads/<criativos> \
+    --dry-run    # confere sem chamar Meta
+```
+
+Depois `--execute` (sobe PAUSED), revisa no Ads Manager, depois `--activate`.
+
+**Você nunca digita senha, token, nem JWT** — `pto` cuida disso usando sua sessão do `pto login`.
+
+Templates de config em `squads/meta-ads/tools/bulk-upload/examples/`. Detalhes completos em `squads/meta-ads/tools/bulk-upload/README.md`.
+
+> ⚠️ **NÃO** salve `SB_PASSWORD` (senha do Supabase) em `~/.zshrc`. Sessões Claude antigas sugeriram isso — é game over se laptop comprometido. Use `pto meta-upload` (não pede senha).
+
 ---
 
 ## Financeiro — Joyce, Larissa, Adriana 💰
@@ -198,6 +226,21 @@ Alguém (outro terminal, VS Code, Docker) está usando a porta 54321. Feche a ou
 ### "não consegui me conectar"
 
 Sua internet caiu, ou o servidor do Supabase está fora. Espere 1 minuto. Se continuar, avise o Pablo.
+
+### "pto: command not found" (após git pull)
+
+Você atualizou o repo mas não rebuildou o `pto`. Rode:
+```bash
+cd squads/primeteam-ops && npm install && npm run build
+```
+
+### `pto meta-upload` diz "sua conta não tem role marketing/admin/owner"
+
+Sua role no PrimeTeam está faltando. Avise o Pablo no Slack `#tech` para te adicionar como `marketing` em `user_roles`.
+
+### `pto meta-upload` diz "account not found for ad_account_id=X"
+
+A conta Meta que você passou em `--account` (ou que está no `config["meta"]["ad_account_id"]`) não está cadastrada em `meta_ad_accounts`. Avise o Pablo — ele cadastra via UI.
 
 ### Qualquer outro erro
 

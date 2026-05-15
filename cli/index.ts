@@ -16,6 +16,7 @@ import { lang } from './lang.js';
 import { onboarding } from './onboarding.js';
 import { squadsList, ptoStatus } from './squads.js';
 import { cycleStart, cycleCurrent, cycleClose, cycleSwitch } from './cycle.js';
+import { registerMetaUpload } from './meta-upload.js';
 import { initI18n } from './i18n/index.js';
 import { resolveLocale } from './preferences.js';
 import { isSupportedLocale } from './i18n/detect.js';
@@ -200,6 +201,8 @@ async function main(): Promise<void> {
     .action(async (opts) => {
       await cycleSwitch({ subSquad: opts.subSquad });
     });
+
+  registerMetaUpload(program);
 
   await program.parseAsync(process.argv);
 }

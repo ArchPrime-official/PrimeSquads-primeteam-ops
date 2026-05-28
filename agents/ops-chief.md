@@ -542,6 +542,30 @@ routing_map:
     scope: CSV bulk imports (dry-run sempre primeiro)
     role_required: [owner, admin]
 
+  whatsapp_scheduling:
+    triggers: ["agendar mensagem", "agenda mensagem", "programar mensagem",
+               "schedule WhatsApp", "mandar mensagem amanhã", "mandar mensagem depois",
+               "enviar mensagem às", "voglio pianificare", "programmare messaggio",
+               "pianificare messaggio", "inviare domani", "inviare alle",
+               "agendar whatsapp", "schedule message", "agendar para grupo",
+               "agendar grupo", "agendar grupos", "cancelar agendamento",
+               "listar agendamentos", "registrar grupo whatsapp",
+               "grupos disponíveis", "gruppi disponibili"]
+    agent: integration-specialist
+    task: schedule-whatsapp-message
+    scope: |
+      Agendamento manual de mensagens WhatsApp via UAZAPI para contatos ou grupos.
+      Usa tabela scheduled_whatsapp_messages + pg_cron one-shot.
+      Inclui: listar grupos, registrar grupos, agendar, cancelar.
+      Grupos resolvidos via resolve_whatsapp_group_jid() (whatsapp_group_names +
+      whatsapp_group_entries + whatsapp_group_joins).
+    role_required: [owner, admin, marketing, cs, comercial]
+    execution_note: |
+      Ao rotear para esta task, passar como contexto:
+      1. Invocar DIRETAMENTE a task schedule-whatsapp-message (não criar sub-cycle)
+      2. O specialist lista grupos automaticamente como primeiro passo
+      3. Confirmation obrigatória antes de inserir na fila
+
   audit:
     triggers: ["auditar", "validar", "handoff quality gate", "cycle review"]
     agent: quality-guardian

@@ -54,10 +54,11 @@ Cobre: leads, opportunities (pipeline kanban via comando), qualificação, bulk 
 |------|--------|-------|
 | owner | ✅ | Todas oportunidades + leads |
 | comercial | ✅ | Oportunidades/leads via role `comercial` (RLS filtra por owner) |
-| admin/financeiro | ❌ RLS bloqueia | Não tem role `comercial` nem está em policy |
-| cs/marketing | ❌ RLS bloqueia | Idem |
+| admin | ✅ | Todas oportunidades + leads (confirmado na plataforma) |
+| cs | ✅ | Oportunidades de campanhas CS (confirmado na plataforma) |
+| financeiro/marketing | ❌ RLS bloqueia | Sem acesso a oportunidades |
 
-**Após Fase 0 (PR #951):** as 3 policies permissivas foram removidas. Agora só comercial + owner acessam opportunities.
+**Após Fase 0 (PR #951):** as 3 policies permissivas foram removidas. `comercial`, `admin` e `cs` acessam opportunities. Apenas `financeiro` e `marketing` ficaram sem acesso.
 
 ---
 
@@ -155,15 +156,18 @@ Sandra: /ptOps:platform "listar transações de março"
 
 Comportamento correto: squad não "esconde" acesso, deixa RLS responder. Specialist explica contextualmente.
 
-### Jessica (cs) tenta ver pipeline comercial
+### Jessica (admin + cs) usa sales-specialist para oportunidades de CS
 
 ```
-Jessica: /ptOps:sales "mostrar meu pipeline"
+Jessica: /ptOps:sales "mostrar oportunidades das minhas campanhas CS"
+  → ops-chief: role admin+cs ∈ [owner, comercial, admin, cs] → roteia
   → sales-specialist executa queries em opportunities
-  → RLS: Jessica tem role 'cs', nenhuma policy de opportunities aceita 'cs'
-  → Retorna: [] ou erro 401
-  → Agent responde: "Você não tem acesso ao pipeline comercial. Se isso está incorreto, verifique suas roles com /ptOps:auth whoami."
+  → RLS: Jessica tem role 'admin'+'cs' — acesso confirmado na plataforma
+  → Retorna: oportunidades visíveis para a sessão de Jessica
+  → Agent responde com lista filtrada por RLS
 ```
+
+> **Nota (2026-06-03):** Acesso de `cs` a opportunities confirmado por Jessica (acessa manualmente na plataforma). A documentação anterior estava desatualizada.
 
 ### Yuri (comercial, leader) usa radar-specialist
 

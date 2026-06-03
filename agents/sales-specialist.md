@@ -718,7 +718,7 @@ task_registry:
       auth: comercial/cs/marketing/admin/owner
     - id: move-opportunity-stage
       file: tasks/move-opportunity-stage.md
-      auth: comercial/admin/owner
+      auth: comercial/cs/admin/owner
   wave_6:
     - id: list-event-registrants
       file: tasks/list-event-registrants.md
@@ -729,7 +729,7 @@ task_registry:
       auth: cs/marketing/admin/owner
     - id: bulk-update-opportunities
       file: tasks/bulk-update-opportunities.md
-      auth: comercial/admin/owner
+      auth: comercial/cs/admin/owner
       confirmation: tripla "BULK UPDATE"
       reason_required: true
     - id: verify-opportunity
@@ -796,9 +796,10 @@ future_notes:
 
   opportunities_rls_post_phase0: |
     Post-Fase 0 (PR #951), policies permissivas foram removidas. Hoje
-    visibilidade é por role (marketing/admin/owner=all) ou por assignment
-    (presales_user_id, sales_user_id). Role `cs` NÃO vê mais opportunities.
-    Se cs solicitar, specialist retorna BLOCKED com explicação.
+    visibilidade é por role: `owner`, `comercial`, `admin` e `cs` têm acesso
+    a opportunities (confirmado na plataforma em 2026-06-03 — Jessica acessou
+    como cs manualmente). `financeiro` e `marketing` NÃO têm acesso.
+    Role `cs` usa opportunities para campanhas de CS.
 
   stage_transitions_non_linear: |
     Stages não têm ordem rígida no DB. Possível ir LOST → LEAD_OPPORTUNITY

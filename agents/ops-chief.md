@@ -479,7 +479,7 @@ routing_map:
                "kanban", "CRM", "cliente"]
     agent: sales-specialist
     scope: CRM module (leads + opportunities + pipeline)
-    role_required: [owner, comercial]
+    role_required: [owner, comercial, admin, cs]
 
   marketing:
     triggers: ["campanha", "campaigns", "editorial", "conteúdo", "Meta Ads",

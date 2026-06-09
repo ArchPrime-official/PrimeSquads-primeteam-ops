@@ -1,8 +1,18 @@
 # Task: create-schedule-block
 
-> Criar block de agenda no calendar (focus_time, meeting, personal, unavailable). Implementa F-06 + F-08.
+> Criar block de agenda (focus_time, meeting, personal, unavailable). Implementa F-06 + F-08.
 
 **Cumpre:** HO-TP-001
+
+> ⚠️ **SCHEMA — leia `data/tasks-schedule-blocks-field-reference.md` antes.**
+> NÃO existem colunas `start_at`/`end_at`/`linked_task_id` em `tasks`. Há DUAS coisas
+> diferentes chamadas "block":
+> - **Bloco de calendário** (reunião/focus/personal/unavailable) → tabela
+>   **`calendar_blocks`** (`start_time`, `end_time`, `block_type`, `title`, `created_by`).
+> - **Bloco de EXECUÇÃO de uma tarefa** (fatia) → tabela **`task_schedule_blocks`**
+>   (`task_id`, `scheduled_start`, `duration_minutes`, `block_order`). Para ajustar a
+>   fatia depois, use `adjust-schedule-block`.
+> Esta task cria um BLOCO DE CALENDÁRIO em `calendar_blocks`.
 
 ---
 
@@ -44,12 +54,17 @@
    - duration ≤ 24h (sanity)
    - start não > 1 ano futuro
 3. **Validar block_type** ∈ enum.
-4. **Conflict detection:**
+4. **Conflict detection** (cruza com as 3 fontes da agenda — colunas REAIS):
    ```sql
-   SELECT id, title, start_at, end_at FROM tasks
-   WHERE assigned_to={assigned_to}
-     AND block_type IS NOT NULL
-     AND tstzrange(start_at, end_at) && tstzrange({new_start}, {new_end});
+   -- blocos de calendário existentes
+   SELECT id, title FROM calendar_blocks
+    WHERE created_by={assigned_to}
+      AND tstzrange(start_time, end_time) && tstzrange({new_start}, {new_end});
+   -- blocos de execução de tarefas
+   SELECT b.id, t.title FROM task_schedule_blocks b JOIN tasks t ON t.id=b.task_id
+    WHERE t.owner_id={assigned_to}
+      AND tstzrange(b.scheduled_start, b.scheduled_start + (b.duration_minutes||' min')::interval)
+          && tstzrange({new_start}, {new_end});
    ```
 5. **Se conflicts AND NOT force_conflict** → ESCALATE com lista de conflitos + flag retry.
 6. **Confirmation:**
@@ -63,14 +78,18 @@
      Conflicts: {N detected — listed}
    Confirma?
    ```
-7. **INSERT:**
+7. **INSERT em `calendar_blocks`** (colunas reais):
    ```sql
-   INSERT INTO tasks (title, block_type, start_at, end_at, assigned_to,
-                       linked_task_id, created_by, description, status)
-   VALUES (..., 'todo')
+   INSERT INTO calendar_blocks (title, block_type, start_time, end_time,
+                                created_by, description)
+   VALUES ({title}, {block_type}, {new_start}, {new_end}, {assigned_to}, {description})
    RETURNING id;
    ```
-8. **Side-effect Google Calendar sync:** se user tem Google integrado, edge `google-calendar-sync` cria event correspondente (não-blocking).
+   > Para vincular uma fatia a uma tarefa existente, NÃO use esta task — crie em
+   > `task_schedule_blocks` (`task_id`, `scheduled_start`, `duration_minutes`).
+8. **Side-effect Google Calendar sync:** automático via trigger `enqueue_calendar_sync`
+   (`calendar_block` → `calendar_sync_outbox` → `gcal-outbound-worker` cria o evento).
+   NÃO chamar edge à mão.
 9. **Activity log:** action='platform-specialist.create_schedule_block'.
 10. **Echo:**
     ```

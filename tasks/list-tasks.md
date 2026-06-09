@@ -42,7 +42,11 @@ Entregue pelo `ops-chief`:
 ### output
 
 - **`total_rows`** — número de linhas retornadas
-- **`rows`** — array de objetos com campos: `id, title, status, priority, urgency, due_date, owner_id, project_id, is_recurring, completed_at`
+- **`rows`** — array de objetos com campos: `id, title, status, priority, urgency, due_date, scheduled_start_time, estimated_duration_minutes, block_type, can_be_split, owner_id, project_id, is_recurring, completed_at`
+  - **Para visão de AGENDA** (`include_blocks=true`): cada row inclui `blocks` =
+    array de `{ block_id, scheduled_start, duration_minutes, block_order, is_completed }`
+    de `task_schedule_blocks`. É AQUI que está o horário real de execução de cada
+    fatia — `due_date` é só o prazo. Ver `data/tasks-schedule-blocks-field-reference.md`.
 - **`table_compact`** — representação markdown pronta para exibir ao user
 - **`filters_applied`** — echo dos filtros (para audit e follow-up commands)
 - **`truncated`** — bool, true se `total_rows == limit` (hint que pode haver mais)
@@ -61,7 +65,7 @@ Entregue pelo `ops-chief`:
    - Se `date_range=today`: resolver bounds Europe/Rome day → UTC range
    - Validar ranges numéricos (priority/urgency in 1..10)
 2. **Validar limit** — cap em 200 para evitar query custosa.
-3. **Construir query** — SELECT restrito (id, title, status, priority, urgency, due_date, owner_id, project_id, is_recurring, completed_at) — NUNCA `SELECT *` (evita leak de bank_raw_data-like columns de outras tabelas).
+3. **Construir query** — SELECT restrito (id, title, status, priority, urgency, due_date, scheduled_start_time, estimated_duration_minutes, block_type, can_be_split, owner_id, project_id, is_recurring, completed_at) — NUNCA `SELECT *`. Se `include_blocks=true`, fazer LEFT JOIN com `task_schedule_blocks` (ou segundo SELECT por task_id) trazendo `scheduled_start, duration_minutes, block_order, is_completed` ordenado por `block_order`.
 4. **Executar SELECT** via Supabase (user JWT).
 5. **Formatar rows** — converter timestamps UTC para Europe/Rome em `table_compact`, mas manter UTC em `rows` raw.
 6. **Detectar truncation** — se `rows.length == limit`, set `truncated=true`.

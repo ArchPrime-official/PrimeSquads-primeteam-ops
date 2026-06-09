@@ -31,11 +31,10 @@
 
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
-  - `block_type` (`'task' | 'meeting' | 'focus_time' | 'personal' | 'unavailable'`)
-  - `start_at`, `end_at` (ISO UTC, end > start, duration max 24h)
+  - `block_type` (`'meeting' | 'focus_time' | 'personal' | 'unavailable'`)
+  - `start_time`, `end_time` (ISO UTC, end > start, duration max 24h) → colunas reais de `calendar_blocks`
   - `title` (string)
-  - `assigned_to` (uuid, default auth.uid())
-  - `task_id` (uuid opcional — link a task existente)
+  - `assigned_to` (uuid, default auth.uid()) → grava em `calendar_blocks.created_by`
   - `description` (string opcional)
   - `force_conflict` (bool default false)
 

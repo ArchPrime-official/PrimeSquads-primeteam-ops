@@ -245,7 +245,9 @@ scope:
     - Profile / preferences (→ Sprint 7+)
     - Task recurrence CREATION rules — workflow dedicado (Sprint 7)
     - Auto-scheduling of blocks (is_auto_scheduled) — read-only
-    - Google Calendar sync (→ integration-specialist, Sprint 7)
+    # Google Calendar sync NAO e mais futuro: esta ATIVO e bidirecional (ver
+    # data/tasks-agenda-google-model.md). Tarefas e BLOCOS agendados ja viram eventos
+    # transparent no Google. Mudancas estruturais no sync → integration-specialist.
     - Meta sync / Revolut sync (→ integration-specialist, Sprint 7)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -488,15 +490,28 @@ playbooks:
       reject: "Pedido rejeitado. Task continua com due_date {current}. {requester_name} foi notificado{ + ': ' + response_message se houver}."
 
   classify_eisenhower:
-    scale: "1..10 (CHECK constraint do schema). Threshold ≥7 = alta."
+    scale: "1..10 (CHECK constraint do schema). Threshold ≥6 = alta (NAO 7)."
+    # IMPORTANTE: a plataforma renomeou os eixos. NAO e a matriz urgencia x importancia
+    # classica. priority = RESULTADO/IMPACTO, urgency = ESFORCO. Fonte de verdade:
+    # src/components/tasks/EisenhowerMatrix.tsx (THRESHOLD=6) + RPC count_tasks_by_quadrant.
+    axes:
+      priority: "RESULTADO / Impacto (1..10). >=6 = alto resultado."
+      urgency:  "ESFORCO (1..10). >=6 = alto esforco. (o nome da coluna e 'urgency' por legado)"
     quadrants:
-      Q1: "urgency ≥7 + priority ≥7 — crise / fazer agora"
-      Q2: "urgency <7 + priority ≥7 — planejar / agendar"
-      Q3: "urgency ≥7 + priority <7 — delegar"
-      Q4: "urgency <7 + priority <7 — deletar / adiar"
+      priority-max: "priority>=6 + urgency<6 — Alto resultado + Baixo esforco (quick win, fazer primeiro)"
+      strategic:    "priority>=6 + urgency>=6 — Alto resultado + Alto esforco (investimento, dividir em fases)"
+      non-critical: "priority<6 + urgency<6 — Baixo resultado + Baixo esforco (oportunidade nao critica)"
+      avoid:        "priority<6 + urgency>=6 — Baixo resultado + Alto esforco (evitar, deixar por ultimo)"
     usage: |
-      When user writes "é importante mas não urgente" → Q2 → priority=8, urgency=4.
-      I echo the inference: "interpretei como Q2 (planejar). Correto?"
+      "alto resultado, pouco esforco" → priority-max → priority=8, urgency=3.
+      "vale muito mas da trabalho" → strategic → priority=8, urgency=8.
+      I echo the inference: "interpretei como priority-max (quick win). Correto?"
+    mirror_principle: |
+      O QUADRANTE de prioridade e um ESPELHO da agenda e do Google Calendar:
+      cada bloco de execucao (task_schedule_blocks) e um card proprio no quadrante,
+      com seu horario — exatamente como aparece na agenda (/calendar) e no Google.
+      Quadrante = Agenda = Google Calendar: tres lentes sobre a MESMA fonte
+      (tasks + task_schedule_blocks). Ver data/tasks-agenda-google-model.md.
 
   # ── FINANCE PLAYBOOKS (Sprint 3) ──────────────────────────────────────────
 

@@ -30,14 +30,15 @@
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
   - `task_id` (uuid)
-  - `new_due_date` (ISO timestamp UTC)
-  - `new_scheduled_at` (ISO opcional — se task tem time block)
+  - `new_due_date` (ISO timestamp UTC) — o PRAZO. Ao mudar, o trigger
+    `reschedule_on_due_date_change` desloca `scheduled_start_time` e os blocos pelo delta.
   - `reason` (string)
   - `force_conflict` (bool default false — overrida conflitos calendar)
+  > Para mover o horário/dia de um BLOCO específico (não o prazo), use `adjust-schedule-block`.
 
 ### output
 
-- **`task_id`**, **`new_due_date`**, **`new_scheduled_at`**
+- **`task_id`**, **`new_due_date`**
 - **`f_08_3_request_id`** (uuid, se workflow disparado)
 - **`conflicts_detected`** (array opcional)
 - **`verdict`** — `DONE | REQUEST_CREATED | BLOCKED | ESCALATE`
@@ -48,24 +49,28 @@
 2. **Authorization (F-08.3 integration):**
    - User é created_by OR owner: UPDATE direto + audit
    - Outros: cria F-08.3 request (`task_date_change_requests`) — **delega para `request-task-date-change`** task
-3. **Conflict detection** (se UPDATE direto autorizado):
+3. **Conflict detection** (se UPDATE direto autorizado) — colunas/tabelas REAIS:
    ```sql
+   -- outras tarefas com prazo próximo
    SELECT id, title FROM tasks
-   WHERE assigned_to={task.assigned_to}
-     AND (due_date BETWEEN {new_due} - 30min AND {new_due} + 30min
-          OR scheduled_at BETWEEN ...)
-     AND id != {task_id};
-
-   SELECT id, summary FROM calendar_events
-   WHERE assigned_to={task.assigned_to}
-     AND start_at BETWEEN {new_scheduled_at} AND {new_scheduled_at} + duration;
+    WHERE owner_id={task.owner_id}
+      AND due_date BETWEEN {new_due} - interval '30 min' AND {new_due} + interval '30 min'
+      AND id != {task_id};
+   -- blocos de execução no horário (agenda real)
+   SELECT b.id, t.title FROM task_schedule_blocks b JOIN tasks t ON t.id=b.task_id
+    WHERE t.owner_id={task.owner_id}
+      AND b.scheduled_start BETWEEN {new_due} - interval '30 min' AND {new_due} + interval '30 min';
+   -- reuniões/blocos internos (calendar_blocks usa start_time)
+   SELECT id, title FROM calendar_blocks
+    WHERE created_by={task.owner_id}
+      AND start_time BETWEEN {new_due} - interval '30 min' AND {new_due} + interval '30 min';
    ```
 4. **Se conflicts AND NOT force_conflict** → ESCALATE com lista + flag para retry.
 5. **Confirmation:**
    ```
    Reschedule task «{title}»:
-     Due date: {old} → {new}
-     {new_scheduled_at ? 'Scheduled at: ' + old + ' → ' + new : ''}
+     Due date (prazo): {old} → {new}
+     (os blocos serão deslocados pelo mesmo delta automaticamente)
      Conflicts: {N detected}
        [list]
      Reason: {reason}

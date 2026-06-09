@@ -184,7 +184,7 @@ scope:
 
     tasks_operations:
       - create_single_task
-      - list_tasks_with_filters
+      - list_tasks_with_filters (incl. scheduled_start_time + blocos via include_blocks)
       - update_task_fields
       - complete_task (set completed_at + completed_by)
       - reopen_task (clear completed_at)
@@ -192,6 +192,11 @@ scope:
       - classify_eisenhower (set priority + urgency pair)
       - list_overdue (due_date < now, status != done)
       - list_today (due_date in today, Europe/Rome)
+      # AGENDA no nível de BLOCO (ver data/tasks-schedule-blocks-field-reference.md):
+      - read_task_with_blocks (JOIN task_schedule_blocks — horário real de cada fatia)
+      - adjust_schedule_block (mover/redimensionar 1 bloco: scheduled_start + duration_minutes)
+      - reschedule_due_date (muda o PRAZO; trigger desloca os blocos pelo delta)
+      - list_agenda (une 3 fontes: task_schedule_blocks + calendar_blocks + google cache)
 
     finance_tables:
       - finance_transactions  # primary
@@ -1384,6 +1389,9 @@ task_registry:
     - id: reschedule-task
       file: tasks/reschedule-task.md
       workflow: F-08.3 integration
+    - id: adjust-schedule-block
+      file: tasks/adjust-schedule-block.md
+      kind: ajusta horário/dia de um BLOCO (task_schedule_blocks)
     - id: send-message
       file: tasks/send-message.md
       auth: channel members only

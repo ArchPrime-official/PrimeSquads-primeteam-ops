@@ -1,8 +1,16 @@
 # Task: list-calendar-events
 
-> Task read-only para listar eventos Google Calendar do user a partir do cache (`google_calendar_events_cache`). SEMPRE checa staleness de sync antes de retornar e reporta via warning se > 30min. Zero external API calls — usa apenas o cache Supabase.
+> Task read-only para listar a AGENDA do user. A agenda tem **3 fontes** que devem ser
+> unidas: (1) `google_calendar_events_cache` — eventos do Google; (2)
+> `task_schedule_blocks` — blocos de execução das tarefas (horário real de cada fatia);
+> (3) `calendar_blocks` — reuniões/focus internos. Zero external API calls — usa apenas
+> o Supabase. Checa staleness do sync Google e reporta warning se > 30min.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
+
+> ⚠️ **Para a agenda COMPLETA, não basta o Google.** Os blocos de tarefa
+> (`task_schedule_blocks.scheduled_start` + `duration_minutes`) são parte da agenda e
+> têm horário próprio. Ver `data/tasks-schedule-blocks-field-reference.md`.
 
 ---
 
@@ -62,8 +70,8 @@ Entregue pelo `ops-chief`:
    - keyword resolution: "tomorrow" → +1d; "this_week" → segunda 00:00 → domingo 23:59; "next_week" → próxima semana; "this_month" → dia 1 → último dia
    - Sem filtros explícitos = default today
 2. **Check connection status** (pre-flight):
-   - `SELECT expires_at FROM user_oauth_tokens WHERE user_id = auth.uid() AND provider = 'google' LIMIT 1`
-   - Se row não existe → BLOCKED com msg "user não conectado ao Google Calendar" + instruções
+   - `SELECT expires_at, needs_reauth FROM oauth_tokens WHERE user_id = auth.uid() AND provider = 'google' LIMIT 1` (tabela é `oauth_tokens`, NÃO `user_oauth_tokens`)
+   - Se row não existe OU `needs_reauth = true` → WARN "Google desconectado/precisa reconectar" (a parte Google fica vazia, mas os blocos de tarefa locais ainda aparecem)
    - Se `expires_at < now()` → WARN (token provavelmente sendo refreshado via edge function; cache ainda pode estar válido)
 3. **Check sync_status**:
    - `SELECT last_synced_at, event_count, range_start, range_end FROM google_calendar_sync_status WHERE user_id = auth.uid()`
@@ -90,6 +98,24 @@ Entregue pelo `ops-chief`:
    ORDER BY start_time ASC
    LIMIT 100;
    ```
+   4b. **UNIR as fontes locais da agenda** (mesmo range), pois a agenda não é só Google:
+   ```sql
+   -- Blocos de execução das tarefas (horário real de cada fatia)
+   SELECT b.id AS block_id, b.task_id, t.title, b.scheduled_start AS start_time,
+          (b.scheduled_start + (b.duration_minutes||' min')::interval) AS end_time,
+          b.block_order, b.is_completed, t.block_type, 'task_block' AS source
+     FROM task_schedule_blocks b JOIN tasks t ON t.id = b.task_id
+    WHERE t.owner_id = auth.uid()
+      AND b.scheduled_start BETWEEN {range_start_utc} AND {range_end_utc}
+    ORDER BY b.scheduled_start;
+   -- Blocos internos (reuniões/focus/personal/unavailable)
+   SELECT id, title, start_time, end_time, block_type, 'calendar_block' AS source
+     FROM calendar_blocks
+    WHERE created_by = auth.uid()
+      AND start_time BETWEEN {range_start_utc} AND {range_end_utc}
+    ORDER BY start_time;
+   ```
+   Mesclar as 3 fontes em `rows`, cada item com `source ∈ {google,task_block,calendar_block}`.
 5. **Merge overrides** (se include_overrides=true):
    - Para cada event row, check `google_event_overrides` WHERE google_event_id = {id} AND user_id = auth.uid()
    - Aplicar overrides nos campos correspondentes (ex: user renomeou título localmente)

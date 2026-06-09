@@ -1,8 +1,16 @@
 # Task: reschedule-task
 
-> Atualizar `due_date` ou `scheduled_at` de task com conflict resolution. Implementa F-08.1 + F-08.3 (date change workflow integrado).
+> Atualizar `due_date` (PRAZO) de task com conflict resolution. Implementa F-08.1 + F-08.3 (date change workflow integrado).
 
 **Cumpre:** HO-TP-001
+
+> ⚠️ **SCHEMA — leia `data/tasks-schedule-blocks-field-reference.md` antes.**
+> A coluna real do horário da tarefa é `scheduled_start_time` (NÃO existe `scheduled_at`).
+> E o horário REAL de execução de uma tarefa fatiada está nos BLOCOS
+> (`task_schedule_blocks.scheduled_start`), não num campo único da tarefa.
+> **Para mover o horário/dia de um BLOCO específico, use a task `adjust-schedule-block`.**
+> Esta task cuida do PRAZO (`due_date`); ao mudar o due_date, o trigger
+> `reschedule_on_due_date_change` desloca os blocos pelo mesmo delta automaticamente.
 
 ---
 
@@ -82,7 +90,11 @@
 ## Notas
 
 - Reuso de `update-task` + `request-task-date-change` (delegação).
-- `scheduled_at` é coluna opcional para tasks que têm time block visual no calendário.
+- **Horário da tarefa = `scheduled_start_time`** (NÃO `scheduled_at`). Conflitos de
+  calendário: cruzar com `task_schedule_blocks.scheduled_start`, `calendar_blocks.start_time`
+  e `google_calendar_events_cache.start_time` — não com colunas inexistentes.
+- **Mover bloco individual:** `adjust-schedule-block`. **Redistribuir todos os blocos:**
+  auto-scheduling. Ver `data/tasks-schedule-blocks-field-reference.md`.
 
 ---
 

@@ -595,9 +595,20 @@ tasks:
   - id: reschedule-task
     file: tasks/reschedule-task.md
     purpose: >
-      UPDATE due_date/scheduled_at com F-08.3 integration (non-creator/
-      non-owner → REQUEST_CREATED). Conflict detection com tasks +
-      calendar_events. force_conflict opt-in. Audit em task_date_changes.
+      UPDATE due_date (PRAZO) com F-08.3 integration (non-creator/non-owner →
+      REQUEST_CREATED). Horário = scheduled_start_time (NÃO scheduled_at).
+      Mudar due_date desloca os blocos via trigger. Conflict detection com
+      task_schedule_blocks + calendar_blocks + google cache. force_conflict opt-in.
+    agent: platform-specialist
+
+  - id: adjust-schedule-block
+    file: tasks/adjust-schedule-block.md
+    purpose: >
+      Ajustar horário/dia/duração de um BLOCO de execução específico
+      (task_schedule_blocks): scheduled_start + duration_minutes. Valida ordem
+      cronológica vs blocos vizinhos, bloqueia reunião (can_be_split=false),
+      sincroniza due_date no último bloco, propaga ao Google via trigger.
+      Ver data/tasks-schedule-blocks-field-reference.md.
     agent: platform-specialist
 
   - id: send-message

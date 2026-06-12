@@ -692,15 +692,12 @@ Quem pode usar cada agent do squad:
 | finance-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
 | sales-specialist | ✅ | ❌ | ✅ | ❌ | ❌ |
 | cs-specialist | ✅ | ❌ | ❌ | ✅ | ❌ |
-| marketing-specialist | ✅ | ❌ | ❌ | ❌ | ✅ |
 | content-builder | ✅ | ❌ | ❌ | ❌ | ✅ |
 | automation-specialist | ✅ | ❌ | ❌ | ❌ | ✅ |
-| calendar-specialist | ✅ | parcial | ✅ | parcial | parcial |
-| radar-specialist | ✅ | parcial | parcial | parcial | parcial |
+| integration-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
 | admin-specialist | ✅ | ❌ | ❌ | ❌ | ❌ |
 | quality-guardian | ✅ | ✅ | ✅ | ✅ | ✅ |
 | design-guardian | ✅ | ❌ | ❌ | ❌ | ✅ |
-| integration-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 **"parcial"** = agent funciona mas RLS do Supabase limita dados retornados. Ex: `platform-specialist` para CS só vê tabelas que CS tem permissão (students, tickets, tasks próprias, etc.).
 

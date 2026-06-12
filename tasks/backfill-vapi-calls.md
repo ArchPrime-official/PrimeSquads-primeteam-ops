@@ -45,7 +45,7 @@
      Diff (will import): {N-M}
      Estimated cost: $0 (Vapi list é free; custos foram já cobrados)
    ```
-5. Se `dry_run=false`: confirmation literal "BACKFILL VAPI" uppercase.
+5. Se `dry_run=false`: confirmation literal "CONFIRMO BACKFILL VAPI" uppercase.
 6. **Invoke edge** `call-backfill` com period.
 7. Activity log STRICT: action='integration-specialist.backfill_telephony_calls', details com counts.
 8. Echo: imported_count + warnings.
@@ -54,7 +54,7 @@
 - A1 admin/owner
 - A2 Period max 30d
 - A3 Dry-run default
-- A4 Tripla "BACKFILL VAPI"
+- A4 Tripla "CONFIRMO BACKFILL VAPI"
 - A5 Diff calculation antes de persist
 - A6 Audit STRICT
 - A7 Idempotency: ON CONFLICT(vapi_call_id) DO NOTHING em call_executions

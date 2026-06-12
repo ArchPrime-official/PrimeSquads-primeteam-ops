@@ -72,7 +72,7 @@
    Lead {has_consent ? 'tem consentimento' : '⚠️ SEM consentimento explícito'}
    Confirma?
    ```
-7. **Aguardar "sim"** ou (se urgente sem consent) "CONFIRMA SEM CONSENT" uppercase.
+7. **Aguardar "sim"** ou (se urgente sem consent) "CONFIRMO SEM CONSENT" uppercase.
 8. **Invoke edge function:**
    ```typescript
    await supabase.functions.invoke('vapi-start-call', {

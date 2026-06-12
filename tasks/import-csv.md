@@ -54,14 +54,14 @@ VALUES
 1. **Auth gate:** admin/owner.
 2. Download CSV + parse.
 3. **Dry-run default:** validate rows + dedup analysis + show sample (first 10 + last 10) + counts.
-4. Confirmation tripla "IMPORT CSV" + `dry_run=false`.
+4. Confirmation tripla "CONFIRMO IMPORT CSV" + `dry_run=false`.
 5. Async job em background (large imports).
 6. Activity log STRICT com import_id + counts.
 
 ### acceptance_criteria
 - A1 admin/owner
 - A2 Dry-run default
-- A3 Tripla "IMPORT CSV"
+- A3 Tripla "CONFIRMO IMPORT CSV"
 - A4 Dedup strategy explicit
 - A5 Async job + status polling
 - A6 Audit STRICT

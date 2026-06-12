@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-> Referência das 226 tabelas da plataforma PrimeTeam, agrupadas por setor, com status de RLS.
+> Referência das 307 tabelas da plataforma PrimeTeam, agrupadas por setor, com status de RLS.
 
 **Source of truth:** `src/integrations/supabase/types.ts` (auto-gerado) + auditoria RLS em `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 1).
 
@@ -12,9 +12,9 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Total de tabelas | 226 |
-| Com RLS habilitado | 226 (100%) |
-| Com policies adequadas | 226 (100%) |
+| Total de tabelas | 307 |
+| Com RLS habilitado | 307 (100% snapshot 2026-04-22 — validar pós-novas migrations) |
+| Com policies adequadas | 307 (100% snapshot) |
 | Gaps críticos pendentes | 0 |
 
 Pós-Fase 0 (PR #951 merged em 2026-04-22), todos os gaps estão remediados.

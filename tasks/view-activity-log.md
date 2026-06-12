@@ -41,7 +41,7 @@
      AND ({action} IS NULL OR a.action LIKE {action} || '%')
      AND ({resource_type} IS NULL OR a.resource_type={resource_type})
      AND ({resource_id} IS NULL OR a.resource_id={resource_id})
-     AND ({cycle_id} IS NULL OR a.details->>'cycle_id' = {cycle_id})
+     AND ({cycle_id} IS NULL OR a.cycle_id = {cycle_id})
      AND a.created_at BETWEEN {date_from} AND {date_to}
    ORDER BY a.created_at DESC
    LIMIT {limit};

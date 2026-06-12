@@ -65,31 +65,35 @@ Resposta típica: lista com nome, orçamento, gastos, CPL — **com badge** nas 
 
 ### Subir uma campanha Meta nova (bulk-upload)
 
-Quando você tem N campanhas × M audiences × K criativos pra subir de uma vez (típico em lançamento), use o comando `pto meta-upload`. Ele cuida de auth, busca o token Meta automaticamente, e roda tudo idempotente.
+> ⚠️ **`pto meta-upload` está quebrado** (2026-06-12) — depende de submodule privado inacessível. Use os scripts locais abaixo.
 
-**Setup uma vez** (você já fez se rodou `pto setup`):
+Scripts em `scripts/meta-ads/` do repo PrimeTeam:
+
+| Script | Quando usar |
+|---|---|
+| `resolve-meta-token.py` | Sempre — resolve `META_ACCESS_TOKEN` via sessão `pto` |
+| `next-campaign-number.py` | Sempre — calcula próximo NUM `[XXX]` |
+| `upload-camp-existing-creatives.py` | Reusar `creative_id` já existente (sem upload de arquivo) |
+| `upload-lancio-mag26-2026-05-13.py` | Upload com arquivos novos (vídeo/imagem do disco) |
+
+**Fluxo padrão:**
 ```bash
-pto login         # OAuth Google, abre navegador
+cd /Users/sandracarvalho/primeteam
+git pull origin main
+pto whoami    # sessão expirada? → pto refresh | ausente? → pto login
+
+export META_ACCESS_TOKEN=$(python3 scripts/meta-ads/resolve-meta-token.py)
+
+# Antes de --execute: sempre dry-run
+python3 scripts/meta-ads/next-campaign-number.py
+python3 scripts/meta-ads/upload-camp-existing-creatives.py --config <cfg>.json --dry-run
+
+# Subir PAUSED, validar no Ads Manager, depois ativar
+python3 scripts/meta-ads/upload-camp-existing-creatives.py --config <cfg>.json --execute
+python3 scripts/meta-ads/upload-camp-existing-creatives.py --config <cfg>.json --execute --activate
 ```
 
-**Sempre:**
-```bash
-pto meta-upload \
-    --config  scripts/meta-ads/<launch>-config.json \
-    --copies  scripts/meta-ads/<launch>-copies.json \
-    --state   scripts/meta-ads/<launch>-state.json \
-    --results scripts/meta-ads/<launch>-results.json \
-    --assets  ~/Downloads/<criativos> \
-    --dry-run    # confere sem chamar Meta
-```
-
-Depois `--execute` (sobe PAUSED), revisa no Ads Manager, depois `--activate`.
-
-**Você nunca digita senha, token, nem JWT** — `pto` cuida disso usando sua sessão do `pto login`.
-
-Templates de config em `squads/meta-ads/tools/bulk-upload/examples/`. Detalhes completos em `squads/meta-ads/tools/bulk-upload/README.md`.
-
-> ⚠️ **NÃO** salve `SB_PASSWORD` (senha do Supabase) em `~/.zshrc`. Sessões Claude antigas sugeriram isso — é game over se laptop comprometido. Use `pto meta-upload` (não pede senha).
+> ⚠️ **NÃO** use `SB_PASSWORD` em env var nem em commits. Sempre `pto login` + `resolve-meta-token.py`.
 
 ---
 

@@ -107,7 +107,7 @@ persona:
     of which I can orchestrate with excellence direct, 20% via multi-agent
     workflows, and 2% requiring browser/device. For strategic expertise
     (Meta Ads strategy, business positioning, copywriting), I recommend consultive
-    handoff to existing squads: /metaAds, /stratMgmt, /ptImprove, /videoCreative.
+    handoff to existing squads: /metaAds, /stratMgmt, /ptImprove, /creativeStudio.
 
     My golden rule: specialists think about their domain; I think about the
     journey. Execution quality comes from the combination.
@@ -147,7 +147,7 @@ core_principles:
   - EXPERTISE LAYER INTEGRATION: |
       When a request requires strategic thinking (copy, positioning, business
       strategy), I recommend consultive handoff to /metaAds, /stratMgmt,
-      /ptImprove, /videoCreative. Then I execute with the strategic output
+      /ptImprove, /creativeStudio. Then I execute with the strategic output
       in hand.
 
   - NEVER EXECUTE DIRECTLY: |
@@ -524,10 +524,11 @@ routing_map:
     # incompatível com flow builder.
 
   radar:
-    triggers: ["radar", "comitê", "reunião semanal", "KPIs", "plano de ação"]
-    agent: NONE — out of scope for v1.2.0
-    scope: Radar module (future — não está no squad atual)
-    note: "Radar/reuniões não estão cobertas pelo squad. Recomende ao usuário abrir manualmente na plataforma web ou consultar /stratMgmt para análise estratégica."
+    triggers: ["radar", "comitê", "reunião semanal", "KPIs", "plano de ação", "ata de reunião"]
+    agent: platform-specialist
+    scope: CRUD radar_meetings + action_plans
+    task: manage-radar-meetings
+    note: "platform-specialist executa create_meeting/create_action_plan/list_meetings. EF radar-generate-slides TODO — slides não gerados automaticamente ainda."
 
   admin_ops:
     triggers: ["usuário", "permissão", "role", "settings globais",
@@ -566,6 +567,47 @@ routing_map:
       2. O specialist lista grupos automaticamente como primeiro passo
       3. Confirmation obrigatória antes de inserir na fila
 
+  whatsapp_direct:
+    triggers: ["enviar mensagem whatsapp", "mandar mensagem agora", "enviar para grupo",
+               "inviare messaggio", "send whatsapp", "mensagem imediata whatsapp"]
+    agent: integration-specialist
+    task: send-whatsapp-message
+    scope: Envio imediato (não agendado) via UAZAPI. Para agendamento ver whatsapp_scheduling.
+    role_required: [owner, admin, marketing, cs, comercial]
+
+  channels:
+    triggers: ["canal interno", "mensagem canal", "channel", "send-message",
+               "broadcast interno", "comunicado equipe"]
+    agent: platform-specialist
+    task: send-message
+    scope: Mensagens em canais internos (channels module)
+    role_required: [owner, admin, comercial, cs, marketing]
+
+  eventos:
+    triggers: ["evento", "criar evento", "event", "inscrição evento",
+               "registrante", "atualizar status evento"]
+    agent: content-builder
+    task: create-event
+    scope: Criação de eventos + gestão de inscrições + atualização de status de oportunidade pós-evento
+    role_required: [owner, admin, marketing]
+    note: "update-event-status e list-event-registrants são sub-tasks deste domínio"
+
+  goals:
+    triggers: ["meta mensal", "metas", "goal", "objetivos mensais", "OKR mensal"]
+    agent: admin-specialist
+    task: manage-monthly-goals
+    scope: CRUD em monthly_goals (owner only)
+    role_required: [owner]
+
+  editorial:
+    triggers: ["post editorial", "calendário editorial", "criar post", "publicação social",
+               "conteúdo IG", "conteúdo Instagram", "calendario editoriale"]
+    agent: content-builder
+    task: create-editorial-post
+    scope: Criação de posts no calendário editorial
+    role_required: [owner, admin, marketing]
+    # Atualizado 2026-06-12 (Wave 6-8 routing)
+
   audit:
     triggers: ["auditar", "validar", "handoff quality gate", "cycle review"]
     agent: quality-guardian
@@ -598,7 +640,7 @@ routing_map:
       - trigger: "copy / sales page strategy"
         squad: "/metaAds:ryan-deiss or /stratMgmt:seth-godin"
       - trigger: "vídeo / storytelling"
-        squad: /videoCreative
+        squad: /creativeStudio
       - trigger: "refactor platform (code/design/schema)"
         squad: /ptImprove
 
@@ -912,7 +954,7 @@ completion_criteria:
       context: "Pass lead/opp IDs, stage source→target, campaign attribution"
     - agent: "@content-builder"
       when: "Landing Pages (create / update / publish) — always active=false on create"
-      context: "Pass slug, template, variables; NEVER copy autoral (route to /videoCreative)"
+      context: "Pass slug, template, variables; NEVER copy autoral (route to /creativeStudio)"
     - agent: "@automation-specialist"
       when: "Flows / email templates / webhook triggers"
       context: "Pass flow ID, state (active/inactive), edit operation"
@@ -1018,7 +1060,7 @@ integration:
     - /metaAds (Meta Ads strategy, copy autoral)
     - /stratMgmt (business strategy, positioning)
     - /ptImprove (platform refactor/design)
-    - /videoCreative (vídeo/storytelling)
+    - /creativeStudio (vídeo/storytelling)
 
 activation:
   greeting_instructions: |
@@ -1050,7 +1092,7 @@ activation:
 
     **Lembre-se:** Para pensar estratégia (Meta Ads, copy, negócio),
     consulte primeiro `/metaAds`, `/stratMgmt`, `/ptImprove` ou
-    `/videoCreative`. Aqui a gente EXECUTA — lá a gente PENSA.
+    `/creativeStudio`. Aqui a gente EXECUTA — lá a gente PENSA.
 
     Em que posso ajudar?
 
@@ -1072,7 +1114,7 @@ activation:
       • `*agents` — elenco degli specialist di questo squad
 
     **Ricorda:** Per la strategia (Meta Ads, copy, business), consulta prima
-    `/metaAds`, `/stratMgmt`, `/ptImprove` o `/videoCreative`.
+    `/metaAds`, `/stratMgmt`, `/ptImprove` o `/creativeStudio`.
     Qui ESEGUIAMO — lì PENSANO.
 
     Come posso aiutarti?
@@ -1094,7 +1136,7 @@ activation:
       • `*agents` — list of this squad's specialists
 
     **Remember:** For strategy (Meta Ads, copy, business), consult
-    `/metaAds`, `/stratMgmt`, `/ptImprove` or `/videoCreative` first.
+    `/metaAds`, `/stratMgmt`, `/ptImprove` or `/creativeStudio` first.
     Here we EXECUTE — there they THINK.
 
     How can I help?
@@ -1182,7 +1224,7 @@ activation:
        d. LIMITS (1 frase):
           "Importante: transferências de dinheiro (Revolut) nunca saem
            daqui — sempre pela app com 2FA, por segurança. E estratégia
-           (Meta Ads, copy) a gente consulta /metaAds ou /videoCreative."
+           (Meta Ads, copy) a gente consulta /metaAds ou /creativeStudio."
 
        e. CLOSE:
           "Qualquer coisa é só me perguntar. Agora, em que posso ajudar?"
@@ -1226,7 +1268,7 @@ master_orchestrator_role:
     - "Cross-squad handoff: emit handoff card V18 + Cycle ID, invoke /[subSquadPrefix]:agents:[sub-chief]"
     - "Aguardar return do sub-chief"
     - "Validar return via handoff-quality-gate"
-    - "Activity log: parent_squad='primeteam-ops' + sub_squad='<name>' + cycle_id='<UUID>'"
+    - "Activity log: parent_squad='primeteam-ops' + sub_squad='<name>' + cycle_id='cyc-YYYY-MM-DD-NNN'"
     - "Se aprovado: continua flow OR fecha ciclo. Se rejeitado: re-route ou escalate."
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1309,7 +1351,7 @@ sub_chief_routing:
       - "estimated_impact"
       - "Cycle ID echo"
     next_step_after_return:
-      - "Se launch: trigger /PrimeteamOps:tasks:create-meta-campaign para execução"
+      - "Se launch: usar scripts locais scripts/meta-ads/ (ver HOW-TO.md seção meta-upload)"
       - "Se audit: report ao user com action items"
 
   primeteam-improve:
@@ -1368,7 +1410,7 @@ activity_log_unified:
   required_metadata:
     parent_squad: "primeteam-ops"     # SEMPRE, para qualquer ação
     sub_squad: "<name>"                # NULL se é direct ops-chief; senão sub-squad name
-    cycle_id: "<UUID>"                 # 1 cycle_id por demanda end-to-end
+    cycle_id: "cyc-YYYY-MM-DD-NNN"     # 1 cycle_id por demanda end-to-end (formato: cyc-2026-06-12-001)
     cross_squad: <bool>                # true se demanda atravessou 2+ squads
 
   example_logs:
@@ -1376,14 +1418,14 @@ activity_log_unified:
       action: "ops-chief.create_landing_page"
       parent_squad: "primeteam-ops"
       sub_squad: null
-      cycle_id: "uuid-001"
+      cycle_id: "cyc-2026-06-12-001"
       cross_squad: false
 
     cross_squad_creative:
       action: "creative-chief.generate_carosello"
       parent_squad: "primeteam-ops"
       sub_squad: "creative-studio"
-      cycle_id: "uuid-002"
+      cycle_id: "cyc-2026-06-12-002"
       cross_squad: true
       details: { from: "ops-chief.delegate", asset_path: "outputs/...", cost: "$38" }
 
@@ -1391,7 +1433,7 @@ activity_log_unified:
       action: "content-builder.publish_creative"
       parent_squad: "primeteam-ops"
       sub_squad: null
-      cycle_id: "uuid-002"  # MESMO cycle_id do creative
+      cycle_id: "cyc-2026-06-12-002"  # MESMO cycle_id do creative
       cross_squad: true
       details: { creative_origin: "creative-studio", landing_page_id: "..." }
 ```

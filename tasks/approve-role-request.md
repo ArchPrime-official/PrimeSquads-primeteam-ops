@@ -76,7 +76,7 @@
 6. **Edge case — approve para 'owner' role:**
    Se `requested_role = 'owner'` AND `decision = 'approve'`:
    - Echo warning extra: "Atenção: você está promovendo {target_name} para OWNER. Isto dá acesso TOTAL à plataforma — gerenciar finance, atribuir/remover qualquer role, deactivate users. Reversível mas requer cuidado."
-   - Confirmation tripla: "Digite 'CONFIRMA OWNER' literal para prosseguir."
+   - Confirmation tripla: "Digite 'CONFIRMO OWNER' literal para prosseguir."
 
 7. **Edge case — approve para user já com role:**
    ```sql
@@ -107,7 +107,7 @@
 
    **Step 2 confirmation literal:**
    - approve normal: digite "confirma"
-   - approve owner: digite "CONFIRMA OWNER" (uppercase)
+   - approve owner: digite "CONFIRMO OWNER" (uppercase)
    - reject: digite "confirma"
 
    Qualquer outro input → ESCALATE com `cancelled_by_user`.
@@ -183,7 +183,7 @@
 
 - **[A1] Owner-only gate:** task ABORT imediatamente se user.role != 'owner'. Zero queries pra role_requests.
 - **[A2] Idempotency via status check:** se request != 'pending', task abort sem mutations.
-- **[A3] Owner promotion = tripla confirmation:** approve para `requested_role='owner'` exige "CONFIRMA OWNER" literal (não "confirma" comum).
+- **[A3] Owner promotion = tripla confirmation:** approve para `requested_role='owner'` exige "CONFIRMO OWNER" literal (não "confirma" comum).
 - **[A4] Race-safe INSERT:** ON CONFLICT em user_roles previne duplicação se user já tem role (race entre request e approve).
 - **[A5] Reject não toca user_roles:** schema default — UPDATE só na request.
 - **[A6] Audit OBRIGATÓRIO:** activity_logs INSERT é STRICT — falha = ABORT (admin-specialist rule).
@@ -232,9 +232,9 @@ Apenas owners podem aprovar/rejeitar. Peça ao Pablo (owner).
 
 **Input:** Pablo aprova request_id de Sandra (cs→owner) — caso raro
 
-**Specialist:** Detecta requested_role='owner' → warning extra + Step 2 exige "CONFIRMA OWNER" literal. Se user digita só "confirma" → ESCALATE com:
+**Specialist:** Detecta requested_role='owner' → warning extra + Step 2 exige "CONFIRMO OWNER" literal. Se user digita só "confirma" → ESCALATE com:
 ```
-Promoção para OWNER exige confirmação literal "CONFIRMA OWNER" (uppercase).
+Promoção para OWNER exige confirmação literal "CONFIRMO OWNER" (uppercase).
 Você digitou "confirma". Cancelado por segurança. Re-execute se intencional.
 ```
 

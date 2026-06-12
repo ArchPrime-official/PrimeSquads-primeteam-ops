@@ -163,7 +163,7 @@ Ainda sem o comando global `pto`? Use `npm start`, `npm run login` etc. O wizard
 - ❌ **Transferir dinheiro** via Revolut — sempre pela app com 2FA.
 - ❌ **Decidir estratégia** (pausar campanha, reter cliente) — o squad executa, os squads de expertise decidem.
 - ❌ **Criar campanhas Meta do zero** — use o Gerenciador de Anúncios Meta.
-- ❌ **Escrever copy de emails/LPs** — use `/videoCreative` ou `/metaAds:ezra-firestone`.
+- ❌ **Escrever copy de emails/LPs** — use `/creativeStudio` ou `/metaAds:ezra-firestone`.
 - ❌ **Apagar coisas sem confirmação dupla** — sempre pergunta antes.
 
 ---
@@ -176,7 +176,7 @@ Ainda sem o comando global `pto`? Use `npm start`, `npm run login` etc. O wizard
 | **Pensar estratégia** Meta Ads | `/metaAds` |
 | **Pensar estratégia** de negócio | `/stratMgmt` |
 | **Melhorar** a plataforma | `/ptImprove` |
-| **Criar** vídeos/storytelling | `/videoCreative` |
+| **Criar** vídeos/storytelling | `/creativeStudio` |
 
 ---
 

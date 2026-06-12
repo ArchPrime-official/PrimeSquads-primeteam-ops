@@ -37,7 +37,7 @@
 3. Reason obrigatório.
 4. Validar updates (FK category/subcategory, status enum 'predicted/completed/cancelled').
 5. Dry-run preview com sample 10 + counts + total amount afetado.
-6. Tripla confirmation "BULK UPDATE TX" uppercase.
+6. Tripla confirmation "CONFIRMO BULK UPDATE TX" uppercase.
 7. Atomic batch SAVEPOINT per-tx.
 8. Activity log batch entry com IDs+reason.
 9. Echo: counts + cleanup info se PARTIAL.
@@ -47,7 +47,7 @@
 - A1 has_finance_access (admin EXCLUDED)
 - A2 Reason obrigatório
 - A3 Max 500 batch
-- A4 Tripla "BULK UPDATE TX"
+- A4 Tripla "CONFIRMO BULK UPDATE TX"
 - A5 Atomic per-tx via SAVEPOINT
 - A6 Audit single batch entry
 - A7 Multi-currency check em filter (warn se mistura currencies)

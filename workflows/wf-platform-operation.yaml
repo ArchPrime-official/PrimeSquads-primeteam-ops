@@ -145,7 +145,7 @@ phases:
       - cycle_status: Triaged
     veto_conditions:
       - Strategy request → Chief recommends expertise squad (/metaAds,
-        /stratMgmt, /ptImprove, /videoCreative), does NOT route to primeteam-ops
+        /stratMgmt, /ptImprove, /creativeStudio), does NOT route to primeteam-ops
         specialists.
       - Platform refactor / code improvement → redirect to /ptImprove, NOT
         handled here.

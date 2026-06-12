@@ -101,7 +101,7 @@ Entregue pelo `ops-chief`:
     - `23503` (FK violation em `campaign_id`) → BLOCKED — campanha não existe.
     - `23514` (CHECK) → BLOCKED indicando constraint violada.
     - `5xx` → retry 1x → ESCALATE.
-14. **Activity log** — INSERT em `activity_logs` com `action='content-builder.create_landing_page'`, `details={slug, target_domain, campaign_id, cycle_id, before:null, after:{id, status:'draft', active:true}}`.
+14. **Activity log** — INSERT em `activity_logs` com `action='content-builder.create_landing_page'`, `cycle_id={cycle_id}` (coluna dedicada, não em details), `details={slug, target_domain, campaign_id, before:null, after:{id, status:'draft', active:true}}`.
 15. **next_step_suggestion**:
     - Se html_content vazio: "Use update-cms-page para adicionar html_content. Depois publish-cms-page."
     - Se html_content fornecido: "Use publish-cms-page para tornar a página acessível em https://{target_domain}/{slug}."

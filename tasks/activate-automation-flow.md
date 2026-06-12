@@ -66,7 +66,7 @@
    Continuar?
    ```
 
-   **Step 2:** digite "ATIVA FLOW" uppercase literal.
+   **Step 2:** digite "CONFIRMO ATIVA FLOW" uppercase literal.
 5. **UPDATE atomic com version:**
    ```sql
    UPDATE automation_flows
@@ -93,7 +93,7 @@
 - **[A1] Authority check:** creator ou owner.
 - **[A2] Status válido:** draft/paused → active.
 - **[A3] Test confirmation:** confirm_test_passed=true required.
-- **[A4] Tripla confirmation:** "ATIVA FLOW" uppercase literal.
+- **[A4] Tripla confirmation:** "CONFIRMO ATIVA FLOW" uppercase literal.
 - **[A5] Version optimistic lock.**
 - **[A6] Audit:** activated_at + activated_by registrados.
 - **[A7] Reversible:** deactivate-automation-flow reverte para 'paused'.
@@ -106,7 +106,7 @@
 
 **Input:** flow_id, version=1, confirm_test_passed=true
 
-**Specialist:** auth ✓, draft → active → "ATIVA FLOW" → DONE.
+**Specialist:** auth ✓, draft → active → "CONFIRMO ATIVA FLOW" → DONE.
 
 ### Exemplo 2 — Comercial tenta ativar flow de Sandra → BLOCKED
 

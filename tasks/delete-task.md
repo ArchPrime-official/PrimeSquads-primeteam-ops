@@ -53,7 +53,7 @@
      ⚠️ Hard delete — task_history pode ser perdido se trigger não replicar.
      Reason: {reason or '(sem reason)'}
 
-   Confirma? {batch_count > 5 ? '(digite "DELETE TASKS" uppercase)' : '(sim)'}
+   Confirma? {batch_count > 5 ? '(digite "CONFIRMO DELETE TASKS" uppercase)' : '(sim)'}
    ```
 6. **Atomic batch:**
    ```sql

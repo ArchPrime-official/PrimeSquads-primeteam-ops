@@ -62,9 +62,9 @@ Cobre: leads, opportunities (pipeline kanban via comando), qualificação, bulk 
 
 ---
 
-### `marketing-specialist` (Tier 2)
+### `content-builder` — Marketing (consolidado, substitui `marketing-specialist` extinto)
 
-Cobre: campaigns, editorial calendar, Meta sync, leads (marketing view), content metrics.
+Cobre: landing pages, campaigns, editorial calendar, Meta sync, leads (marketing view), content metrics.
 
 | Role | Acesso | Scope |
 |------|--------|-------|

@@ -21,7 +21,8 @@ consultado em **2026-04-29**.
 |------|------------------|----------------------|-------------------|
 | Pablo | `owner` | CEO | Todos |
 | Joyce Kelly | `admin` + `financeiro` | — | auth, platform, finance |
-| Wesley Alexandre Boeno Rugani | `financeiro` | financeiro | auth, platform, finance |
+| Larissa | `admin` + `financeiro` | Financeiro | auth, platform, finance |
+| Adriana | `financeiro` | Contadora | auth, platform, finance |
 | Sandra | `admin` + `marketing` | — | auth, marketing, content-builder, automation |
 | Miriam | `comercial` + `cs` + `marketing` | — | auth, platform, sales, calendar, content-builder, automation |
 | Daniel | `comercial` + `cs` | comercial | auth, platform, sales, calendar |
@@ -90,13 +91,17 @@ entre power 3 (são laterais).
 Apenas roles `owner` e `financeiro` retornam `true` na função
 `has_finance_access()` no Supabase (admin foi removido em 2026-03-04).
 
-**Pessoas ativas com acesso financeiro hoje:**
+**Pessoas ativas com acesso financeiro hoje (alinhado config.yaml 2026-06-12):**
 - Pablo (`owner`)
 - Joyce Kelly (`financeiro`)
-- Wesley Alexandre Boeno Rugani (`financeiro`)
+- Larissa (`admin` + `financeiro`)
+- Adriana (`financeiro` — contadora)
 
-Total: **3 ativas**. As outras 8 ativas do roster não veem nenhum dado
+Total: **4 ativas**. As demais ativas do roster não veem nenhum dado
 financeiro — RLS retorna array vazio em qualquer query a `finance_*`.
+
+> Nota: Wesley Alexandre Boeno Rugani (`financeiro`) aparecia em versão anterior
+> mas não consta no config.yaml atual — verificar status com owner.
 
 ---
 

@@ -65,11 +65,12 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
      - "média" → 5-6
      - "alta" → 7-8
      - "crítica" / "máxima" → 9-10
-5. **Classificar quadrante** — aplicar matriz Eisenhower com threshold ≥7 (escala 1..10):
-   - priority ≥7 + urgency ≥7 → Q1 (fazer agora — importante e urgente)
-   - priority ≥7 + urgency <7 → Q2 (planejar — importante, não urgente)
-   - priority <7 + urgency ≥7 → Q3 (delegar — urgente, não importante)
-   - priority <7 + urgency <7 → Q4 (deletar/adiar)
+5. **Classificar quadrante** — aplicar matriz Eisenhower com threshold 6 (escala 1..10).
+   Semântica: `priority` = Resultado/Importância (impacto estratégico); `urgency` = Esforço/Prazo (pressão temporal).
+   - priority ≥6 + urgency ≥6 → Q1 (fazer agora — importante e urgente)
+   - priority ≥6 + urgency <6 → Q2 (planejar — importante, não urgente)
+   - priority <6 + urgency ≥6 → Q3 (delegar — urgente, não importante)
+   - priority <6 + urgency <6 → Q4 (deletar/adiar)
 6. **Confirmation message** — apresentar ao user (via chief echo) com:
    ```
    Vou criar: «{title}»

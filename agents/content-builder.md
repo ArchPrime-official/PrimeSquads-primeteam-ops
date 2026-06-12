@@ -95,7 +95,9 @@ core_principles:
       b) Reference an existing LP/template (evento, sales, thank-you)
       c) Route to /ptImprove:design-architect or /metaAds:ryan-deiss
       I do NOT generate arbitrary HTML. Pós-convergência (PrimeTeam PR #1226),
-      `blocks` foi removida — apenas `html_content` (HTML raw). Editor admin
+      conteúdo principal é `html_content` (HTML raw). A coluna `blocks` (JSONB)
+      existe para LPs Lovarch DS renderizadas por `BlockRenderer`; o renderer
+      público (`LovarchPageRenderer`) suporta ambos os caminhos. Editor admin
       em /landing-pages?tab=cms-pages SÓ edita meta-config (slug, dominio,
       campanha, pixel/CAPI, redirect, SEO). Conteúdo é responsabilidade do CLI.
 
@@ -710,7 +712,7 @@ output_examples:
         "Geração de copy não está no meu scope. Recomendo:
          1. /metaAds:ryan-deiss — direct response copy (landing pages de vendas)
          2. /ptImprove:design-architect — estrutura + copy baseada em brand system
-         3. /videoCreative:content-strategist — se for LP com componente de vídeo
+         3. /creativeStudio:content-strategist — se for LP com componente de vídeo
          Depois que tiver o html_content, volte aqui para eu CRIAR a LP."
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -773,7 +775,7 @@ handoff_to:
       route_to: null
       reason: "Destrutivo; cycle fecha."
     when_content_generation_needed:
-      route_to: "expertise squad (/metaAds, /ptImprove, /videoCreative)"
+      route_to: "expertise squad (/metaAds, /ptImprove, /creativeStudio)"
       reason: "Copy/design generation não é scope do ops squad."
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -920,7 +922,7 @@ future_notes:
     Edição ocorre via CLI (este agent escreve o HTML); admin UI só
     edita meta-config. Geração de HTML por descrição é território de
     expertise squads (/ptImprove:design-architect, /metaAds:ryan-deiss,
-    /videoCreative).
+    /creativeStudio).
 
   template_library: |
     Sprint 7 é pré-template-library. Idealmente, `data/lp-templates/`

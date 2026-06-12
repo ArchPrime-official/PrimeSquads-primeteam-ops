@@ -79,9 +79,9 @@
    ⚠️ Nota fiscal emitida é IMUTÁVEL após criação (compliance HMRC/IT).
    Para correções: bulk-reissue-invoices ou cancelamento (admin).
 
-   Confirma emissão? (digite "EMITE NOTA" uppercase literal)
+   Confirma emissão? (digite "CONFIRMO EMITE NOTA" uppercase literal)
    ```
-9. **Aguardar "EMITE NOTA"** literal — tripla check em fiscal.
+9. **Aguardar "CONFIRMO EMITE NOTA"** literal — tripla check em fiscal.
 10. **Atomic INSERT via RPC `get_next_invoice_number()`** (usa advisory lock interno — não usar BEGIN/SAVEPOINT raw via PostgREST):
     ```typescript
     // Step 1: obter número sequencial via RPC (tem advisory lock interno)
@@ -130,7 +130,7 @@
 - **[A1] Auth gate has_invoice_access:** owner+admin only (intencional).
 - **[A2] Sequential atomic:** advisory lock garante zero gap em invoice_number.
 - **[A3] Imutability surface:** echo + confirmation enfatizam que nota é imutável.
-- **[A4] Tripla confirmation:** "EMITE NOTA" uppercase literal.
+- **[A4] Tripla confirmation:** "CONFIRMO EMITE NOTA" uppercase literal.
 - **[A5] Duplicate detection:** opp já com nota emitida = BLOCKED.
 - **[A6] Tax math:** net + tax = gross (sanity check antes de INSERT).
 - **[A7] Audit STRICT:** falha audit = rollback invoice (compliance crítico).
@@ -144,7 +144,7 @@
 
 **Input:** opp won € 4500, customer Marco Rossi (IT, tax_id válido), items 1x consulting
 
-**Specialist:** Auth ✓, opp won ✓, sem dup ✓, tax_rate 22% IT, total_gross €5490 → confirmation → "EMITE NOTA" → INSERT atomic (number 2026-0042) → PDF triggered → DONE.
+**Specialist:** Auth ✓, opp won ✓, sem dup ✓, tax_rate 22% IT, total_gross €5490 → confirmation → "CONFIRMO EMITE NOTA" → INSERT atomic (number 2026-0042) → PDF triggered → DONE.
 
 ### Exemplo 2 — Comercial (sem auth) → BLOCKED
 

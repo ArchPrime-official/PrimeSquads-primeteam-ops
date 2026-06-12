@@ -114,8 +114,8 @@
    ```
 
    **Step 2 confirmation literal:**
-   - `rotate_token`: digite "ROTACIONA" (uppercase)
-   - `update_account_id`: digite "TROCA CONTA" (uppercase)
+   - `rotate_token`: digite "CONFIRMO ROTACIONA" (uppercase)
+   - `update_account_id`: digite "CONFIRMO TROCA CONTA" (uppercase)
    - `update_sync_interval` ou `toggle_active`: digite "confirma"
 
    Qualquer outro input → ESCALATE com `cancelled_by_user`.
@@ -198,7 +198,7 @@
 
 - **[A1] Admin/owner gate primário:** task ABORT imediatamente se user.role != admin && != owner. Zero queries.
 - **[A2] Token redaction obrigatório:** activity_logs e handoff card NUNCA contêm token completo. Apenas hash SHA-256 dos primeiros 8 chars + length total.
-- **[A3] Dupla confirmation diferenciada:** rotate_token e update_account_id exigem texto literal uppercase ("ROTACIONA", "TROCA CONTA") — não "confirma" comum.
+- **[A3] Dupla confirmation diferenciada:** rotate_token e update_account_id exigem texto literal uppercase ("CONFIRMO ROTACIONA", "CONFIRMO TROCA CONTA") — não "confirma" comum.
 - **[A4] Smoke test pós-rotation:** após rotate_token, invocar fast sync para validar. 401 → rollback automático.
 - **[A5] Audit STRICT:** falha em activity_logs INSERT = rollback mutation + ESCALATE. Sem audit, sem mutation.
 - **[A6] No bypass:** task NUNCA promove user a admin para autorizar — gate é primário e read-only.
@@ -218,7 +218,7 @@
 2. Resolve config → token_rotated_at=2026-04-15 (~25 dias atrás, idade OK)
 3. Validate token length 450c ✓ (within 100..500)
 4. Confirmation Step 1 preview shown (com token hash redacted)
-5. Step 2: user digita "ROTACIONA" ✓
+5. Step 2: user digita "CONFIRMO ROTACIONA" ✓
 6. UPDATE mutation
 7. Smoke test: invoke sync-meta-billing fast → 200 OK em 18s
 8. Activity log: details com `new_token_hash='a3f9b2c1' new_token_length=450 old_token_hash_was='1d4e7c89'`

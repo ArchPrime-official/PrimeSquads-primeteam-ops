@@ -65,7 +65,7 @@
      [opp_id, customer_name, current_stage → new_stage]
      ...
 
-   Confirma? (digite "BULK UPDATE" uppercase literal)
+   Confirma? (digite "CONFIRMO BULK UPDATE" uppercase literal)
    ```
 7. **Aguardar "CONFIRMO BULK UPDATE"** literal.
 8. **Invoke EF `opportunities-bulk-edit` ou `opportunities-bulk-update`** (ambas existem):
@@ -115,7 +115,7 @@
 
 **Input:** filter `{owner_id=Sandra, stage='qualified'}`, updates `{owner_id=Miriam}`, reason `'Sandra de licença até 30/05'`
 
-**Specialist:** dry-run mostra 23 opps → "BULK UPDATE" → 23/23 OK → DONE.
+**Specialist:** dry-run mostra 23 opps → "CONFIRMO BULK UPDATE" → 23/23 OK → DONE.
 
 ### Exemplo 2 — Sem reason → ESCALATE
 

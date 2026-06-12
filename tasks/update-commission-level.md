@@ -77,9 +77,9 @@
      Effective from: {effective_from}
      Reason: {reason}
 
-   Confirma? (digite "UPDATE LEVEL" uppercase literal)
+   Confirma? (digite "CONFIRMO UPDATE LEVEL" uppercase literal)
    ```
-6. **Aguardar "UPDATE LEVEL"** literal.
+6. **Aguardar "CONFIRMO UPDATE LEVEL"** literal.
 7. **UPDATE atomic:**
    ```sql
    UPDATE commission_levels
@@ -108,7 +108,7 @@
 - **[A1] Auth has_invoice_access** — owner+admin.
 - **[A2] Reason obrigatório.**
 - **[A3] Targets ascendentes** validados.
-- **[A4] Tripla confirmation:** "UPDATE LEVEL" literal.
+- **[A4] Tripla confirmation:** "CONFIRMO UPDATE LEVEL" literal.
 - **[A5] Affected sellers count:** preview impacto.
 - **[A6] Recalc warning** se há calculations futuros já persistidos.
 - **[A7] Audit STRICT** com diff + reason.
@@ -122,7 +122,7 @@
 
 **Input:** `level_id`, `updates={target_meta=20000}`, reason='Q3 review meta increase 18k→20k'
 
-**Specialist:** auth ✓, validation ✓, 4 sellers afetados → "UPDATE LEVEL" → DONE com warning recalc.
+**Specialist:** auth ✓, validation ✓, 4 sellers afetados → "CONFIRMO UPDATE LEVEL" → DONE com warning recalc.
 
 ### Exemplo 2 — Targets em ordem errada → BLOCKED
 

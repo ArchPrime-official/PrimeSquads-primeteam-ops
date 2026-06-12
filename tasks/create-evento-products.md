@@ -46,7 +46,7 @@
    - Stripe Catalog: create products + prices
 
    Erro Stripe = rollback DB inserts.
-   Confirma? (digite "CRIA PRODUCTS" uppercase)
+   Confirma? (digite "CONFIRMO CRIA PRODUCTS" uppercase)
    ```
 5. **Atomic-ish via SAVEPOINT per product:**
    - INSERT product DB
@@ -63,7 +63,7 @@
 
 ### acceptance_criteria
 - A1 has_invoice_access
-- A2 Tripla "CRIA PRODUCTS"
+- A2 Tripla "CONFIRMO CRIA PRODUCTS"
 - A3 Atomic per-product (SAVEPOINT)
 - A4 Stripe rollback on failure
 - A5 Audit STRICT

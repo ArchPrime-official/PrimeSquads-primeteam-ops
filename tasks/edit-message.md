@@ -61,28 +61,39 @@ ADD COLUMN IF NOT EXISTS edit_history jsonb;
    Para corrigir histórico antigo: delete + new message.
    ```
 3. Validar `new_content` 1..5000 chars + diff vs original.
-4. UPDATE atomic version lock:
+4. UPDATE com edit_history JSONB (tabela `channel_message_edits` NÃO existe — usar abordagem JSONB conforme cabeçalho; colunas `edit_count/edited_at/edit_history` precisam existir via migration `edit-message-migration` pendente):
    ```sql
    UPDATE channel_messages
-   SET content={new_content},
-       edited_at=NOW(),
-       edit_count=edit_count+1
-   WHERE id={message_id} AND created_by=auth.uid() AND version={expected};
+   SET content = {new_content},
+       is_edited = true,
+       updated_at = NOW(),
+       -- TODO: colunas abaixo requerem migration (edit-message-migration):
+       edited_at = NOW(),
+       edit_count = COALESCE(edit_count, 0) + 1,
+       edit_history = COALESCE(edit_history, '[]'::jsonb) ||
+                      jsonb_build_object(
+                        'old_content', content,
+                        'edited_at', NOW(),
+                        'edited_by', auth.uid()
+                      )
+   WHERE id = {message_id} AND user_id = auth.uid();
+   -- Nota: coluna `version` NÃO existe em channel_messages; sem optimistic lock disponível
    ```
-5. INSERT em `channel_message_edits` (history):
+   Se colunas edit_count/edited_at/edit_history não existirem ainda, usar apenas:
    ```sql
-   INSERT INTO channel_message_edits (message_id, old_content, new_content, edited_at, edited_by)
-   VALUES (...);
+   UPDATE channel_messages
+   SET content = {new_content}, is_edited = true, updated_at = NOW()
+   WHERE id = {message_id} AND user_id = auth.uid();
    ```
-6. Activity log skip (mensagens triviais geram spam).
-7. Echo: "✓ Mensagem editada. {warning_24h ? '' : ''}"
+5. Activity log skip (mensagens triviais geram spam).
+6. Echo: "✓ Mensagem editada."
 
 ### acceptance_criteria
 - A1 Authority creator only
 - A2 24h window default
-- A3 Edit history preserved
-- A4 Edit count increment
-- A5 Optimistic lock
+- A3 Edit history preserved (JSONB edit_history se migration existir; senão `is_edited=true`)
+- A4 Edit count increment (requer migration)
+- A5 Optimistic lock via user_id (coluna version não existe)
 
 ---
 

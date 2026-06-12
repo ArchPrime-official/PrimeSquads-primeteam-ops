@@ -45,7 +45,7 @@ VALUES
 - `dry_run` (default true)
 
 ### output
-- `import_id` (uuid — `data_imports` table)
+- `import_id` (uuid — batch_uuid registrado em `activity_logs`, NÃO em `data_imports` que não existe)
 - `parsed_rows`, `valid_rows`, `errors_count`, `imported_count`
 - `verdict`: `DONE | PARTIAL | BLOCKED`
 

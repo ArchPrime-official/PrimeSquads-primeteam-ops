@@ -20,7 +20,7 @@
 
 ### output
 - `accounts_status` (array per account):
-  - `account_name`, `last_sync_at`, `next_scheduled_at`, `last_error`, `queue_depth`
+  - `account_name`, `last_full_sync_at`, `last_fast_sync_at`, `last_error`, `sync_status`, `pending_queue_count`
   - `health` (`'green' | 'yellow' | 'red'`)
 - `cron_status`: `{enabled, schedule_expression, last_run, next_run}`
 - `recommendations` (array — actionable items)
@@ -29,20 +29,27 @@
 ### action_items
 
 1. **Role:** marketing/comercial/admin/owner.
-2. Query:
+2. Query (colunas reais de `meta_ads_sync_status`):
    ```sql
-   SELECT a.id, a.account_name, c.last_sync_at, c.next_scheduled_at,
-          c.last_error, c.last_error_at,
-          c.is_active,
-          (SELECT COUNT(*) FROM meta_ads_sync_status
-           WHERE account_id=a.id AND status='pending') AS queue_depth
-   FROM meta_ad_accounts a
-   LEFT JOIN meta_ads_config c ON c.account_id=a.id
-   WHERE a.is_active=true;
+   SELECT
+     s.id, s.account_name, s.account_id,
+     s.sync_status, s.last_full_sync_at, s.last_fast_sync_at,
+     s.last_incremental_sync_at, s.last_error,
+     s.total_campaigns, s.total_adsets, s.total_ads,
+     s.sync_progress,
+     -- queue_depth via subquery (meta_ads_sync_status não tem coluna direta):
+     (SELECT COUNT(*)
+      FROM meta_campaigns mc
+      WHERE mc.account_id = s.account_id
+        AND mc.updated_at > COALESCE(s.last_fast_sync_at, '1970-01-01')
+        AND mc.id NOT IN (SELECT id FROM meta_campaigns WHERE synced_at IS NOT NULL)
+     ) AS pending_queue_count
+   FROM meta_ads_sync_status s;
+   -- Nota: meta_ad_accounts e meta_ads_config podem não existir; usar meta_ads_sync_status como fonte
    ```
 3. **Health classification:**
-   - red: last_error em últimos 30min OR no sync em 24h
-   - yellow: queue_depth > 0 OR last_sync > 2h
+   - red: last_error preenchido E `last_fast_sync_at < NOW() - interval '30 min'` OR nenhum sync em 24h
+   - yellow: `pending_queue_count > 0` OR `last_fast_sync_at < NOW() - interval '2h'`
    - green: tudo OK
 4. **Cron status:** SELECT pg_cron jobs filter por nome 'meta-sync*'.
 5. **Recommendations:**

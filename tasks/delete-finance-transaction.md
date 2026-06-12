@@ -74,14 +74,21 @@
    Continua? (digite "DELETE TX" uppercase literal)
    ```
 8. **Aguardar "DELETE TX"** literal.
-9. **Atomic batch DELETE com SAVEPOINT:**
-   ```sql
-   BEGIN;
-   FOR each id:
-     SAVEPOINT sp_{i};
-     DELETE FROM finance_transactions WHERE id={id};
-   END LOOP;
-   COMMIT;
+9. **DELETE batch** (BEGIN/SAVEPOINT raw não funciona via PostgREST — executar DELETEs sequencialmente ou via EF se existir):
+   ```typescript
+   // Executar cada DELETE separadamente (máx 50):
+   for (const id of transaction_ids) {
+     const { error } = await supabase
+       .from('finance_transactions')
+       .delete()
+       .eq('id', id);
+     if (error) {
+       // log warning, continuar (partial allowed)
+       failed_ids.push(id);
+     } else {
+       deleted_ids.push(id);
+     }
+   }
    ```
 10. **Tratar erros:**
     - 42501 (RLS) → BLOCKED

@@ -82,35 +82,35 @@
    Confirma emissão? (digite "EMITE NOTA" uppercase literal)
    ```
 9. **Aguardar "EMITE NOTA"** literal — tripla check em fiscal.
-10. **Atomic INSERT com lock:**
-    ```sql
-    BEGIN;
-    -- Lock seq number (advisory lock para garantir sequencial)
-    SELECT pg_advisory_xact_lock(hashtext('invoice_seq_' || EXTRACT(YEAR FROM NOW())::text));
+10. **Atomic INSERT via RPC `get_next_invoice_number()`** (usa advisory lock interno — não usar BEGIN/SAVEPOINT raw via PostgREST):
+    ```typescript
+    // Step 1: obter número sequencial via RPC (tem advisory lock interno)
+    const { data: seqData } = await supabase.rpc('get_next_invoice_number', {
+      p_year: new Date().getFullYear()
+    });
+    // seqData[0] = { next_number: '2026-0042', next_sequence: 42 }
 
-    -- Get next number
-    SELECT COALESCE(MAX(seq), 0) + 1 INTO next_seq
-    FROM sales_invoices
-    WHERE EXTRACT(YEAR FROM issue_date) = EXTRACT(YEAR FROM NOW());
+    // Step 2: INSERT com número já reservado
+    const { data: invoice } = await supabase.from('sales_invoices').insert({
+      invoice_number: seqData[0].next_number,
+      opportunity_id: opp_id,
+      customer_data: customer_data,
+      total_net: net, total_tax: tax, total_gross: gross,
+      currency: currency,
+      issue_date: issue_date,
+      status: 'issued',
+      created_by: auth_uid
+    }).select('id, invoice_number').single();
 
-    INSERT INTO sales_invoices
-      (invoice_number, seq, opportunity_id, customer_data,
-       total_net, total_tax, total_gross, currency,
-       issue_date, status, created_by)
-    VALUES (
-      EXTRACT(YEAR FROM NOW()) || '-' || LPAD(next_seq::text, 4, '0'),
-      next_seq, {opp_id}, {customer_data},
-      {net}, {tax}, {gross}, {currency},
-      {issue_date}, 'issued', auth.uid()
-    )
-    RETURNING id, invoice_number;
-
-    -- INSERT items in sales_invoice_items
-    INSERT INTO sales_invoice_items (invoice_id, ...) VALUES (...);
-
-    COMMIT;
+    // Step 3: INSERT items
+    await supabase.from('sales_invoice_items').insert(items.map(i => ({
+      invoice_id: invoice.id, ...i
+    })));
     ```
-11. **Trigger PDF generation** via edge function `generate-invoice-pdf`.
+11. **Trigger PDF generation** — TODO: EF `generate-invoice-pdf` NÃO existe (ver lista EFs). Marcar como pendente:
+    ```
+    PDF: TODO (EF não implementada — generate-invoice-pdf ausente)
+    ```
 12. **Activity log STRICT:** falha = ROLLBACK invoice. action='admin-specialist.create_sales_invoice', details com invoice_number + opp_id + valores.
 13. **Echo:**
     ```
@@ -163,8 +163,8 @@ Para cancelar: contate owner (operação restrita).
 
 ## Notas
 
-- **Atomic seq number:** `pg_advisory_xact_lock` evita gaps em fila concorrente. Crítico para HMRC compliance.
-- **PDF generation:** edge `generate-invoice-pdf` produz PDF via library (jsPDF/Puppeteer). Asset salvo em bucket `sales-invoices`.
+- **Atomic seq number:** RPC `get_next_invoice_number(p_year)` usa advisory lock interno. NÃO usar BEGIN/SAVEPOINT raw via PostgREST (não suportado).
+- **PDF generation:** TODO — EF `generate-invoice-pdf` NÃO existe no projeto (2026-06-12). Implementar quando necessário.
 - **Imutability:** trigger BEFORE UPDATE em `sales_invoices` rejeita mudanças em invoices com `status='issued'` (apenas voids permitidos).
 - **HMRC compliance:** UK invoices têm formato específico (Making Tax Digital). Edge `submit-hmrc-invoice` faz submission automática (Sprint futuro).
 

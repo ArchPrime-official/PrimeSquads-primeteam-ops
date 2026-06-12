@@ -50,9 +50,9 @@
    ```
 5. **Atomic-ish via SAVEPOINT per product:**
    - INSERT product DB
-   - Invoke `create-stripe-product` edge
+   - Invoke `stripe-product-sync` edge (NÃO `create-stripe-product` que não existe)
    - Atualizar product com stripe_ids
-   - Falha Stripe = ROLLBACK SAVEPOINT, log warning
+   - Falha Stripe = log warning, continuar (BEGIN/SAVEPOINT raw não funciona via PostgREST)
 6. Activity log STRICT com event_id + product_ids.
 7. Echo:
    ```

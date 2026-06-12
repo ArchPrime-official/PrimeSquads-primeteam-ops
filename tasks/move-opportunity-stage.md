@@ -1,6 +1,6 @@
 # Task: move-opportunity-stage
 
-> Task atômica para transicionar `opportunities.stage` entre estados. Enum real (validado contra produção 2026-05-10): LEAD_OPPORTUNITY, STRATEGIC_SESSION, NEGOTIATION, CHECKOUT, REGISTERED, SALE_DONE, LOST, NO_SHOW_RECONTACT, NON_INTERESSATO (9 stages). Valida enum, auto-set closed_at em terminais (SALE_DONE/LOST/NON_INTERESSATO), exige campos extras para SALE_DONE (value) e LOST (reason).
+> Task atômica para transicionar `opportunities.stage` entre estados. Enum real (validado contra schema 2026-06-12): 25 stages. Valida enum, auto-set closed_at em terminais (SALE_DONE/COMPLETED/LOST), exige campos extras para SALE_DONE (value) e LOST (reason).
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
@@ -65,7 +65,7 @@ Entregue pelo `ops-chief`:
    - 0 matches → ESCALATE "nenhuma opp ativa para '{name}'"
    - 1 match → usar
    - >1 → ESCALATE com lista (pedir pick)
-2. **Validar new_stage** — deve estar em `valid_stages` enum. Se inválido: ESCALATE com lista.
+2. **Validar new_stage** — deve estar em `valid_stages` enum (25 valores). Se inválido: ESCALATE com lista completa.
 3. **Read current state** — SELECT row atual (id, stage, closed_at, pipeline, lead_id, sales_proposal_value, sales_proposal_currency, lost_reason).
 4. **Idempotency check** — se `current_stage == new_stage`:
    - DONE com `was_idempotent=true`, NÃO executa UPDATE
@@ -108,10 +108,8 @@ Entregue pelo `ops-chief`:
    SET stage = {new_stage},
        updated_at = now(),
        closed_at = CASE
-         WHEN {new_stage} IN ('SALE_DONE', 'LOST', 'NON_INTERESSATO') THEN now()
-         WHEN {new_stage} IN ('NO_SHOW_RECONTACT', 'LEAD_OPPORTUNITY',
-                              'STRATEGIC_SESSION', 'NEGOTIATION',
-                              'CHECKOUT', 'REGISTERED') THEN NULL  -- reopen
+         WHEN {new_stage} IN ('SALE_DONE', 'COMPLETED', 'LOST') THEN now()
+         WHEN {new_stage} NOT IN ('SALE_DONE', 'COMPLETED', 'LOST') THEN NULL  -- reopen
          ELSE closed_at
        END,
        sales_proposal_value = CASE
@@ -149,13 +147,13 @@ Entregue pelo `ops-chief`:
 - **[A1] Stage enum validation:** se new_stage não está em valid_stages, task termina ESCALATE (zero UPDATE).
 - **[A2] Terminal required fields:** SALE_DONE sem sales_proposal_value = ESCALATE. LOST sem lost_reason = ESCALATE.
 - **[A3] Idempotency:** se current_stage == new_stage, task retorna DONE com `was_idempotent=true`, zero UPDATE. closed_at e outros campos preservados.
-- **[A4] closed_at auto-set:** terminal stages (SALE_DONE, LOST) gravam closed_at=now() UTC. Non-terminal stages preservam closed_at=NULL (ou clear se veio de terminal → reopen).
+- **[A4] closed_at auto-set:** terminal stages (SALE_DONE, COMPLETED, LOST) gravam closed_at=now() UTC. Non-terminal stages preservam closed_at=NULL (ou clear se veio de terminal → reopen).
 - **[A5] Atypical transitions flagged:** LOST → LEAD_OPPORTUNITY, SALE_DONE → NEGOTIATION etc. são permitidos mas WARNING no handoff card.
 - **[A6] Non-specified fields preserved:** UPDATE NÃO nulla campos não mencionados (sales_user_id, presales_info, etc.).
 - **[A7] RLS clarity:** 42501 → BLOCKED com role explanation.
 - **[A8] next_step_suggestion:** sempre preenchido (pode ser null para casos "close cycle"). SALE_DONE sempre sugere Finance route.
 - **[A9] Currency echo defensivo:** se new_stage=SALE_DONE e currency NÃO foi explicitamente passada, ESCALATE com warning "DB default sales_proposal_currency='BRL' (legado). Confirma EUR ou outra?". NUNCA aceitar omissão silenciosa que vira BRL.
-- **[A10] Stage enum atualizado:** valid_stages reflete valores reais em produção (9 stages, audit 2026-05-10). Inputs como 'RECONTACT_FUTURE' ou 'ON_HOLD' (legado, fora do enum atual) → ESCALATE com sugestão de equivalente real.
+- **[A10] Stage enum atualizado (2026-06-12 — 25 stages reais):** `LEAD_OPPORTUNITY, PRE_CONTACT, PRE_CONTACT_PLUS, PRICED_CONTACT, SESSION_SCHEDULED, PRICE_SENT, PHONE_OR_WHATSAPP_CONTACT, PRE_SALES_CONTACT, PRE_SALE_CONTACT, PRE_SALES_SESSION, PRE_SALES_NO_SHOW, PRE_SALES_RECONTACT, SALES_SESSION, SALES_NO_SHOW, SALES_RECONTACT, RECONTACT_FUTURE, STRATEGIC_SESSION, NO_SHOW, NO_SHOW_RECONTACT, NEGOTIATION, NEGOTIATION_PLUS, CONTRACT_SENT, SALE_DONE, COMPLETED, LOST`. Inputs como 'CHECKOUT', 'REGISTERED', 'NON_INTERESSATO', 'ON_HOLD' (legado, fora do enum) → ESCALATE com sugestão de equivalente real.
 
 ---
 
@@ -251,10 +249,14 @@ convention_check: idempotent ✓
 
 verdict: ESCALATE
 suggested_user_message: |
-  "Stage «FINALIZADA» não é válido. Opções:
-   LEAD_OPPORTUNITY, STRATEGIC_SESSION, NEGOTIATION, SALE_DONE,
-   RECONTACT_FUTURE, NO_SHOW_RECONTACT, LOST.
-   Provavelmente você quis dizer SALE_DONE (venda concluída)?"
+  "Stage «FINALIZADA» não é válido. Opções reais (25 stages):
+   LEAD_OPPORTUNITY, PRE_CONTACT, PRE_CONTACT_PLUS, PRICED_CONTACT, SESSION_SCHEDULED,
+   PRICE_SENT, PHONE_OR_WHATSAPP_CONTACT, PRE_SALES_CONTACT, PRE_SALE_CONTACT,
+   PRE_SALES_SESSION, PRE_SALES_NO_SHOW, PRE_SALES_RECONTACT, SALES_SESSION,
+   SALES_NO_SHOW, SALES_RECONTACT, RECONTACT_FUTURE, STRATEGIC_SESSION, NO_SHOW,
+   NO_SHOW_RECONTACT, NEGOTIATION, NEGOTIATION_PLUS, CONTRACT_SENT,
+   SALE_DONE, COMPLETED, LOST.
+   Provavelmente você quis dizer SALE_DONE ou COMPLETED (venda concluída)?"
 ```
 
 ### Exemplo 5 — Atypical reopen (DONE com warning)

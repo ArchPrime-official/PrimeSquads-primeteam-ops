@@ -50,7 +50,7 @@
 2. **Validar phone** E.164 regex `^\+\d{8,15}$`. Inválido → ESCALATE.
 3. **Validar message:**
    - `text`: 1..4096 chars; UTF-8
-   - `template_id`: deve existir em `whatsapp_templates` (cache local) AND status='approved' Meta
+   - `template_id`: validado runtime pela EF `whatsapp-send` contra Meta Business API (não há cache local `whatsapp_templates` — tabela não existe)
 4. **Resolver phone se passou lead_id:**
    ```sql
    SELECT phone FROM leads WHERE id={lead_id};
@@ -145,7 +145,7 @@ Sua role: financeiro. Comercial é canal de Sales/Customer Success.
 ## Notas
 
 - **Edge function `whatsapp-send`:** já existe no primeteam, faz call Meta Graph API + persiste em `whatsapp_messages`.
-- **Templates approved:** sync via cron `sync-whatsapp-templates`. Lista cacheada em `whatsapp_templates` table.
+- **Templates approved:** validados runtime pela Meta API via EF `whatsapp-send`. Não há tabela `whatsapp_templates` local — templates são gerenciados direto no Meta Business Manager.
 - **Bulk:** task é single message. Bulk send (campanha) = task separada (Tier 2 backlog) com extra confirmation.
 - **Rate limits Meta:** 1000/24h para newer business accounts, escalável conforme reputation.
 - **Phone redaction:** activity_logs mostra `+55119****9999` (últimos 4 dígitos). Audit completo na tabela `whatsapp_messages` (RLS-protected).

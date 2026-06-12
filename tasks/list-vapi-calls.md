@@ -2,7 +2,7 @@
 
 > Read-only — listar chamadas Vapi com filtros (período, status, lead, custo). Comercial monitora outcomes; admin audita custos. Implementa F-11.2 leitura.
 
-**⚠️ SCHEMA NOTE (2026-05-10):** Tabela canonical é `telephony_calls`. Pode incluir Vapi+Ringover+outras providers (filtrar por `provider`/`call_strategy_id`).
+**✅ SCHEMA ADAPTED (2026-06-12):** Tabela canonical para registros Vapi = `call_executions` (colunas reais: `id, vapi_call_id, strategy_id, lead_id, opportunity_id, status, outcome, outcome_details, started_at, ended_at, duration_seconds, transcript, recording_url, error_message, attempt_number, closer_id`). `telephony_calls` é para chamadas Ringover/PABX telefônicas — não usar para Vapi.
 
 **Cumpre:** HO-TP-001
 
@@ -33,8 +33,8 @@
 
 ### output
 
-- **`calls`** (array): `id, vapi_call_id, lead_id, lead_name, assistant_id, purpose, status, started_at, ended_at, duration_seconds, cost_usd, transcript_summary OR transcript_full, outcome_classification`
-- **`stats`**: `{total_calls, total_cost_usd, avg_duration_min, success_rate, conversion_rate}`
+- **`calls`** (array): `id, vapi_call_id, lead_id, lead_name, strategy_id, status, outcome, started_at, ended_at, duration_seconds, transcript (parcial), recording_url, error_message`
+- **`stats`**: `{total_calls, avg_duration_min, success_rate, conversion_rate}` (custo não disponível em call_executions — ver sync-vapi-billing)
 - **`verdict`** — `DONE`
 
 ### action_items
@@ -44,37 +44,36 @@
 3. **Query principal:**
    ```sql
    SELECT
-     vc.id, vc.vapi_call_id, vc.lead_id,
+     ce.id, ce.vapi_call_id, ce.lead_id,
      l.name AS lead_name, l.phone AS lead_phone,
-     vc.assistant_id, vc.purpose, vc.status,
-     vc.started_at, vc.ended_at,
-     EXTRACT(EPOCH FROM (vc.ended_at - vc.started_at))::int AS duration_seconds,
-     vc.cost_usd,
-     vc.transcript_summary,
-     {include_transcript} ? vc.transcript_full : NULL AS transcript_full,
-     vc.outcome_classification
-   FROM telephony_calls vc
-   LEFT JOIN leads l ON l.id = vc.lead_id
+     ce.strategy_id,
+     cs.name AS strategy_name,
+     ce.status, ce.outcome,
+     ce.started_at, ce.ended_at,
+     ce.duration_seconds,
+     CASE WHEN {include_transcript} THEN ce.transcript ELSE NULL END AS transcript,
+     ce.recording_url,
+     ce.error_message,
+     ce.attempt_number
+   FROM call_executions ce
+   LEFT JOIN leads l ON l.id = ce.lead_id
+   LEFT JOIN call_strategies cs ON cs.id = ce.strategy_id
    WHERE
-     ({lead_id} IS NULL OR vc.lead_id={lead_id})
-     AND ({status} IS NULL OR vc.status={status})
-     AND ({purpose} IS NULL OR vc.purpose={purpose})
-     AND vc.started_at BETWEEN {date_from} AND {date_to}
-     AND ({min_cost} IS NULL OR vc.cost_usd >= {min_cost})
-     AND ({max_cost} IS NULL OR vc.cost_usd <= {max_cost})
-   ORDER BY vc.started_at DESC
+     ({lead_id} IS NULL OR ce.lead_id = {lead_id})
+     AND ({status} IS NULL OR ce.status = {status})
+     AND (ce.started_at IS NULL OR ce.started_at BETWEEN {date_from} AND {date_to})
+   ORDER BY ce.created_at DESC
    LIMIT {limit};
    ```
 4. **Stats query:**
    ```sql
    SELECT
      COUNT(*) AS total,
-     SUM(cost_usd) AS total_cost,
-     AVG(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60) AS avg_duration_min,
-     COUNT(*) FILTER (WHERE status='completed' AND outcome_classification IN ('qualified','interested')) * 100.0 / NULLIF(COUNT(*), 0) AS success_rate,
-     COUNT(*) FILTER (WHERE outcome_classification='converted') * 100.0 / NULLIF(COUNT(*), 0) AS conversion_rate
-   FROM telephony_calls
-   WHERE started_at BETWEEN {date_from} AND {date_to};
+     AVG(duration_seconds / 60.0) AS avg_duration_min,
+     COUNT(*) FILTER (WHERE outcome IN ('qualified','interested')) * 100.0 / NULLIF(COUNT(*), 0) AS success_rate,
+     COUNT(*) FILTER (WHERE outcome = 'converted') * 100.0 / NULLIF(COUNT(*), 0) AS conversion_rate
+   FROM call_executions
+   WHERE created_at BETWEEN {date_from} AND {date_to};
    ```
 5. **Activity log:** `action='integration-specialist.list_telephony_calls'`, details com filtros (não conteúdo).
 6. **Echo tabular:**
@@ -131,8 +130,8 @@
 
 ## Notas
 
-- **Tabela `telephony_calls`:** populada por `vapi-launch-call` (insert) + `vapi-webhook` (update com transcript/cost).
-- **Outcome classification:** auto-classificado pelo assistant via prompt + LLM. Valores: `qualified | interested | not_interested | callback_requested | wrong_number | converted | other`.
+- **Tabela `call_executions`:** populada por `vapi-start-call` (insert) + `vapi-webhook` (update com transcript/outcome/duration).
+- **Outcome:** campo livre preenchido pelo `vapi-webhook`. Valores típicos: `qualified | interested | not_interested | callback_requested | wrong_number | converted | other`.
 - **Cost reconciliation:** sync semanal `sync-vapi-billing` reconcilia custos com Vapi invoice (memory: vapi-billing-sync-broken-2026-05-07 — débito conhecido).
 
 ---

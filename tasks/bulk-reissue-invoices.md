@@ -149,7 +149,7 @@ Exemplos válidos:
 
 - **VOID semantics:** invoices canceladas mantêm row + status='cancelled'. Importante para audit + compliance HMRC.
 - **Sequencial new:** mesma logic do create-sales-invoice (advisory lock + seq number).
-- **PDF regen async:** edge `regenerate-invoice-pdfs` pega lista de new IDs.
+- **PDF regen:** TODO — EF `regenerate-invoice-pdfs` NÃO existe (2026-06-12). Implementar junto com `generate-invoice-pdf` quando PDF generation for desenvolvida.
 - **Limit 100:** acima disso, dividir em batches sequenciais (operacional).
 
 ---

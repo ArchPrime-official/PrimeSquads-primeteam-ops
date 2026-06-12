@@ -73,7 +73,7 @@ ORDER BY o.created_at DESC;
      o.created_at, o.last_email_sent_at
    FROM opportunities o
    JOIN leads l ON l.id = o.lead_id
-   WHERE o.campaign_id = (SELECT campaign_id FROM events WHERE id = {event_id})
+   WHERE o.campaign_id = {campaign_id}  -- evento identificado por campaign_id (nao existe tabela events)
      AND ({filter_status} IS NULL OR o.stage = {filter_status})
      AND ({filter_attended} IS NULL OR (o.metadata->>'attended_at' IS NOT NULL) = {filter_attended}::boolean)
    ORDER BY {sort_by}
@@ -90,7 +90,7 @@ ORDER BY o.created_at DESC;
      COUNT(*) FILTER (WHERE o.stage = 'no_show') AS no_show,
      COUNT(*) FILTER (WHERE o.status = 'won') AS converted
    FROM opportunities o
-   WHERE o.campaign_id = (SELECT campaign_id FROM events WHERE id = {event_id});
+   WHERE o.campaign_id = {campaign_id};  -- evento identificado por campaign_id (nao existe tabela events)
    ```
    `conversion_rate = converted / total * 100`.
 
@@ -153,7 +153,7 @@ Sua role: financeiro. Peça à Sandra (Marketing) ou Andrea/Jessica (CS).
 
 ## Notas
 
-- **Tabela real:** `event_registrations` NÃO existe em prod. Usar `opportunities` filtrado por `campaign_id` linkado ao evento (via tabela `events`). Schema discovery obrigatório antes de executar.
+- **Tabela real:** `event_registrations` NÃO existe em prod. Usar `opportunities` filtrado por `campaign_id` linkado ao evento (campaign_id passado direto; nao existe tabela `events`). Schema discovery obrigatório antes de executar.
 - **Privacy:** echo NUNCA imprime telefones completos em demo (mascarar últimos 4 dígitos se sample > 5 rows). Full data fica no payload retornado.
 - **Conversion rate:** definição = (lead virou opportunity won) / total inscritos. Considerar cohort temporal (eventos antigos têm taxa diferente de eventos ativos).
 

@@ -43,10 +43,14 @@
 1. **Auth gate has_invoice_access** — owner+admin only.
 2. **Resolver level:**
    ```sql
-   SELECT id, name, fixed_bonus, target_acceptable, target_ok, target_meta,
-          months_to_next_level, promotion_requirement, commission_rate_pct,
-          (SELECT COUNT(*) FROM sellers WHERE commission_level_id={id} AND active=true) AS affected_count
-   FROM commission_levels WHERE id={id} OR name={level_name};
+   -- Tabela 'sellers' NÃO existe — contagem via seller_commission_levels JOIN profiles
+   SELECT cl.id, cl.level_name AS name, cl.fixed_bonus,
+          cl.target_acceptable, cl.target_ok, cl.target_meta,
+          cl.months_to_next_level, cl.promotion_requirement,
+          (SELECT COUNT(*) FROM seller_commission_levels scl
+           JOIN profiles p ON p.id = scl.user_id
+           WHERE scl.level_id = cl.id AND p.is_active = true) AS affected_count
+   FROM commission_levels cl WHERE cl.id = {id} OR cl.level_name = {level_name};
    ```
    0 ou >1 → ESCALATE.
 3. **Validar updates:**

@@ -28,7 +28,7 @@
 
 ### output
 
-- **`reissue_batch_id`** (uuid — group em `invoice_reissue_batches`)
+- **`reissue_batch_id`** (uuid — TODO: tabelas `invoice_reissue_batches` e `invoice_reissue_links` NÃO existem ainda — feature não implementada)
 - **`reissued_count`** + **`old_invoice_ids`** + **`new_invoice_ids`**
 - **`total_value_reissued`** (currency)
 - **`verdict`** — `DONE | PARTIAL | BLOCKED`
@@ -58,15 +58,20 @@
    IMPACTO:
      - Notas atuais: VOIDED (status='cancelled', voided_at=NOW)
      - Notas novas: emitidas com novo invoice_number sequencial
-     - Audit trail: invoice_reissue_batches mantém old↔new linkage
+     - Audit trail: TODO (invoice_reissue_batches não existe — feature não implementada)
 
    Confirma? (digite "CONFIRMO REISSUE BATCH" uppercase literal)
    ```
 6. **Aguardar "CONFIRMO REISSUE BATCH"** literal.
 7. **Atomic batch operation com SAVEPOINT por invoice:**
    ```sql
+   -- TODO (tabelas de reissue não existem ainda — feature não implementada):
+   --   invoice_reissue_batches → rastrear batch com reason + requested_by + count
+   --   invoice_reissue_links   → mapear old_invoice_id ↔ new_invoice_id por batch
+   -- Implementar migrations dessas tabelas ANTES de ativar esta task em produção.
+   -- Por ora, audit trail fica apenas em activity_logs (action + details JSON).
    BEGIN;
-   INSERT INTO invoice_reissue_batches (id, reason, requested_by, count) VALUES (...);
+   -- SKIPPED: INSERT INTO invoice_reissue_batches (...) — tabela não existe
 
    FOR each invoice IN list:
      SAVEPOINT sp_{i};
@@ -80,9 +85,7 @@
      INSERT INTO sales_invoices (...)
      VALUES (apply_changes ON old data) RETURNING new_id;
 
-     -- Link
-     INSERT INTO invoice_reissue_links
-       (batch_id, old_invoice_id, new_invoice_id) VALUES (...);
+     -- SKIPPED: INSERT INTO invoice_reissue_links (...) — tabela não existe
 
      -- If error: ROLLBACK TO sp_{i}, log warning, skip esta invoice
    END LOOP;
@@ -100,7 +103,7 @@
     Total value: {currency} {sum}
     PDFs: regenerando em background
 
-    Audit trail completa em invoice_reissue_batches + invoice_reissue_links.
+    Audit trail em activity_logs (invoice_reissue_batches/links não existem ainda — ver Notas).
     ```
 
 ### acceptance_criteria
@@ -112,7 +115,7 @@
 - **[A5] Tripla confirmation:** "CONFIRMO REISSUE BATCH" uppercase literal.
 - **[A6] Atomic per-invoice:** SAVEPOINT permite partial success.
 - **[A7] Voided not deleted:** old invoices ficam em DB com status='cancelled' (audit trail completo).
-- **[A8] Linkage table:** invoice_reissue_links mantém old↔new mapping para rastreabilidade.
+- **[A8] Linkage table:** TODO — `invoice_reissue_links` não existe ainda. Implementar migration antes de ativar em produção. Por ora, rastreabilidade via activity_logs.details.
 
 ---
 

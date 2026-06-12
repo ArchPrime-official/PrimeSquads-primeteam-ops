@@ -37,11 +37,16 @@
 
 1. **Auth gate:** has_invoice_access (owner+admin). Outros → BLOCKED.
 2. **Validar period** formato `YYYY-MM`, não no futuro, não > 12 meses atrás (sanity).
-3. **Resolver sellers ativos:**
+3. **Resolver sellers ativos** (tabela `sellers` NÃO existe — usar `profiles` JOIN `seller_commission_levels`):
    ```sql
-   SELECT id, name, commission_rate, role
-   FROM sellers WHERE active=true
-     AND ({seller_id} IS NULL OR id={seller_id});
+   -- TODO: confirmar campo de role/active em profiles (is_active=true + role em user_roles)
+   SELECT p.id, p.full_name AS name,
+          cl.level_name, cl.id AS level_id
+   FROM profiles p
+   JOIN seller_commission_levels scl ON scl.user_id = p.id
+   JOIN commission_levels cl ON cl.id = scl.level_id
+   WHERE p.is_active = true
+     AND ({seller_id} IS NULL OR p.id = {seller_id});
    ```
 4. **Pre-check duplicate run:**
    ```sql
@@ -51,9 +56,13 @@
      AND status='persisted';
    ```
    Se já persistido AND não dry_run → ESCALATE com `already_persisted`.
-5. **Compute commissions** via call à edge function (não recompute em SQL aqui — logic complexa fica na edge):
+5. **Compute commissions** via EF cron `sync-seller-commission` (EF `calculate-seller-commission` NÃO existe):
    ```typescript
-   const { data, error } = await supabase.functions.invoke('calculate-seller-commission', {
+   // TODO: EF 'calculate-seller-commission' não existe.
+   // A EF real de cálculo + persistência é 'sync-seller-commission' (cron edge).
+   // Para disparo manual com dry_run, verificar se sync-seller-commission aceita
+   // parâmetro dry_run no body — senão cálculo deve ser feito inline via SQL/RPC.
+   const { data, error } = await supabase.functions.invoke('sync-seller-commission', {
      body: { period, seller_ids, dry_run, commission_rules_override },
      headers: { Authorization: `Bearer ${jwt}` }
    });
@@ -104,7 +113,7 @@
 
 **Input:** `period='2026-04'`, sem seller_id (todos)
 
-**Specialist:** Auth ✓, dry_run=true default → calcula via edge → preview com 6 sellers, total €4200 → user revê → re-run com `dry_run=false` + "PERSISTE COMISSÃO" → DONE.
+**Specialist:** Auth ✓, dry_run=true default → calcula via edge `sync-seller-commission` → preview com N sellers (de `profiles` JOIN `seller_commission_levels`), total €4200 → user revê → re-run com `dry_run=false` + "PERSISTE COMISSÃO" → DONE.
 
 ### Exemplo 2 — Already persisted → ESCALATE
 
@@ -125,7 +134,7 @@ para preview + admin decide se substitui (UPSERT trigger audit).
 
 ## Notas
 
-- **Edge `calculate-seller-commission`:** lógica complexa (commission_rate × revenue, splits, bonuses) ficou na edge para reuse. Esta task só orquestra.
+- **Edge de cálculo:** `calculate-seller-commission` NÃO existe. A EF real é `sync-seller-commission` (cron que calcula + persiste). Esta task orquestra o disparo manual da mesma EF com parâmetro dry_run.
 - **Idempotency via UPSERT:** re-persist do mesmo period é detectado e flagueado em audit (não silencioso).
 - **Payment flow:** records ficam status='pending' até admin marcar 'paid' (UI ou task separada).
 - **CRITICAL HMRC:** comissões fazem parte da contabilidade UK. Dry_run obrigatório evita erros financeiros.

@@ -60,33 +60,37 @@ ORDER BY o.created_at DESC;
 1. **Role check:** marketing/cs/admin/owner. Outros (financeiro, comercial) → BLOCKED com mensagem clara.
 2. **Resolver event_id** se passado slug. 0 match → ESCALATE.
 3. **Validar limit** ≤ 500.
-4. **Query principal:**
+4. **Query principal** (tabela `event_registrations` NÃO existe — usar `opportunities`):
    ```sql
+   -- TODO: confirmar coluna de status do evento em opportunities.metadata
+   -- (campo como metadata->>'attended_at' ou stage indica presença).
+   -- Schema real: opportunities JOIN leads filtrado por campaign_id do evento.
    SELECT
      l.id AS lead_id, l.name, l.email, l.phone,
-     er.status, er.attended_at,
-     er.converted_opportunity_id,
-     er.created_at, er.last_email_sent_at
-   FROM event_registrations er
-   JOIN leads l ON l.id = er.lead_id
-   WHERE er.event_id = {event_id}
-     AND ({filter_status} IS NULL OR er.status = {filter_status})
-     AND ({filter_attended} IS NULL OR (er.attended_at IS NOT NULL) = {filter_attended})
+     o.stage AS status,
+     o.metadata->>'attended_at' AS attended_at,
+     o.id AS converted_opportunity_id,
+     o.created_at, o.last_email_sent_at
+   FROM opportunities o
+   JOIN leads l ON l.id = o.lead_id
+   WHERE o.campaign_id = (SELECT campaign_id FROM events WHERE id = {event_id})
+     AND ({filter_status} IS NULL OR o.stage = {filter_status})
+     AND ({filter_attended} IS NULL OR (o.metadata->>'attended_at' IS NOT NULL) = {filter_attended}::boolean)
    ORDER BY {sort_by}
    LIMIT {limit};
    ```
-   *Nota: tabela `event_registrations` pode estar em forma alternativa (ex: opportunities filtered by campaign_id linked to event). Adaptar query ao schema real.*
 
-5. **Stats query:**
+5. **Stats query** (tabela `event_registrations` NÃO existe — usar `opportunities`):
    ```sql
+   -- TODO: adaptar filtros de status ao mapeamento real de o.stage → attended/no_show/converted
    SELECT
      COUNT(*) AS total,
-     COUNT(*) FILTER (WHERE status='confirmed') AS confirmed,
-     COUNT(*) FILTER (WHERE status='attended') AS attended,
-     COUNT(*) FILTER (WHERE status='no_show') AS no_show,
-     COUNT(*) FILTER (WHERE converted_opportunity_id IS NOT NULL) AS converted
-   FROM event_registrations
-   WHERE event_id = {event_id};
+     COUNT(*) FILTER (WHERE o.stage = 'confirmed') AS confirmed,
+     COUNT(*) FILTER (WHERE o.metadata->>'attended_at' IS NOT NULL) AS attended,
+     COUNT(*) FILTER (WHERE o.stage = 'no_show') AS no_show,
+     COUNT(*) FILTER (WHERE o.status = 'won') AS converted
+   FROM opportunities o
+   WHERE o.campaign_id = (SELECT campaign_id FROM events WHERE id = {event_id});
    ```
    `conversion_rate = converted / total * 100`.
 
@@ -149,7 +153,7 @@ Sua role: financeiro. Peça à Sandra (Marketing) ou Andrea/Jessica (CS).
 
 ## Notas
 
-- **Tabela exata:** se `event_registrations` não existir ainda, usar `opportunities` filtered by `campaign_id` linked to event. Schema discovery primeiro.
+- **Tabela real:** `event_registrations` NÃO existe em prod. Usar `opportunities` filtrado por `campaign_id` linkado ao evento (via tabela `events`). Schema discovery obrigatório antes de executar.
 - **Privacy:** echo NUNCA imprime telefones completos em demo (mascarar últimos 4 dígitos se sample > 5 rows). Full data fica no payload retornado.
 - **Conversion rate:** definição = (lead virou opportunity won) / total inscritos. Considerar cohort temporal (eventos antigos têm taxa diferente de eventos ativos).
 

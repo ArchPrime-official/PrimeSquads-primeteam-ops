@@ -923,7 +923,7 @@ playbooks:
   pause_campaign:
     description: >
       Pause uma campanha Meta Ads — set `effective_status='PAUSED'` via
-      Meta Graph API (invocado via edge function `update-meta-campaign`).
+      Meta Graph API (invocado via edge function `meta-ads-campaigns-v2`).
       Delivery pausa imediatamente (no spend, no impressions). Reversível
       via resume_campaign.
     confirmation_dupla: |
@@ -941,9 +941,11 @@ playbooks:
          Confirma pause?"
       Step 2: user types "confirma pause" literal
     invocation: |
-      supabase.functions.invoke('update-meta-campaign', {
+      // TODO: EF 'update-meta-campaign' não existe — usar 'meta-ads-campaigns-v2'
+      // ou 'apply-agent-action' para mutações de campanha via Meta Graph API.
+      supabase.functions.invoke('meta-ads-campaigns-v2', {
         body: { campaign_id, effective_status: 'PAUSED' },
-        headers: { Authorization: Bearer {jwt} }
+        headers: { Authorization: `Bearer ${jwt}` }
       })
     post_action: |
       "✓ Campanha «{name}» PAUSADA. Monitore via list_insights_daily
@@ -964,7 +966,7 @@ playbooks:
          - Budget ainda configurado: daily €{daily} / lifetime €{lifetime}
          Confirma resume?"
       Step 2: user types "confirma resume"
-    invocation: same edge function update-meta-campaign
+    invocation: same edge function meta-ads-campaigns-v2
 
   change_campaign_budget:
     description: >
@@ -982,7 +984,7 @@ playbooks:
          - ATTENTION: se decrease > 50%, delivery pode estagnar.
          Confirma?"
       Step 2: user types "confirma change de €{old} para €{new}"
-    invocation: update-meta-campaign edge function
+    invocation: meta-ads-campaigns-v2 edge function
     hard_guardrail: |
       Se new_daily_budget > 2x old_daily_budget: ESCALATE ao invés de
       just confirmation. User explicit vai para /metaAds:ralph-burns para
@@ -993,7 +995,7 @@ playbooks:
 
   create_calendar_event:
     description: >
-      Cria evento Google Calendar via edge function `create-google-event`.
+      Cria evento Google Calendar via edge function `google-calendar-update-event`.
       Bidirectional sync: evento vai para Google Calendar + eventualmente
       volta para `google_calendar_events_cache` via webhook/watch channel.
     required_fields:
@@ -1017,9 +1019,12 @@ playbooks:
        - calendário destino: seu calendar primary
        Confirma?"
     invocation: |
-      supabase.functions.invoke('create-google-event', {
+      // TODO: EF 'create-google-event' não existe — EF real para escrita em GCal
+      // é 'google-calendar-update-event' (update/upsert) ou 'gcal-outbound-worker'
+      // (sync bidirecional). Confirmar endpoint de criação com @devops antes de invocar.
+      supabase.functions.invoke('google-calendar-update-event', {
         body: { event_data },
-        headers: { Authorization: Bearer {jwt} }
+        headers: { Authorization: `Bearer ${jwt}` }
       })
     post_action: |
       "✓ Evento criado. Google Calendar URL: {html_link}
@@ -1050,7 +1055,7 @@ playbooks:
        - meet_link (se existia): fica invalidado
        - ação NÃO reversível
        Confirma com 'sim, deletar'?"
-    invocation: delete-google-event edge function
+    invocation: gcal-outbound-worker edge function (ou google-calendar-update-event com status=cancelled)
     post_action: |
       "✓ Evento deletado. Cache local reflete em ~30s."
 
@@ -1124,9 +1129,9 @@ playbooks:
          Confirma?"
       Step 2: user types "confirma call"
     invocation: |
-      supabase.functions.invoke('trigger-vapi-call', {
+      supabase.functions.invoke('vapi-start-call', {
         body: { to_number, strategy_id, lead_id, custom_vars },
-        headers: { Authorization: Bearer {jwt} }
+        headers: { Authorization: `Bearer ${jwt}` }
       })
     audit_flag: mandatory (external action affecting real person)
 
@@ -1550,7 +1555,7 @@ smoke_tests:
     expected_behavior:
       - step 1: dry-run preview (spend_7d, CTR, leads, learning impact)
       - step 2: user types "confirma pause" literal
-      - invocation via edge function update-meta-campaign
+      - invocation via edge function meta-ads-campaigns-v2
       - audit_flag mandatory → chief delega quality-guardian
     pass_if:
       - Both confirmation steps shown
@@ -1589,7 +1594,7 @@ smoke_tests:
       - Resolve attendees emails (from profiles)
       - Parse "amanhã 14h" → UTC ISO
       - Show confirmation with all fields + Google Meet generation option
-      - User confirma + edge function create-google-event invoked
+      - User confirma + edge function google-calendar-update-event invoked
       - Post-action URL html_link shown
     pass_if:
       - Time parsed correct (Europe/Rome → UTC)

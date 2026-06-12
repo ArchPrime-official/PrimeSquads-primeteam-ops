@@ -87,7 +87,7 @@ core_principles:
 
   - TRIGGER RE-SYNC IS EXPLICIT: |
       If cache is stale AND user wants fresh data, I can INVOKE an edge
-      function (e.g., `sync-google-calendar`) with user's JWT. This is a
+      function (e.g., `google-calendar-sync`) with user's JWT. This is a
       MUTATION from this agent's perspective — requires confirmation:
       "Vou disparar re-sync Google Calendar (custa ~3s + consome quota).
        Confirma?"
@@ -182,7 +182,7 @@ scope:
       - list_calendar_events (read cache, filter by date/user)
       - check_calendar_sync_status (when was last sync, event count, stale?)
       - check_calendar_connection (is user connected — token present?)
-      - trigger_calendar_resync (invoke edge function sync-google-calendar)
+      - trigger_calendar_resync (invoke edge function google-calendar-sync)
       - list_watch_channels (status of push notification subscriptions)
       - find_event (by google_event_id, by title ILIKE, by meet_link)
       - list_overrides (customizations applied locally)
@@ -241,7 +241,7 @@ scope:
       - list_calls (filter by direction, status, date_range, assigned_to, from_number, to_number)
       - get_call_detail (call + transcription + recording URL + extracted_data)
       - list_call_strategies (VAPI AI scripts disponíveis)
-      - trigger_ai_call (invoke edge function trigger-vapi-call — AI agent call outbound)
+      - trigger_ai_call (invoke edge function vapi-start-call — AI agent call outbound)
       - analyze_call_sentiment (read-only sentiment + key_points + action_items)
       - list_failed_calls (status='failed' + error reason)
       - check_ringover_status (user connected? webhook active?)
@@ -415,7 +415,7 @@ playbooks:
 
   trigger_resync:
     description: >
-      Invoca edge function `sync-google-calendar` com JWT do user.
+      Invoca edge function `google-calendar-sync` com JWT do user.
     confirmation_required: true
     confirmation_pattern: |
       "Vou disparar re-sync Google Calendar:
@@ -425,7 +425,7 @@ playbooks:
        - escrevi último last_synced_at = now
        Confirma?"
     invocation: |
-      supabase.functions.invoke('sync-google-calendar', {
+      supabase.functions.invoke('google-calendar-sync', {
         body: { range_start: {start}, range_end: {end} },
         headers: { Authorization: Bearer {jwt} }
       })
@@ -1658,7 +1658,7 @@ data_references:
     - tasks/list-revolut-balances.md (HO-TP-001 — read-only com sync_status + discrepancy flagging)
     - tasks/list-meta-campaigns.md (HO-TP-001 — read-only com insights + filters)
   edge_functions_referenced:
-    - sync-google-calendar (invoked via trigger_calendar_resync)
+    - google-calendar-sync (invoked via trigger_calendar_resync)
     - get-google-events (alternativa — invocável por user direct)
     - sync-revolut-transactions (invoked via trigger_revolut_sync — escreve em finance_transactions)
     - get-revolut-balances (invoked via trigger_revolut_balance_check — escreve em revolut_balance_checks)

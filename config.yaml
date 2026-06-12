@@ -103,7 +103,8 @@ cross_squad_routing:
   enabled: true
   protocol: "Cycle ID + handoff card (V18) + activity_log unified"
   workflows_folder: "workflows/cross-squad/"
-  activity_log_strategy: "parent_squad='primeteam-ops' + sub_squad=<name> + cycle_id=<UUID>"
+  activity_log_strategy: "parent_squad='primeteam-ops' + sub_squad=<name> + cycle_id=cyc-YYYY-MM-DD-NNN"
+  cycle_id_format: "cyc-YYYY-MM-DD-NNN (ex: cyc-2026-06-12-001)"  # NÃO UUID
 
   examples:
     - name: "Carosello publish flow"
@@ -166,7 +167,7 @@ agents:
     description: >
       Landing Pages via templates self-contained HTML. Valida slug uniqueness,
       sempre cria com active=false (sandbox). 10 playbooks. NÃO escreve copy
-      autoral — consulta /videoCreative ou /metaAds para isso.
+      autoral — consulta /creativeStudio ou /metaAds para isso.
 
   - id: automation-specialist
     file: agents/automation-specialist.md
@@ -547,17 +548,17 @@ tasks:
   - id: delete-opportunity
     file: tasks/delete-opportunity.md
     purpose: >
-      Soft delete opp (deleted_at) reversible 30d, ou hard delete admin/
-      owner only. Comercial deleta próprias; admin deleta qualquer.
-      Won + invoice = BLOCKED (compliance HMRC). Tripla "DELETE OPP" hard.
+      Hard delete opp (decisão D3 — deleted_at NÃO existe). Comercial deleta
+      próprias; admin deleta qualquer. SALE_DONE+Stripe=BLOCKED (compliance).
+      Tripla "CONFIRMO DELETE OPP" uppercase.
     agent: sales-specialist
 
   - id: update-onboarding-form
     file: tasks/update-onboarding-form.md
     purpose: >
-      UPDATE evaluation_forms metadata (name/description/slug/target_customer/
-      form_type). NÃO publica. URL change warning se published. Optimistic
-      lock via version. cs/marketing/admin/owner.
+      UPDATE evaluation_forms metadata (title/description/slug/form_type/active).
+      NÃO publica. URL change warning se published. Optimistic lock via updated_at
+      (coluna version NÃO existe em evaluation_forms). cs/marketing/admin/owner.
     agent: content-builder
 
   - id: manage-form-fields
@@ -755,8 +756,8 @@ tasks:
   - id: edit-message
     file: tasks/edit-message.md
     purpose: >
-      Editar channel_message própria. Authority creator only. 24h window
-      default. Edit history em channel_message_edits. Optimistic lock.
+      Editar channel_message própria. Authority creator only (user_id). 24h window
+      default. Edit history via JSONB edit_history (channel_message_edits NÃO existe).
     agent: platform-specialist
 
   - id: delete-message
@@ -870,17 +871,24 @@ workflows:
     file: workflows/wf-customer-churn.yaml
     purpose: Detect churn + surface context — NO auto-retention (expertise decide)
 
+  - id: wf-lancio-online
+    file: workflows/wf-lancio-online.yaml
+    purpose: Fluxo completo de lançamento online (pré-lançamento → carrinho → pós-lançamento)
+
   - id: wf-currency-convert
     file: workflows/wf-currency-convert.yaml
     purpose: FX multi-specialist (ECB/Revolut rate → finance_transactions)
+    status: blocked_on_infra  # edge fetch-exchange-rates existe mas integração finance-side pendente
 
   - id: wf-watch-channel-rotation
     file: workflows/wf-watch-channel-rotation.yaml
     purpose: Google Calendar watch channels (7-day expiration cycle)
+    status: blocked_on_infra  # Google Calendar OAuth instável (6 tokens revogados); runbook em docs/
 
   - id: wf-meta-ab-test
     file: workflows/wf-meta-ab-test.yaml
     purpose: A/B test infra (setup variants, stats) — winner decisão = humano
+    status: blocked_on_infra  # Meta Ads A/B setup via API incompleto; depende de wf-meta-ab-test Sprint 17
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Checklists registry
@@ -953,6 +961,11 @@ cli:
     - update             # git pull + npm install condicional
     - lang               # PT-BR / IT / EN + runtime switching
     - onboarding         # tour contextualizado por role
+    - status             # mostra hierarquia atual + sub-squads
+    - squads             # subcomando: squads list, squads status
+    - cycle              # subcomando: cycle list, cycle show <id>
+    # meta-upload: BROKEN (depende de squads/meta-ads/tools/bulk-upload — 404)
+    # Usar scripts/meta-ads/ diretamente (ver HOW-TO.md)
   i18n:
     locales: [pt-BR, it, en]
     namespaces: [cli, errors, html, agent]
@@ -1072,9 +1085,9 @@ consultive_handoffs:
     squad: "/ptImprove"
     example_agents: [design-architect, frontend-architect, data-architect]
 
-  - when: "vídeo, storytelling, screenwriting"
-    squad: "/videoCreative"
-    example_agents: [screenwriter, creative-chief]
+  - when: "vídeo, storytelling, screenwriting, conteúdo criativo"
+    squad: "/creativeStudio"
+    example_agents: [screenwriter, creative-chief, content-strategist]
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Team users (reference)

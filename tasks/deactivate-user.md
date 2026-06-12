@@ -58,7 +58,7 @@
    ⚠️ User NÃO conseguirá mais login.
    Reversível via reactivate-user (separate task).
 
-   Confirma? (digite "DEACTIVATE USER" uppercase)
+   Confirma? (digite "CONFIRMO DEACTIVATE USER" uppercase)
    ```
 7. **Atomic operations:**
    ```sql
@@ -91,7 +91,7 @@
 - A2 Last owner protection
 - A3 No self-deactivate
 - A4 Reason obrigatório
-- A5 Tripla "DEACTIVATE USER"
+- A5 Tripla "CONFIRMO DEACTIVATE USER"
 - A6 Cascade reassign opt-in
 - A7 Audit STRICT
 - A8 Reversible (reactivate-user task)

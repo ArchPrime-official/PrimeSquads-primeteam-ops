@@ -61,7 +61,7 @@
    {opted_out_count > 0 ? '⚠️ ' + opted_out_count + ' leads com opt_out=true (recommended preserve)' : ''}
 
    Reason: {reason}
-   Continua? (digite "BULK DELETE LEADS" uppercase literal)
+   Continua? (digite "CONFIRMO BULK DELETE LEADS" uppercase literal)
    ```
 6. **Aguardar literal.**
 7. **Atomic batch DELETE com SAVEPOINT.**
@@ -80,7 +80,7 @@
 - **[A1] Admin/owner only.**
 - **[A2] Reason obrigatório.**
 - **[A3] Max 200 batch.**
-- **[A4] Tripla confirmation:** "BULK DELETE LEADS" uppercase.
+- **[A4] Tripla confirmation:** "CONFIRMO BULK DELETE LEADS" uppercase.
 - **[A5] FK protection:** leads com opp won = skip.
 - **[A6] Opted_out warning** (preserve por compliance).
 - **[A7] Audit STRICT.**

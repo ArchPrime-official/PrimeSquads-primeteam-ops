@@ -42,13 +42,17 @@
      Delivery: {inline/email}
    Confirma?
    ```
-5. **Generate via edge** `generate-opportunities-export`:
+5. **Generate via edge** — TODO: EF `generate-opportunities-export` NÃO existe (2026-06-12). Alternativa: usar `export-leads-csv` (existe) se compatível, ou executar query manual e retornar CSV inline:
    ```typescript
-   await supabase.functions.invoke('generate-opportunities-export', {
-     body: { filter, columns, format, delivery },
-   });
+   // TODO (EF não implementada): quando implementar, nomear export-opportunities-csv
+   // Por enquanto: executar SELECT + formatar CSV no agent
+   const { data } = await supabase.from('opportunities')
+     .select(columns.join(','))
+     .match(filter)
+     .limit(max_count);
+   // Converter para CSV string e retornar inline
    ```
-6. **Persist em `data_exports`** com signed URL (bucket privado, 24h expiry).
+6. **Persist signed URL** — TODO junto com EF. Por enquanto: retornar CSV inline ou como attachment.
 7. Activity log: action='sales-specialist.export_opportunities_csv', details com filter+count.
 8. Echo:
    ```

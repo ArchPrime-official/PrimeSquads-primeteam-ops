@@ -47,10 +47,31 @@ Sprint futuro pode unificar em `creative_studio_assets` view materializada.
 ### action_items
 
 1. **Role:** marketing/admin/owner.
-2. Query `creative_assets` com text search via tsvector OR ILIKE em title/description/tags.
-3. Stats por type.
+2. Query UNION em tabelas reais (não `creative_assets` que não existe):
+   ```sql
+   SELECT 'content' AS type, id, title,
+          NULL AS asset_url, NULL AS thumbnail_url,
+          NULL::text[] AS tags, created_at
+   FROM content_items
+   WHERE ({query} IS NULL OR title ILIKE '%'||{query}||'%')
+   UNION ALL
+   SELECT 'video' AS type, id, title,
+          video_url AS asset_url, thumbnail_url,
+          NULL::text[] AS tags, created_at
+   FROM ugc_videos
+   WHERE ({query} IS NULL OR title ILIKE '%'||{query}||'%')
+   UNION ALL
+   SELECT 'creator' AS type, id, handle AS title,
+          profile_url AS asset_url, avatar_url AS thumbnail_url,
+          NULL::text[] AS tags, created_at
+   FROM tracked_creators
+   WHERE ({query} IS NULL OR handle ILIKE '%'||{query}||'%')
+   ORDER BY created_at DESC
+   LIMIT {limit};
+   ```
+3. Stats por type (COUNT por cada tabela).
 4. Activity log filter only.
-5. Echo: list condensada + thumbnails URLs + sugestões de uso (ex: "use create-cms-page com asset_id=X").
+5. Echo: list condensada + thumbnails URLs + sugestões de uso (ex: "use create-cms-page com asset id=X").
 
 ### acceptance_criteria
 - A1 marketing/admin/owner

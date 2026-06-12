@@ -12,9 +12,9 @@
 |---|--------|----------------|-------|---------------|------------------------|
 | 1 | CRM/Vendas | `/comercial` | AuthGuard | sales-specialist | 🟡 (após Fase 0) |
 | 2 | Finanças | `/finance/*` | FinanceGuard | platform-specialist (finance part) | ✅ |
-| 3 | Marketing | `/marketing` | AuthGuard | marketing-specialist | 🟡 |
+| 3 | Marketing | `/marketing` | AuthGuard | content-builder (consolidado) | 🟡 |
 | 4 | Customer Success | `/cs-hub` | AuthGuard | cs-specialist | ✅ |
-| 5 | Agendamento | `/calendly` | AuthGuard | calendar-specialist | 🟡 |
+| 5 | Agendamento | `/calendly` | AuthGuard | integration-specialist (consolidado) | 🟡 |
 | 6 | Comunicação | `/comunicacao` | AuthGuard | — | 🔴 (bloqueado Fase 0 até 2026-04-22: ok agora) |
 | 7 | Telefonia | `/chiamate` | AuthGuard | integration-specialist (parcial) | 🟡 |
 | 8 | Tarefas | `/tarefas` | AuthGuard | platform-specialist (tasks part) | ✅ |

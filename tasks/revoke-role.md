@@ -34,7 +34,7 @@
    Promova outro user para owner antes via admin-specialist.grant_role.
    ```
 4. **User não tem este role:** ESCALATE com `role_not_present`.
-5. **Self-revoke owner:** owner removendo próprio role owner → confirmation tripla "REMOVE OWN OWNER" uppercase.
+5. **Self-revoke owner:** owner removendo próprio role owner → confirmation tripla "CONFIRMO REMOVE OWN OWNER" uppercase.
 6. **Capabilities lost preview:**
    ```
    Revoke role «{role}» do user {name}:
@@ -70,7 +70,7 @@
 - A2 Last owner protection (min 1)
 - A3 Reason obrigatório
 - A4 Capabilities preview antes de confirmar
-- A5 Self-revoke owner: tripla "REMOVE OWN OWNER"
+- A5 Self-revoke owner: tripla "CONFIRMO REMOVE OWN OWNER"
 - A6 Audit STRICT
 - A7 Quality-guardian flag
 - A8 Logout reminder

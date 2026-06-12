@@ -52,7 +52,7 @@
      exigir PR companion no repo Lovarch. Ver docs/tech-debt/cms-dual-renderer.md
      ```
 5. **Conditional confirmation:**
-   - Se status=`published`: dupla confirmation obrigatória ("UPDATE LIVE" uppercase)
+   - Se status=`published`: dupla confirmation obrigatória ("CONFIRMO UPDATE LIVE" uppercase)
    - Se status=`draft`: confirmation simples
    ```
    {published ? 'ATENÇÃO: LP está PUBLICADA — mudança visível em ~60s' : 'LP em draft, edição segura'}
@@ -60,7 +60,7 @@
      {field}: {old} → {new}
      ...
    Version: v{N} → v{N+1}
-   {published ? 'Digite "UPDATE LIVE" uppercase' : 'Confirma?'}
+   {published ? 'Digite "CONFIRMO UPDATE LIVE" uppercase' : 'Confirma?'}
    ```
 6. **UPDATE atomic com optimistic lock:**
    ```sql
@@ -86,7 +86,7 @@
 
 - **[A1] Role gating:** marketing/admin/owner.
 - **[A2] Optimistic lock via version.**
-- **[A3] Conditional confirmation:** published = "UPDATE LIVE" uppercase; draft = "sim".
+- **[A3] Conditional confirmation:** published = "CONFIRMO UPDATE LIVE" uppercase; draft = "sim".
 - **[A4] Lovarch warning:** surface se html_content mudou em domains lovarch/archprime.
 - **[A5] Revalidate webhook:** automático em published + content change.
 - **[A6] Audit diff:** activity_log com before/after diff.
@@ -102,11 +102,11 @@
 
 **Specialist:** draft → simple confirm → UPDATE v4 → DONE.
 
-### Exemplo 2 — Atualizar LP published (UPDATE LIVE)
+### Exemplo 2 — Atualizar LP published (CONFIRMO UPDATE LIVE)
 
 **Input:** mesma LP em status=published
 
-**Specialist:** "UPDATE LIVE" uppercase obrigatório → UPDATE + cms-revalidate trigger → DONE com warning de cache.
+**Specialist:** "CONFIRMO UPDATE LIVE" uppercase obrigatório → UPDATE + cms-revalidate trigger → DONE com warning de cache.
 
 ### Exemplo 3 — Mudança em LP lovarch.com
 

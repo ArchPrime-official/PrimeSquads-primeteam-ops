@@ -2,7 +2,11 @@
 
 > Recuperar chamadas Vapi perdidas via webhook replay. Incident response. admin/owner only.
 
-**✅ SCHEMA ADAPTED (2026-05-10):** Tabela canonical = `telephony_calls` (UNIQUE via `call_id` externo). Edge canonical = `call-backfill` (single) ou `call-backfill-single` (per-call). `vapi-bulk-call` + `vapi-retroactive-enqueue` também existem para casos específicos.
+**✅ SCHEMA ADAPTED (2026-06-12):** Tabela canonical de registros Vapi = `call_executions` (UNIQUE via `vapi_call_id`). Decision tree das 4 EFs reais:
+- `call-backfill` — bulk backfill de período (Vapi API list → INSERT em call_executions, ON CONFLICT DO NOTHING)
+- `call-backfill-single` — backfill de 1 call específica por vapi_call_id
+- `vapi-bulk-call` — disparar N calls novas (outbound batch, NÃO é backfill)
+- `vapi-retroactive-enqueue` — re-enfileirar calls que falharam sem serem processadas pelo webhook
 
 **Cumpre:** HO-TP-001
 
@@ -41,7 +45,7 @@
      Diff (will import): {N-M}
      Estimated cost: $0 (Vapi list é free; custos foram já cobrados)
    ```
-5. Se `dry_run=false`: confirmation literal "BACKFILL VAPI" uppercase.
+5. Se `dry_run=false`: confirmation literal "CONFIRMO BACKFILL VAPI" uppercase.
 6. **Invoke edge** `call-backfill` com period.
 7. Activity log STRICT: action='integration-specialist.backfill_telephony_calls', details com counts.
 8. Echo: imported_count + warnings.
@@ -50,10 +54,10 @@
 - A1 admin/owner
 - A2 Period max 30d
 - A3 Dry-run default
-- A4 Tripla "BACKFILL VAPI"
+- A4 Tripla "CONFIRMO BACKFILL VAPI"
 - A5 Diff calculation antes de persist
 - A6 Audit STRICT
-- A7 Idempotency: ON CONFLICT DO NOTHING (vapi_call_id UNIQUE)
+- A7 Idempotency: ON CONFLICT(vapi_call_id) DO NOTHING em call_executions
 
 ---
 

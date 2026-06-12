@@ -1,6 +1,6 @@
 # Task: delete-opportunity
 
-> Soft-delete opportunity (mark deleted_at). Comercial/admin/owner. Reversível dentro de 30 dias.
+> Hard-delete opportunity (DELETE físico). Comercial/admin/owner. IRREVERSÍVEL — decisão Pablo D3 (2026-06-12): colunas `deleted_at/deleted_by/deletion_reason` NÃO existem em `opportunities`. Confirmação tripla obrigatória.
 
 **Cumpre:** HO-TP-001
 
@@ -22,105 +22,102 @@
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
   - `opportunity_id` (uuid)
-  - `reason` (string OBRIGATÓRIO)
-  - `hard_delete` (bool, default false — admin/owner only)
+  - `reason` (string OBRIGATÓRIO — auditoria em activity_logs)
 
 ### output
 
-- **`opportunity_id`**, **`deleted_at`**, **`mode`** (`'soft' | 'hard'`)
+- **`opportunity_id`**, **`customer_name`**, **`mode`**: `'hard'` (único modo)
 - **`verdict`** — `DONE | BLOCKED | ESCALATE`
 
 ### action_items
 
 1. **Role check:**
-   - Soft delete: comercial (próprio owner_id) OR admin/owner
-   - Hard delete: admin/owner only
+   - Comercial: só deleta opp com `sales_user_id = auth.uid()` (própria)
+   - Admin/Owner: deleta qualquer
 2. **Resolver opp:**
    ```sql
-   SELECT id, customer_name, total_amount, status, owner_id, won_at, sales_invoice_id
-   FROM opportunities WHERE id={opp_id};
+   SELECT id, lead_id, stage, sales_proposal_value, sales_proposal_currency,
+          sales_user_id, closed_at, stripe_payment_intent_id
+   FROM opportunities WHERE id = {opp_id};
    ```
 3. **Pre-checks:**
-   - **Já deletada** (deleted_at IS NOT NULL): ESCALATE
-   - **Status='won' AND has invoice:** BLOCKED — não pode deletar opp com NF emitida (compliance HMRC). Sugere cancelar NF primeiro via admin.
-   - **Status='won' WITHOUT invoice:** warning — proceed mas surface "perda de revenue history".
-   - **Comercial não-owner:** se user.role='comercial' AND user.id != opp.owner_id, BLOCKED com:
+   - **Não encontrada:** ESCALATE
+   - **stage='SALE_DONE' AND stripe_payment_intent_id IS NOT NULL:** BLOCKED — não pode deletar opp com pagamento Stripe vinculado (compliance). Sugere mover para LOST com lost_reason em vez de deletar.
+   - **stage='SALE_DONE' sem Stripe:** warning — proceed mas surface "perda de revenue history".
+   - **Comercial sem ownership:** BLOCKED com:
      ```
-     Apenas owner da opp ou admin/owner podem deletar.
-     Owner atual: {owner_name}.
+     Apenas owner da opp (sales_user_id) ou admin/owner podem deletar.
      ```
 4. **Reason obrigatório.**
-5. **Confirmation:**
+5. **Tripla confirmation:**
    ```
-   Delete opportunity:
-     Customer: {customer_name}
-     Value: {currency} {amount}
-     Status: {status}
-     Owner: {owner_name}
-     Mode: {soft | hard}
-
-     {soft ? 'Soft delete — reversível 30 dias via undelete (admin)' : '⚠️ HARD DELETE — irreversível, sem audit recovery'}
-
+   ⚠️ HARD DELETE opportunity — IRREVERSÍVEL:
+     Opp ID: {opp_id}
+     Stage: {stage}
+     Valor: {currency} {sales_proposal_value or '—'}
      Reason: {reason}
 
-   Confirma? {hard ? '(digite "DELETE OPP" uppercase)' : '(sim/não)'}
+   Esta operação é permanente. Audit preservado em activity_logs.
+   Sem soft-delete disponível (colunas deleted_at não existem).
+
+   Digite CONFIRMO DELETE OPP para continuar:
    ```
-6. **UPDATE/DELETE:**
-   - Soft: `UPDATE opportunities SET deleted_at=NOW(), deleted_by=auth.uid(), deletion_reason={reason}`
-   - Hard: `DELETE FROM opportunities WHERE id={opp_id}` (após confirmação tripla)
-7. **Side-effect:** se opp tinha campaign_attribution, history preserva referência (FK ON DELETE SET NULL).
-8. **Activity log STRICT:** action='sales-specialist.delete_opportunity', details com mode + reason + customer_name + amount.
-9. **Echo:**
+6. **Aguardar `CONFIRMO DELETE OPP`** literal (tripla check).
+7. **DELETE:**
+   ```sql
+   DELETE FROM opportunities WHERE id = {opp_id};
    ```
-   ✓ Opp deletada (mode={soft|hard})
-   {soft ? 'Restore via admin antes de 30d' : 'Hard delete — auditoria preservada apenas em activity_logs'}
-   ```
+8. **Side-effect:** FKs com ON DELETE SET NULL se aplicam automaticamente (campaign_attribution, etc.).
+9. **Activity log STRICT:** action='sales-specialist.delete_opportunity', details com reason + stage + lead_id + valor.
+10. **Echo:**
+    ```
+    ✓ Opp deletada (hard delete)
+    Auditoria preservada em activity_logs.
+    ```
 
 ### acceptance_criteria
 
-- **[A1] Owner authority** — comercial só deleta próprias; admin/owner deleta qualquer.
-- **[A2] Hard delete admin/owner only.**
-- **[A3] Won + invoice = BLOCKED** (compliance).
+- **[A1] Owner authority** — comercial só deleta próprias (sales_user_id); admin/owner deleta qualquer.
+- **[A2] Hard delete only** — não há soft-delete (colunas deleted_at não existem, decisão D3).
+- **[A3] SALE_DONE + Stripe = BLOCKED** (compliance pagamento).
 - **[A4] Reason obrigatório.**
-- **[A5] Tripla confirmation hard delete:** "DELETE OPP" uppercase.
-- **[A6] Soft default:** menos destrutivo é o padrão.
-- **[A7] 30-day undelete window** (separate task).
-- **[A8] Audit:** activity_log com modo/reason.
+- **[A5] Tripla confirmation:** `CONFIRMO DELETE OPP` uppercase literal.
+- **[A6] Audit STRICT:** activity_log preserva todos os dados antes do DELETE.
 
 ---
 
 ## Exemplos
 
-### Exemplo 1 — Daniel soft-deleta opp própria duplicada
+### Exemplo 1 — Daniel hard-deleta opp própria duplicada
 
 **Input:** `opp_id` (sua própria), reason='Duplicada de outra'
 
-**Specialist:** auth ✓ (owner), soft default → confirmation → UPDATE deleted_at → DONE.
+**Specialist:** auth ✓ (sales_user_id=Daniel), stage≠SALE_DONE → `CONFIRMO DELETE OPP` → DELETE → DONE.
 
 ### Exemplo 2 — Comercial tenta deletar opp de outro → BLOCKED
 
-**Input:** Daniel tenta deletar opp de Miriam
+**Input:** Daniel tenta deletar opp de Miriam (sales_user_id=Miriam)
 
-**Specialist:** BLOCKED com mensagem clara.
+**Specialist:** BLOCKED com mensagem clara de ownership.
 
-### Exemplo 3 — Won + invoice → BLOCKED
+### Exemplo 3 — SALE_DONE + Stripe → BLOCKED
 
-**Input:** opp won com NF 2026-0042
+**Input:** opp SALE_DONE com stripe_payment_intent_id preenchido
 
 **Specialist:** BLOCKED:
 ```
-Opp won com nota fiscal 2026-0042 emitida.
-Para cancelar: cancele NF primeiro (admin via bulk-reissue ou cancel manual).
-Soft delete de won s/ NF é permitido mas perde revenue history.
+Opp SALE_DONE com pagamento Stripe vinculado.
+Para cleanup: mover para LOST com lost_reason (preserva audit) em vez de deletar.
+Delete removeria evidência de pagamento — compliance risk.
 ```
 
 ---
 
 ## Notas
 
-- **Soft default:** `deleted_at` flag preserva auditoria + permite undelete.
-- **Hard delete** apenas para casos extremos (LGPD direito ao esquecimento).
-- **opportunity_history:** trigger preserva history mesmo em DELETE.
+- **Hard delete only (D3):** colunas `deleted_at/deleted_by/deletion_reason` NÃO existem em `opportunities`. Soft-delete não disponível.
+- **LGPD direito ao esquecimento:** hard delete é o único mecanismo disponível.
+- **opportunity_history:** trigger AFTER DELETE pode preservar history (verificar se trigger existe no banco antes de assumir).
 
 ---
 

@@ -65,24 +65,22 @@
      [opp_id, customer_name, current_stage → new_stage]
      ...
 
-   Confirma? (digite "BULK UPDATE" uppercase literal)
+   Confirma? (digite "CONFIRMO BULK UPDATE" uppercase literal)
    ```
-7. **Aguardar "BULK UPDATE"** literal.
-8. **Atomic batch com SAVEPOINT por opp:**
-   ```sql
-   BEGIN;
-   INSERT INTO opportunity_bulk_batches (id, reason, requested_by, count, updates_json)
-     VALUES (...);
-
-   FOR each opp:
-     SAVEPOINT sp_{i};
-     UPDATE opportunities SET {updates}, updated_by=auth.uid(), updated_at=NOW()
-     WHERE id={id};
-     INSERT INTO opportunity_history (opp_id, batch_id, change_type='bulk_update', diff)
-       VALUES (...);
-     -- error: ROLLBACK TO sp_{i}, log warning, continue
-   END LOOP;
-   COMMIT;
+7. **Aguardar "CONFIRMO BULK UPDATE"** literal.
+8. **Invoke EF `opportunities-bulk-edit` ou `opportunities-bulk-update`** (ambas existem):
+   ```typescript
+   // Preferir opportunities-bulk-edit para updates com stage/owner:
+   const { data, error } = await supabase.functions.invoke('opportunities-bulk-edit', {
+     body: {
+       opportunity_ids: ids,
+       updates: updates_object,
+       reason: reason
+     },
+     headers: { Authorization: `Bearer ${jwt}` }
+   });
+   // Alternativa: opportunities-bulk-update para updates simples em batch
+   // Nota: BEGIN/SAVEPOINT raw NÃO funciona via PostgREST — usar EF que roda server-side
    ```
 9. **Tratar partial:** counts em handoff card.
 10. **Activity log:** action='sales-specialist.bulk_update_opportunities', details com batch_id + counts + reason. Single entry para batch (not 50 separate).
@@ -104,8 +102,8 @@
 - **[A2] Reason obrigatório.**
 - **[A3] Max 200 cap:** evita storm.
 - **[A4] Dry-run preview obrigatório.**
-- **[A5] Tripla confirmation:** "BULK UPDATE" uppercase.
-- **[A6] Atomic per-opp:** SAVEPOINT permite partial.
+- **[A5] Tripla confirmation:** "CONFIRMO BULK UPDATE" uppercase.
+- **[A6] Atomic via EF:** `opportunities-bulk-edit`/`opportunities-bulk-update` executam server-side com tratamento de erro por opp. BEGIN/SAVEPOINT raw não funciona via PostgREST.
 - **[A7] Batch entry em activity_logs:** uma única entry para o batch (não 50).
 - **[A8] History rows:** cada opp tem opportunity_history row com batch_id linkagem.
 
@@ -117,7 +115,7 @@
 
 **Input:** filter `{owner_id=Sandra, stage='qualified'}`, updates `{owner_id=Miriam}`, reason `'Sandra de licença até 30/05'`
 
-**Specialist:** dry-run mostra 23 opps → "BULK UPDATE" → 23/23 OK → DONE.
+**Specialist:** dry-run mostra 23 opps → "CONFIRMO BULK UPDATE" → 23/23 OK → DONE.
 
 ### Exemplo 2 — Sem reason → ESCALATE
 

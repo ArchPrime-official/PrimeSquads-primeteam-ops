@@ -27,7 +27,7 @@
 ### action_items
 
 1. **Role admin/owner.**
-2. **create_meeting:** INSERT `radar_meetings` + opcional generate slides via edge `radar-generate-slides`.
+2. **create_meeting:** INSERT `radar_meetings` + opcional generate slides — TODO (EF `radar-generate-slides` NÃO existe, 2026-06-12).
 3. **create_action_plan:** INSERT `radar_action_plans` + se `linked_task=true`, handoff para `create-task` com link.
 4. Confirmation com preview.
 5. Activity log.

@@ -71,17 +71,24 @@
    ⚠️ HARD DELETE — irreversível. Audit em activity_logs preserva metadata.
    Razão: {reason}
 
-   Continua? (digite "DELETE TX" uppercase literal)
+   Continua? (digite "CONFIRMO DELETE TX" uppercase literal)
    ```
-8. **Aguardar "DELETE TX"** literal.
-9. **Atomic batch DELETE com SAVEPOINT:**
-   ```sql
-   BEGIN;
-   FOR each id:
-     SAVEPOINT sp_{i};
-     DELETE FROM finance_transactions WHERE id={id};
-   END LOOP;
-   COMMIT;
+8. **Aguardar "CONFIRMO DELETE TX"** literal.
+9. **DELETE batch** (BEGIN/SAVEPOINT raw não funciona via PostgREST — executar DELETEs sequencialmente ou via EF se existir):
+   ```typescript
+   // Executar cada DELETE separadamente (máx 50):
+   for (const id of transaction_ids) {
+     const { error } = await supabase
+       .from('finance_transactions')
+       .delete()
+       .eq('id', id);
+     if (error) {
+       // log warning, continuar (partial allowed)
+       failed_ids.push(id);
+     } else {
+       deleted_ids.push(id);
+     }
+   }
    ```
 10. **Tratar erros:**
     - 42501 (RLS) → BLOCKED
@@ -101,7 +108,7 @@
 - **[A1] Auth has_finance_access** — owner+financeiro.
 - **[A2] Reason obrigatório.**
 - **[A3] Max 50 per batch.**
-- **[A4] Tripla confirmation:** "DELETE TX" uppercase.
+- **[A4] Tripla confirmation:** "CONFIRMO DELETE TX" uppercase.
 - **[A5] Cascade opt-in:** flags explícitas.
 - **[A6] Atomic per-tx:** SAVEPOINT permite partial.
 - **[A7] FK awareness:** tx referenciada = ESCALATE não delete silent.
@@ -115,13 +122,13 @@
 
 **Input:** 3 ids, reason='Duplicates de import Stripe'
 
-**Specialist:** dry-run → "DELETE TX" → 3 deleted → DONE.
+**Specialist:** dry-run → "CONFIRMO DELETE TX" → 3 deleted → DONE.
 
 ### Exemplo 2 — Cascade recorrência
 
 **Input:** 1 parent recorrente, `cascade_recurrence=true`, 12 filhos
 
-**Specialist:** dry-run mostra 1+12=13 → "DELETE TX" → 13 deleted → DONE.
+**Specialist:** dry-run mostra 1+12=13 → "CONFIRMO DELETE TX" → 13 deleted → DONE.
 
 ### Exemplo 3 — Tx referenciada por opp → ESCALATE
 

@@ -4,7 +4,7 @@
 
 **Source:** auditoria CLI `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 2).
 
-**Total Edge Functions:** 195 — classificação completa no relatório acima.
+**Total Edge Functions:** 308 (atualizado 2026-06-12 via `ls supabase/functions/`) — classificação completa no relatório acima.
 
 ---
 
@@ -15,7 +15,7 @@
 | Project ref | `xmqmuxwlecjbpubjdkoj` |
 | URL | `https://xmqmuxwlecjbpubjdkoj.supabase.co` |
 | Services | Auth, Database, Realtime, Storage, Edge Functions |
-| Edge Functions | 195 |
+| Edge Functions | 308 |
 | Status | ✅ Ativo, RLS 100%, pós-Fase 0 limpo |
 
 **Para squad:** referência primária. Auth + CRUD operam aqui.
@@ -34,7 +34,7 @@
 **Edge Functions (15+):**
 - `meta-ads-campaigns-v2`, `meta-ads-adsets`, `meta-ads-breakdowns`, `meta-ads-full-sync`, `meta-ads-funnel-kpis`, `meta-ads-cron-sync`, `meta-sync-discover`, `meta-sync-worker`, `meta-conversion-tracking`, `meta-spend-cleanup`, `sync-meta-billing`
 
-**Para squad:** agent `marketing-specialist` (quando criado, Fase 2).
+**Para squad:** agent `content-builder` (cobre Meta/marketing; `marketing-specialist` foi consolidado).
 
 ---
 
@@ -50,7 +50,7 @@
 **Edge Functions (7):**
 - `google-calendar-oauth`, `google-calendar-closer-oauth`, `google-calendar-events`, `google-calendar-update-event`, `google-calendar-sync`, `google-calendar-webhook`, `google-auth-save-tokens`
 
-**Para squad:** `calendar-specialist` usa wrapper que lê `user_oauth_tokens` e chama Google API com o token do usuário.
+**Para squad:** `integration-specialist` usa wrapper que lê `user_oauth_tokens` e chama Google API com o token do usuário (`calendar-specialist` foi consolidado no integration-specialist).
 
 ---
 

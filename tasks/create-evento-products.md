@@ -46,13 +46,13 @@
    - Stripe Catalog: create products + prices
 
    Erro Stripe = rollback DB inserts.
-   Confirma? (digite "CRIA PRODUCTS" uppercase)
+   Confirma? (digite "CONFIRMO CRIA PRODUCTS" uppercase)
    ```
 5. **Atomic-ish via SAVEPOINT per product:**
    - INSERT product DB
-   - Invoke `create-stripe-product` edge
+   - Invoke `stripe-product-sync` edge (NÃO `create-stripe-product` que não existe)
    - Atualizar product com stripe_ids
-   - Falha Stripe = ROLLBACK SAVEPOINT, log warning
+   - Falha Stripe = log warning, continuar (BEGIN/SAVEPOINT raw não funciona via PostgREST)
 6. Activity log STRICT com event_id + product_ids.
 7. Echo:
    ```
@@ -63,7 +63,7 @@
 
 ### acceptance_criteria
 - A1 has_invoice_access
-- A2 Tripla "CRIA PRODUCTS"
+- A2 Tripla "CONFIRMO CRIA PRODUCTS"
 - A3 Atomic per-product (SAVEPOINT)
 - A4 Stripe rollback on failure
 - A5 Audit STRICT

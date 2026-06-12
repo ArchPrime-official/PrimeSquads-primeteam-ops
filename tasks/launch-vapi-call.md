@@ -2,7 +2,7 @@
 
 > Disparar chamada AI via Vapi para lead (qualificação inicial, follow-up). Comercial usa para automatizar prospecção. Implementa F-11.2 do PRD.
 
-**✅ SCHEMA ADAPTED (2026-05-10):** Tabela canonical = `telephony_calls`. Edge canonical = `vapi-start-call` (não `vapi-launch-call`). Assistants Vapi NÃO persistidos localmente — IDs externos da Vapi API; specialist valida via `vapi-check-config` edge ou enum hardcoded em config local.
+**✅ SCHEMA ADAPTED (2026-06-12):** Tabela canonical de registros Vapi = `call_executions` (colunas reais: `id, vapi_call_id, strategy_id, lead_id, opportunity_id, status, outcome, started_at, ended_at, duration_seconds, transcript, recording_url, error_message, closer_id`). `telephony_calls` é para chamadas Ringover/PABX (sem colunas Vapi). Edge canonical = `vapi-start-call`.
 
 **Cumpre:** HO-TP-001
 
@@ -72,7 +72,7 @@
    Lead {has_consent ? 'tem consentimento' : '⚠️ SEM consentimento explícito'}
    Confirma?
    ```
-7. **Aguardar "sim"** ou (se urgente sem consent) "CONFIRMA SEM CONSENT" uppercase.
+7. **Aguardar "sim"** ou (se urgente sem consent) "CONFIRMO SEM CONSENT" uppercase.
 8. **Invoke edge function:**
    ```typescript
    await supabase.functions.invoke('vapi-start-call', {
@@ -85,14 +85,17 @@
    - 402 (insufficient credits) → BLOCKED com instrução
    - 429 → ESCALATE com cooldown
    - 5xx → retry 1x
-10. **Persist call record:**
+10. **Persist call record** (via EF `vapi-start-call` — ela insere automaticamente):
     ```sql
-    INSERT INTO telephony_calls
-      (lead_id, assistant_id, vapi_call_id, status, purpose,
-       launched_by, launched_at, estimated_cost_usd)
+    -- A EF vapi-start-call insere em call_executions:
+    INSERT INTO call_executions
+      (lead_id, opportunity_id, strategy_id, vapi_call_id, status, started_at)
     VALUES (...);
+    -- Nota: custo real é registrado pelo vapi-webhook após completion.
+    -- Não há colunas assistant_id/purpose/estimated_cost_usd em call_executions.
+    -- Para associar a uma strategy_id, passar no body da EF.
     ```
-11. **Activity log:** `action='integration-specialist.launch_vapi_call'`, details com lead_id (sem PII completo) + cost.
+11. **Activity log:** `action='integration-specialist.launch_vapi_call'`, details com lead_id (sem PII completo).
 12. **Echo:**
     ```
     ✓ Vapi call lançada
@@ -113,7 +116,7 @@
 - **[A4] Cost transparency:** estimate antes de confirmar.
 - **[A5] Consent surfacing:** echo flagueia se lead não tem consent registrado (não bloqueia mas avisa).
 - **[A6] Idempotency:** retry interno 1x; ESCALATE depois.
-- **[A7] Persist record:** telephony_calls table tem row antes de echo final.
+- **[A7] Persist record:** call_executions table tem row antes de echo final (inserido pela EF vapi-start-call).
 - **[A8] Schedule support:** `schedule_at` futuro vai para queue.
 
 ---
@@ -152,10 +155,10 @@ Activity log registrou tentativa para visibility.
 
 ## Notas
 
-- **Edge `vapi-start-call`:** já existe (Sprint 11), faz call Vapi REST API + persiste record.
-- **Webhook completion:** Vapi envia POST para `vapi-webhook` quando call termina; transcript + cost real persistidos automaticamente.
-- **Assistants:** lista mantida em Vapi dashboard. Cache local sync via cron.
-- **Compliance:** opt_out flag em `leads` é respected globally. Reset só via direct user action (UI privacy settings).
+- **Edge `vapi-start-call`:** já existe, faz call Vapi REST API + insere row em `call_executions`.
+- **Webhook completion:** Vapi envia POST para `vapi-webhook` quando call termina; transcript + outcome persistidos em `call_executions` automaticamente.
+- **Strategies:** configurações do assistant ficam em `call_strategies` (com `vapi_assistant_id`). Usar `strategy_id` no payload da EF.
+- **Compliance:** `opted_out` flag em `leads` (coluna a ser criada via migration D2) é enforçado. Reset só via direct user action.
 - **Concurrency:** Vapi limita ~5 concurrent calls per account. Queue automática se exceder.
 
 ---

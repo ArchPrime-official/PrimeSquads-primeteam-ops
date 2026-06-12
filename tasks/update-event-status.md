@@ -2,13 +2,18 @@
 
 > Atualizar status de inscrito em evento (presença, no-show, conversão). CS usa durante e pós-evento. Implementa F-17.5 do PRD.
 
-**✅ SCHEMA ADAPTED (2026-05-10):** Tabela `event_registrations` NÃO existe — adaptado para usar `opportunities` (linkado via campaign_id). Status de inscrito mantido em `opportunities.stage` (enum existente: `lead_opportunity, qualified, sale_done, lost`); presença/conversão mantidos em `opportunities.metadata` JSONB para flexibilidade.
+**✅ SCHEMA ADAPTED (2026-06-12):** Tabela `event_registrations` NÃO existe no schema. A abordagem correta é via `opportunities` linkadas por `campaign_id` do evento.
 
-**Mapping:**
-- `confirmed` → `opportunities.stage='qualified'`
-- `attended` → `opportunities.metadata.attended_at = NOW()`
-- `no_show` → `opportunities.metadata.no_show=true`
-- `converted` → `opportunities.stage='sale_done'`
+Enum real de `opportunity_stage` (25 valores em produção — ver move-opportunity-stage.md):
+`LEAD_OPPORTUNITY, PRE_CONTACT, PRE_CONTACT_PLUS, PRICED_CONTACT, SESSION_SCHEDULED, PRICE_SENT, PHONE_OR_WHATSAPP_CONTACT, PRE_SALES_CONTACT, PRE_SALE_CONTACT, PRE_SALES_SESSION, PRE_SALES_NO_SHOW, PRE_SALES_RECONTACT, SALES_SESSION, SALES_NO_SHOW, SALES_RECONTACT, RECONTACT_FUTURE, STRATEGIC_SESSION, NO_SHOW, NO_SHOW_RECONTACT, NEGOTIATION, NEGOTIATION_PLUS, CONTRACT_SENT, SALE_DONE, COMPLETED, LOST`
+
+**Mapping de status de evento → stage de opp (usar move-opportunity-stage):**
+- `confirmed` → `STRATEGIC_SESSION` (pre-sales confirmado)
+- `attended` → `SALES_SESSION` (compareceu) — TODO: não há coluna `attended_at` em `opportunities`; registrar em `qualification_data` JSONB enquanto migration D4 não existe
+- `no_show` → `SALES_NO_SHOW` ou `NO_SHOW`
+- `converted` → `SALE_DONE` (via move-opportunity-stage com sales_proposal_value)
+
+**Nota:** colunas `metadata`, `attended_at`, `no_show` NÃO existem em `opportunities`. Use `qualification_data` JSONB para dados adicionais de presença.
 
 **Cumpre:** HO-TP-001
 
@@ -48,48 +53,49 @@
 1. **Role check:** cs/marketing/admin/owner. Outros → BLOCKED.
 2. **Resolver lead_id** (se passou email).
 3. **Validar `new_status`** ∈ enum válido. Outros → ESCALATE.
-4. **Buscar registration atual:**
+4. **Buscar opportunity ativa do lead no evento:**
    ```sql
-   SELECT id, status AS old_status, attended_at, converted_opportunity_id
-   FROM event_registrations
-   WHERE event_id={event_id} AND lead_id={lead_id};
+   SELECT o.id, o.stage AS old_stage, o.qualification_data,
+          l.name, l.email
+   FROM opportunities o
+   JOIN leads l ON l.id = o.lead_id
+   WHERE o.lead_id = {lead_id}
+     AND o.campaign_id = (SELECT id FROM campaigns WHERE event_slug = {event_slug} LIMIT 1)
+     AND o.closed_at IS NULL
+   LIMIT 1;
    ```
-   0 match → ESCALATE com `not_registered`.
-5. **Validar transição:**
-   - `confirmed → attended`: OK (precisa `attended_at`)
-   - `confirmed → no_show`: OK
-   - `attended → converted`: OK (precisa `converted_opportunity_id`)
-   - `no_show → confirmed`: OK (correção)
-   - `converted → *`: BLOCKED (estado terminal)
-   - Outros: ESCALATE
-6. **Confirmation:**
+   0 match → ESCALATE com `not_registered` — lead sem opportunity neste evento.
+5. **Mapear new_status → new_stage** (ver mapeamento no cabeçalho).
+6. **Validar transição** via enum real (25 stages). Estados terminais: SALE_DONE, COMPLETED, LOST → BLOCKED para volta.
+7. **Confirmation:**
    ```
-   Inscrito: {name} ({email})
-   Evento: {event_name}
-   Status atual: {old_status}
-   Novo status: {new_status}
-   {attended_at ? 'Presença em: ' + attended_at : ''}
-   {converted_opportunity_id ? 'Vinculado a opp: ' + converted_opportunity_id : ''}
+   Atualizar status de evento:
+   Lead: {name} ({email})
+   Opp ID: {opp_id}
+   Status atual: {old_stage}
+   Novo status: {new_status} → stage: {new_stage}
    {notes ? 'Notas: ' + notes : ''}
    Confirma?
    ```
-7. **UPDATE:**
+8. **UPDATE via move-opportunity-stage** (ou UPDATE direto):
    ```sql
-   UPDATE event_registrations
-   SET status={new_status},
-       attended_at=COALESCE({attended_at}, attended_at),
-       converted_opportunity_id=COALESCE({converted_opportunity_id}, converted_opportunity_id),
-       notes=COALESCE({notes}, notes),
-       updated_by=auth.uid(),
-       updated_at=NOW()
-   WHERE id={registration_id};
+   UPDATE opportunities
+   SET stage = {new_stage},
+       qualification_data = COALESCE(qualification_data, '{}'::jsonb) ||
+                            jsonb_build_object(
+                              'event_status', {new_status},
+                              'event_status_at', NOW(),
+                              'event_notes', {notes}
+                            ),
+       updated_at = NOW()
+   WHERE id = {opp_id};
    ```
-8. **Activity log:** `action='sales-specialist.update_event_status'`, details com diff.
-9. **Echo:**
+9. **Activity log:** `action='sales-specialist.update_event_status'`, details com diff (opp_id, old_stage, new_stage, event_status).
+10. **Echo:**
    ```
    ✓ Status atualizado
-   {name}: {old_status} → {new_status}
-   {converted ? 'Opportunity vinculada — pipeline atualizado.' : ''}
+   {name}: {old_stage} → {new_stage} (event_status={new_status})
+   {converted ? 'Opportunity em SALE_DONE — pipeline atualizado.' : ''}
    ```
 
 ### acceptance_criteria
@@ -135,9 +141,10 @@ admin para correção manual via SQL (raro — significa erro de classificação
 
 ## Notas
 
-- **Schema dependency:** assume tabela `event_registrations` com colunas listadas. Se schema usa `opportunities` com `campaign_id` linked, adaptar.
+- **Schema real:** `opportunities` linkadas por `campaign_id`. Não há tabela `event_registrations`.
+- **Coluna `attended_at`:** TODO (migration D4 pendente). Usar `qualification_data` JSONB como workaround.
 - **Bulk update:** task é single-row. Para batch (ex: marcar 50 attended de uma vez), usar `bulk-update-opportunities` com filter.
-- **Notification side-effect:** se status='converted', integration-specialist pode disparar email de boas-vindas (Sprint futuro).
+- **Stage enum:** sempre validar contra os 25 valores reais (ver move-opportunity-stage.md).
 
 ---
 

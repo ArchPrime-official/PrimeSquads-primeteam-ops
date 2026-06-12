@@ -60,9 +60,9 @@
      - Notas novas: emitidas com novo invoice_number sequencial
      - Audit trail: invoice_reissue_batches mantém old↔new linkage
 
-   Confirma? (digite "REISSUE BATCH" uppercase literal)
+   Confirma? (digite "CONFIRMO REISSUE BATCH" uppercase literal)
    ```
-6. **Aguardar "REISSUE BATCH"** literal.
+6. **Aguardar "CONFIRMO REISSUE BATCH"** literal.
 7. **Atomic batch operation com SAVEPOINT por invoice:**
    ```sql
    BEGIN;
@@ -109,7 +109,7 @@
 - **[A2] Reason obrigatório:** sem reason = ESCALATE.
 - **[A3] Max 100 per batch:** evita storm.
 - **[A4] Dry-run preview obrigatório:** user vê mudanças exatas antes de confirmar.
-- **[A5] Tripla confirmation:** "REISSUE BATCH" uppercase literal.
+- **[A5] Tripla confirmation:** "CONFIRMO REISSUE BATCH" uppercase literal.
 - **[A6] Atomic per-invoice:** SAVEPOINT permite partial success.
 - **[A7] Voided not deleted:** old invoices ficam em DB com status='cancelled' (audit trail completo).
 - **[A8] Linkage table:** invoice_reissue_links mantém old↔new mapping para rastreabilidade.
@@ -122,7 +122,7 @@
 
 **Input:** filter `{period_from='2026-04-01', period_to='2026-04-30', has_error_flag=true}`, `reason='Correção tax rate IT 22% (estava 21%)'`, apply `{tax_rate_correction: {old: 21, new: 22}}`
 
-**Specialist:** dry-run mostra 23 notas afetadas, total €87k → "REISSUE BATCH" → 23/23 OK → PDFs regen → DONE.
+**Specialist:** dry-run mostra 23 notas afetadas, total €87k → "CONFIRMO REISSUE BATCH" → 23/23 OK → PDFs regen → DONE.
 
 ### Exemplo 2 — Sem reason → ESCALATE
 
@@ -149,7 +149,7 @@ Exemplos válidos:
 
 - **VOID semantics:** invoices canceladas mantêm row + status='cancelled'. Importante para audit + compliance HMRC.
 - **Sequencial new:** mesma logic do create-sales-invoice (advisory lock + seq number).
-- **PDF regen async:** edge `regenerate-invoice-pdfs` pega lista de new IDs.
+- **PDF regen:** TODO — EF `regenerate-invoice-pdfs` NÃO existe (2026-06-12). Implementar junto com `generate-invoice-pdf` quando PDF generation for desenvolvida.
 - **Limit 100:** acima disso, dividir em batches sequenciais (operacional).
 
 ---

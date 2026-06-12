@@ -23,14 +23,14 @@
 - **Request payload:**
   - `form_id` (uuid)
   - `updates` (object subset):
-    - `name`, `description`, `slug`
-    - `target_customer_id` (mudar específico/genérico)
-    - `form_type` (`onboarding | nps | satisfaction | feedback`)
-  - `version` (int — optimistic lock)
+    - `title`, `description`, `slug`
+    - `form_type` (string — ex: `onboarding | nps | satisfaction | feedback`)
+    - `active` (bool)
+  - `updated_at_expected` (ISO timestamp opcional — optimistic lock via updated_at; coluna `version` NÃO existe em `evaluation_forms`)
 
 ### output
 
-- **`form_id`**, **`updated_fields`**, **`new_version`**
+- **`form_id`**, **`updated_fields`**, **`updated_at`** (timestamp pós-update)
 - **`verdict`** — `DONE | BLOCKED | ESCALATE`
 
 ### action_items
@@ -48,10 +48,12 @@
      {published_warning ? 'Status=published — URL pública mudará' : ''}
    Confirma?
    ```
-5. **UPDATE atomic com version lock:**
+5. **UPDATE atomic** (coluna `version` NÃO existe em `evaluation_forms`; usar `updated_at` como lock se necessário):
    ```sql
-   UPDATE evaluation_forms SET {fields}, updated_by=auth.uid(), updated_at=NOW()
-   WHERE id={form_id} AND version={expected_version} RETURNING ...;
+   UPDATE evaluation_forms SET {fields}, updated_at=NOW()
+   WHERE id={form_id}
+     AND ({updated_at_expected} IS NULL OR updated_at = {updated_at_expected})
+   RETURNING id, title, slug, form_type, active, updated_at;
    ```
 6. **Activity log:** diff in details.
 7. **Echo:** "✓ Form atualizado. {warning_if_url_change}"
@@ -61,7 +63,7 @@
 - **[A1] Role gating.**
 - **[A2] Slug uniqueness.**
 - **[A3] URL warning** se publish + slug change.
-- **[A4] Optimistic lock via version.**
+- **[A4] Optimistic lock via updated_at** (coluna version não existe — usar timestamp).
 - **[A5] Audit diff.**
 
 ---

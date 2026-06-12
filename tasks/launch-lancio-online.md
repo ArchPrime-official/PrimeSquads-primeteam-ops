@@ -72,7 +72,7 @@
 
    Confirma orquestração? (Tudo fica draft — você ativa fase a fase quando estiver pronto)
    ```
-5. **Aguardar "CONFIRMA LANCIO"** (uppercase literal — operação envolve múltiplas mutations).
+5. **Aguardar "CONFIRMO LANCIO"** (uppercase literal — operação envolve múltiplas mutations).
 6. **Batch INSERT em fases:**
 
    **Fase 1:** INSERT pre_capture LP + cart LP + thank_you LP + upsell LP (todos status='draft', active=false)
@@ -116,7 +116,7 @@
 - **[A1] Marketing/owner only.**
 - **[A2] Phase validation:** pré < carrinho_abre < carrinho_fecha; janela >= 24h; futuras.
 - **[A3] Tudo draft:** zero items publicados — user ativa explicitamente cada um.
-- **[A4] Tripla confirmation:** "CONFIRMA LANCIO" literal uppercase (não "confirma" comum) por escala da operação.
+- **[A4] Tripla confirmation:** "CONFIRMO LANCIO" literal uppercase (não "confirma" comum) por escala da operação.
 - **[A5] Atomic-ish batch:** se LPs OK mas sequences/flow falham, audit log captura partial state + cleanup info.
 - **[A6] Linkagem:** todos artifacts apontam para event_id (rastreabilidade).
 - **[A7] Echo educacional:** próximos passos explícitos com timing sugerido.
@@ -129,7 +129,7 @@
 
 **Input:** `event_id` (evento criado), 3 fases definidas, 3 products vinculados.
 
-**Specialist:** Wizard preview → "CONFIRMA LANCIO" → batch INSERT 4+3+1 → activity log → echo com calendário.
+**Specialist:** Wizard preview → "CONFIRMO LANCIO" → batch INSERT 4+3+1 → activity log → echo com calendário.
 
 ### Exemplo 2 — Janela carrinho < 24h → BLOCKED
 

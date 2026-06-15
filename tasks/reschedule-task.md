@@ -9,8 +9,12 @@
 > E o horário REAL de execução de uma tarefa fatiada está nos BLOCOS
 > (`task_schedule_blocks.scheduled_start`), não num campo único da tarefa.
 > **Para mover o horário/dia de um BLOCO específico, use a task `adjust-schedule-block`.**
-> Esta task cuida do PRAZO (`due_date`); ao mudar o due_date, o trigger
-> `reschedule_on_due_date_change` desloca os blocos pelo mesmo delta automaticamente.
+> Esta task cuida do PRAZO (`due_date`). ⛔ **NÃO confie no trigger para mover a
+> execução:** `trg_reschedule_on_due_date_change` só desloca os blocos quando você muda
+> **apenas** o `due_date` por **dias inteiros** (provado no banco 2026-06-15 — nos demais
+> caminhos o bloco fica para trás). Logo, ao reagendar uma tarefa COM blocos, mova os
+> blocos no mesmo fluxo e **verifique** — REGRA DE OURO em
+> `data/tasks-schedule-blocks-field-reference.md` §4. Se não souber redistribuir, pergunte ao responsável.
 
 ---
 
@@ -30,8 +34,9 @@
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
   - `task_id` (uuid)
-  - `new_due_date` (ISO timestamp UTC) — o PRAZO. Ao mudar, o trigger
-    `reschedule_on_due_date_change` desloca `scheduled_start_time` e os blocos pelo delta.
+  - `new_due_date` (ISO timestamp UTC) — o PRAZO. O trigger só desloca os blocos no
+    caminho estreito "só due_date + delta de dias"; nos demais, esta task move os blocos
+    explicitamente (action_items §6.5) e verifica.
   - `reason` (string)
   - `force_conflict` (bool default false — overrida conflitos calendar)
   > Para mover o horário/dia de um BLOCO específico (não o prazo), use `adjust-schedule-block`.
@@ -70,7 +75,7 @@
    ```
    Reschedule task «{title}»:
      Due date (prazo): {old} → {new}
-     (os blocos serão deslocados pelo mesmo delta automaticamente)
+     Execução: {N} bloco(s) serão deslocados pelo mesmo delta (eu ajusto e verifico)
      Conflicts: {N detected}
        [list]
      Reason: {reason}
@@ -78,6 +83,12 @@
    Confirma?
    ```
 6. **UPDATE atomic** (se autorizado) + INSERT `task_date_changes` audit.
+6.5. **⛔ Sincronizar a EXECUÇÃO (REGRA DE OURO §4):** ler os blocos da tarefa; se houver
+   blocos pendentes, deslocá-los pelo mesmo delta (`new_due_date − old_due_date`) no mesmo
+   fluxo — NÃO esperar o trigger — e **re-ler tarefa + blocos para confirmar que batem**.
+   Se a redistribuição for ambígua (2+ blocos não-uniforme, blocos `is_completed`, colisão
+   com reunião `can_be_split=false`) → **ESCALATE pedindo decisão ao creator/owner**
+   (`redirect_to: request-task-date-change` ou auto-scheduling), nunca adivinhar.
 7. **OR delega para `request-task-date-change`** se não-creator.
 8. **Activity log:** action='platform-specialist.reschedule_task'.
 9. **Echo:** depende do path (DONE com new dates OR REQUEST_CREATED com pending_request_id).
@@ -89,6 +100,8 @@
 - **[A3] force_conflict opt-in.**
 - **[A4] Audit em task_date_changes** se UPDATE direto.
 - **[A5] Echo educacional** explica path tomado (direct vs request).
+- **[A6] Execução sincronizada:** blocos pendentes deslocados pelo mesmo delta no mesmo fluxo e RE-LIDOS conferindo — nunca deixar a tarefa remarcada com bloco parado no horário antigo.
+- **[A7] Ambíguo → pergunta:** redistribuição não-uniforme vira ESCALATE ao responsável, não chute.
 
 ---
 

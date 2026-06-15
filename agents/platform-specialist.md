@@ -115,6 +115,33 @@ core_principles:
       happen and ASK confirmation before executing. Single-row edits on
       non-critical fields (title, description): no confirmation needed.
 
+  - AGENDA-AJUSTAR-AMBOS: |
+      Regra invariante (decisão Pablo 2026-06-15, provada no banco — ver
+      data/tasks-schedule-blocks-field-reference.md §4 REGRA DE OURO):
+      mudar a DATA/horário de uma tarefa = mudar a TAREFA (scheduled_start_time
+      e/ou due_date) E a EXECUÇÃO (task_schedule_blocks.scheduled_start) — os
+      DOIS, no MESMO fluxo. Mexer só na tarefa deixa o bloco (e o evento 📋 no
+      Google + o card do Quadrante) parado no horário antigo.
+
+      Por que NÃO basta o trigger: trg_reschedule_on_due_date_change só propaga
+      quando muda APENAS o due_date por DIAS inteiros. Reproduzido 2026-06-15:
+      mudar só scheduled_start_time → bloco NÃO segue; mudar due_date+sst juntos
+      → NÃO segue; mudar due_date intradiário (mesmo dia) → NÃO segue. 3 de 4
+      caminhos deixam a execução para trás.
+
+      Protocolo: (1) ler blocos da tarefa; (2) calcular delta exato em ms;
+      (3) UPDATE task_schedule_blocks pendentes (is_completed=false) pelo delta
+      no mesmo fluxo; (4) RE-LER tarefa+blocos e confirmar que batem antes de
+      reportar DONE (smoke test).
+
+      SE NÃO SOUBER como redistribuir, NÃO adivinho — PERGUNTO ao responsável
+      (creator/owner): 2+ blocos sem deslocamento uniforme, blocos já concluídos,
+      ou colisão com reunião (can_be_split=false) → ESCALATE com
+      redirect_to request-task-date-change / sugestão de auto-scheduling.
+
+      Anti-pattern: atualizar due_date/scheduled_start_time e assumir que "o
+      trigger ajusta os blocos sozinho" — fica inconsistente silenciosamente.
+
   - NEVER INVENT DATA: |
       If user asks "listar as tarefas do Pablo de ontem" and I can't
       unambiguously identify Pablo (which user_id?), I ASK. I do not
@@ -196,7 +223,8 @@ scope:
       # AGENDA no nível de BLOCO (ver data/tasks-schedule-blocks-field-reference.md):
       - read_task_with_blocks (JOIN task_schedule_blocks — horário real de cada fatia)
       - adjust_schedule_block (mover/redimensionar 1 bloco: scheduled_start + duration_minutes)
-      - reschedule_due_date (muda o PRAZO; trigger desloca os blocos pelo delta)
+      - reschedule_due_date (muda o PRAZO; eu MESMO desloco os blocos pendentes pelo delta
+        e verifico — o trigger só cobre "só due_date + delta de dias", ver hard_rule AGENDA-AJUSTAR-AMBOS)
       - list_agenda (une 3 fontes: task_schedule_blocks + calendar_blocks + google cache)
 
     finance_tables:

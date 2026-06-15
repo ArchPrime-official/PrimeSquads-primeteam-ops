@@ -114,6 +114,20 @@
    WHERE id = {request_id};
    ```
 
+   8d. **⛔ Sincronizar a EXECUÇÃO (REGRA DE OURO — `data/tasks-schedule-blocks-field-reference.md` §4):**
+   aprovar mudou o `due_date` da tarefa → a execução tem de seguir. Ler os blocos; se
+   houver pendentes, deslocá-los pelo delta (`suggested_due_date − current_due_date`) no
+   mesmo fluxo (NÃO confiar no trigger) e **re-ler tarefa + blocos confirmando que batem**:
+   ```sql
+   UPDATE task_schedule_blocks
+      SET scheduled_start = scheduled_start + ({suggested_due_date}::timestamptz - {current_due_date}::timestamptz),
+          updated_at = now()
+    WHERE task_id = {request.task_id} AND COALESCE(is_completed,false) = false;
+   ```
+   Se a redistribuição for ambígua (2+ blocos não-uniforme, blocos concluídos, colisão),
+   aprovar o prazo mas **devolver ao approver/owner** a decisão de como redistribuir os
+   blocos (echo explícito) — não inventar.
+
 9. **Se REJECT — só UPDATE request:**
    ```sql
    UPDATE task_date_change_requests

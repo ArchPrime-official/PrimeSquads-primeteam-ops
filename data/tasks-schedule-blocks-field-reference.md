@@ -100,6 +100,68 @@ SELECT t.id, t.title, t.status, t.priority, t.urgency, t.due_date,
 
 ## 4. AJUSTAR a agenda — operações (com SQL real)
 
+### ⛔ REGRA DE OURO — mudar a DATA = mudar a TAREFA **e** a EXECUÇÃO (os dois, sempre)
+
+> Decisão do Pablo (2026-06-15), vale para SEMPRE e para TODA task do squad que
+> mexe em data/horário de tarefa (`update-task`, `reschedule-task`,
+> `approve-task-date-change`, `adjust-schedule-block`).
+
+A tarefa tem DUAS representações de tempo que precisam andar JUNTAS:
+- **a TAREFA** — `tasks.scheduled_start_time` e/ou `tasks.due_date`;
+- **a EXECUÇÃO** — as fatias em `task_schedule_blocks.scheduled_start` (o horário
+  real na agenda e no Google Calendar).
+
+**NUNCA mexa em uma sem a outra.** Mudar só o campo da tarefa deixa o bloco (logo, o
+evento 📋 no Google e o card do Quadrante) parado no horário antigo → agenda mentindo.
+
+#### Por que NÃO basta confiar no trigger (provado no banco, 2026-06-15)
+
+Existe o trigger `trg_reschedule_on_due_date_change`
+(`supabase/migrations/20260811120000_reajuste_horario_ao_mudar_due_date.sql`), mas ele
+cobre **um caminho só**. Reprodução real numa tarefa com 1 bloco:
+
+| Mudança feita na `tasks` | O bloco seguiu? | Por quê |
+|---|---|---|
+| só `scheduled_start_time` (sem mexer em `due_date`) | ❌ **NÃO** | o trigger é `BEFORE UPDATE OF due_date` — nem dispara |
+| `due_date` **+** `scheduled_start_time` no mesmo UPDATE | ❌ **NÃO** | guard interno desliga (`scheduled_start_time IS NOT DISTINCT`) |
+| `due_date` mudando só a **hora** (mesmo dia) | ❌ **NÃO** | desloca por **delta de DIAS** (`::date - ::date` = 0) |
+| só `due_date`, mudando o **DIA** | ✅ sim | único caminho que o trigger cobre |
+| qualquer bloco com `is_completed = true` | ❌ nunca move | trigger ignora blocos concluídos (correto) |
+
+Ou seja: em 3 dos 4 caminhos de edição, e em todo ajuste de horário intradiário, o
+bloco fica para trás se você não mexer nele à mão. É exatamente o sintoma reportado
+("alterou a data da tarefa mas não a da execução").
+
+#### Protocolo obrigatório (faça SEMPRE, nesta ordem)
+
+1. **LER a tarefa com os blocos** (query da §3). Quantos blocos pendentes (`is_completed=false`) ela tem?
+2. **Calcular o DELTA exato** = `novo_inicio − antigo_inicio` (em ms, não em dias) do
+   campo que você está movendo (`scheduled_start_time`; se só o `due_date` muda, use o delta do `due_date`).
+3. **Aplicar o MESMO delta aos blocos pendentes** no MESMO fluxo da mudança da tarefa
+   (não deixar para o trigger):
+   ```sql
+   UPDATE task_schedule_blocks
+      SET scheduled_start = scheduled_start + ({novo_inicio}::timestamptz - {antigo_inicio}::timestamptz),
+          updated_at = now()
+    WHERE task_id = {task_id} AND COALESCE(is_completed,false) = false;
+   ```
+4. **VERIFICAR (re-ler) tarefa + blocos** depois do update. Tarefa e blocos têm de
+   bater. Se não bateram → corrigir antes de reportar DONE (smoke test, regra do Pablo).
+5. **Se NÃO souber como redistribuir, NÃO adivinhe — pergunte ao responsável.** Casos
+   ambíguos que EXIGEM perguntar (creator/owner — ver `request-task-date-change`):
+   - tarefa com **2+ blocos** e a nova data **não** é um deslocamento uniforme (ex:
+     mudou só o horário do dia, ou os blocos não cabem mais antes do novo `due_date`);
+   - há **blocos `is_completed`** e a tarefa toda foi remarcada (o que fazer com o já-feito?);
+   - o novo horário **colide** com reunião/bloco fixo (`can_be_split=false`) e não dá pra resolver sozinho;
+   - qualquer dúvida sobre QUAL bloco mover. Deslocamento uniforme de tudo é seguro;
+     redistribuição "inteligente" não é — para isso, dispare o auto-scheduling (§4.4) ou pergunte.
+
+> **Caminho inverso (mover o BLOCO):** ao mover/ajustar um bloco via
+> `adjust-schedule-block`, se for o último bloco sincronize `tasks.due_date`. Mesma
+> regra dos dois lados: bloco e tarefa nunca divergem.
+
+---
+
 ### 4.1 Mover um bloco (mudar dia E/OU horário)
 ```sql
 UPDATE task_schedule_blocks
@@ -127,6 +189,9 @@ UPDATE tasks
    SET scheduled_start_time = {novo_inicio_iso_utc}, is_auto_scheduled = false, updated_at = now()
  WHERE id = {task_id};
 ```
+⚠️ Só vale para tarefa que **não tem** `task_schedule_blocks`. Se a tarefa TEM blocos,
+este UPDATE **não** move a execução (o trigger nem dispara nesse caso) — siga a REGRA
+DE OURO acima e mova os blocos pelo mesmo delta no mesmo fluxo.
 
 ### 4.4 Reagendar/redistribuir todos os blocos de uma tarefa
 Não recalcular à mão. A redistribuição respeita carga diária, reuniões fixas
@@ -138,8 +203,11 @@ edge/serviço de auto-scheduling em vez de inventar horários. Se for ajuste pon
 ```sql
 UPDATE tasks SET due_date = {novo_prazo} WHERE id = {task_id};
 ```
-⚠️ Há trigger `reschedule_on_due_date_change`: mudar só a data desloca
-`scheduled_start_time` e os blocos pelo mesmo delta de dias (não toca reuniões).
+⚠️ O trigger `trg_reschedule_on_due_date_change` SÓ propaga aos blocos quando: (a) você
+mexe **apenas** no `due_date` (não no `scheduled_start_time` no mesmo update), **e** (b)
+a mudança é de **DIA inteiro** (`delta de dias ≠ 0`) — mudança só de horário no mesmo dia
+NÃO move bloco nenhum. Blocos `is_completed` nunca se movem. Em qualquer outro caminho,
+mova os blocos você mesmo (REGRA DE OURO). NUNCA assuma que o trigger cobriu — **verifique**.
 
 ---
 
@@ -150,7 +218,9 @@ Ao ajustar um bloco/tarefa, estes triggers cuidam do resto:
 - **Google Calendar:** `enqueue_calendar_sync` enfileira a mudança em
   `calendar_sync_outbox`; o `gcal-outbound-worker` cria/atualiza o evento Google do
   bloco (cada bloco = 1 evento transparent 📋). Mover o bloco → muda no Google sozinho.
-- **due_date change:** `reschedule_on_due_date_change` desloca os blocos pelo delta.
+- **due_date change:** `reschedule_on_due_date_change` desloca os blocos — **mas só**
+  no caminho estreito da §4.5 (só `due_date`, delta de DIAS, blocos pendentes). NÃO é
+  rede de segurança: nos demais caminhos você move os blocos à mão (REGRA DE OURO §4).
 - **conclusão:** triggers setam `completed_at`/`is_completed`.
 
 A volta (editar o bloco NO Google) também funciona: `gcal_apply_managed_edit` já
@@ -171,6 +241,10 @@ entity_type='task_schedule_block' AND entity_id={block_id}`.
 ## 7. CHECKLIST de validação ANTES de ajustar a agenda (use sempre)
 
 - [ ] Identifiquei se a tarefa TEM blocos (`task_schedule_blocks`) ou é horário único (`scheduled_start_time`)?
+- [ ] **Vou mudar data/horário? Então vou ajustar a TAREFA E os BLOCOS no mesmo fluxo (REGRA DE OURO §4) — nunca um só?**
+- [ ] **Calculei o delta exato (ms) e apliquei aos blocos pendentes — sem contar com o trigger?**
+- [ ] **Re-li tarefa + blocos depois e confirmei que batem?**
+- [ ] **Se a redistribuição é ambígua (2+ blocos não-uniforme, blocos concluídos, colisão), perguntei ao responsável em vez de adivinhar?**
 - [ ] Estou ajustando o BLOCO certo (`block_id`), não a tarefa inteira?
 - [ ] O novo horário respeita a ordem cronológica dos blocos vizinhos (`block_order`)?
 - [ ] O fim do bloco (`scheduled_start + duration_minutes`) não passa do `due_date`?

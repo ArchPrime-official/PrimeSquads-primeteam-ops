@@ -94,3 +94,9 @@ reconectar a conta Google em /settings.
   `task_completion_history`), não por `scheduled_start_time`.
 - **Reuniões** (`can_be_split=false`) são congeladas: o scheduler nunca as move.
 - **Blocos herdam tudo** (priority, urgency, block_type) da tarefa — sempre fazer JOIN.
+- **Mudar data = mudar TAREFA + EXECUÇÃO (os dois).** Alterar `scheduled_start_time`/
+  `due_date` sem mover os `task_schedule_blocks` deixa o evento 📋 do Google e o card do
+  Quadrante no horário antigo. O trigger `trg_reschedule_on_due_date_change` só cobre "só
+  due_date + delta de dias" — nos demais caminhos, mova os blocos à mão e verifique; se a
+  redistribuição for ambígua, pergunte ao responsável. Regra de ouro completa em
+  `tasks-schedule-blocks-field-reference.md` §4.

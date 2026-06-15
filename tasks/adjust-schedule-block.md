@@ -78,12 +78,21 @@
           updated_at = now()
     WHERE id = {block_id};
    ```
-8. **Sincronizar due_date se for o último bloco** (maior `block_order`):
-   ```sql
-   UPDATE tasks SET due_date = {fim_do_bloco}, updated_at = now()
-    WHERE id = {task_id}
-      AND {block_order} = (SELECT max(block_order) FROM task_schedule_blocks WHERE task_id = {task_id});
-   ```
+8. **Sincronizar a TAREFA (espelho bidirecional — REGRA DE OURO, lado inverso):** bloco e
+   tarefa nunca divergem. Ver `data/tasks-schedule-blocks-field-reference.md` §4.
+   - **Se é o ÚLTIMO bloco** (maior `block_order`) → `due_date` = fim do bloco:
+     ```sql
+     UPDATE tasks SET due_date = {fim_do_bloco}, updated_at = now()
+      WHERE id = {task_id}
+        AND {block_order} = (SELECT max(block_order) FROM task_schedule_blocks WHERE task_id = {task_id});
+     ```
+   - **Se é o PRIMEIRO bloco** (menor `block_order`) → `scheduled_start_time` = início do bloco
+     (mantém a coerência "tarefa.scheduled_start_time == 1º bloco" que a agenda/Quadrante assume):
+     ```sql
+     UPDATE tasks SET scheduled_start_time = {novo_inicio_do_bloco}, updated_at = now()
+      WHERE id = {task_id}
+        AND {block_order} = (SELECT min(block_order) FROM task_schedule_blocks WHERE task_id = {task_id});
+     ```
 9. **Google sync:** automático. O trigger `enqueue_calendar_sync` enfileira o bloco em
    `calendar_sync_outbox`; o `gcal-outbound-worker` atualiza o evento Google do bloco.
    NÃO escrever no Google à mão.
@@ -102,7 +111,7 @@
 - **[A2]** Usa colunas REAIS (`scheduled_start`, `duration_minutes`, `block_order`).
 - **[A3]** Valida ordem cronológica contra blocos vizinhos.
 - **[A4]** Bloqueia ajuste de reunião (`can_be_split=false`).
-- **[A5]** Sincroniza `due_date` quando ajusta o último bloco.
+- **[A5]** Sincroniza a tarefa com o bloco: `due_date` no último bloco, `scheduled_start_time` no primeiro (espelho bidirecional — tarefa e execução nunca divergem).
 - **[A6]** Não escreve no Google à mão — deixa o trigger propagar.
 - **[A7]** Audit.
 

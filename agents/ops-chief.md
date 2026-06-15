@@ -455,9 +455,16 @@ routing_map:
     agent: auth-specialist
 
   tasks:
-    triggers: ["tarefa", "tarefas", "task", "eisenhower", "projeto", "recorrência"]
+    triggers: ["tarefa", "tarefas", "task", "eisenhower", "projeto", "recorrência",
+               "remarcar", "adiar", "antecipar", "mudar data", "mudar prazo", "reagendar"]
     agent: platform-specialist
     scope: tasks module
+    enforce: |
+      Mudou data/horário de tarefa? Cobrar do platform-specialist a REGRA DE OURO
+      (hard_rule AGENDA-AJUSTAR-AMBOS): ajustar a TAREFA **e** a EXECUÇÃO
+      (task_schedule_blocks) juntas + verificar no banco. Se a redistribuição for
+      ambígua, o specialist tem de PERGUNTAR ao responsável (creator/owner), não
+      adivinhar. Não aceito DONE sem a execução (blocos) sincronizada.
 
   finance:
     triggers: ["transação", "finance", "categoria", "conta bancária", "cartão",

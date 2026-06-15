@@ -81,6 +81,31 @@
      VALUES
        ({task_id}, {before.due_date}, {after.due_date}, auth.uid(), {reason});
      ```
+
+5.5. **⛔ REGRA DE OURO — mudou data/horário? ajuste a EXECUÇÃO também** (ver
+   `data/tasks-schedule-blocks-field-reference.md` §4). Se `updates` mexeu em
+   `due_date` E/OU `scheduled_start_time`:
+   - **Antes do UPDATE**, ler os blocos da tarefa:
+     ```sql
+     SELECT id, scheduled_start, is_completed FROM task_schedule_blocks
+      WHERE task_id = {task_id} ORDER BY block_order;
+     ```
+   - **Se a tarefa NÃO tem blocos** → nada a fazer, a tarefa é o item da agenda.
+   - **Se tem blocos pendentes** → NÃO confie no trigger (ele só cobre "só due_date,
+     delta de dias"). Calcule o delta exato e mova os blocos no MESMO fluxo:
+     ```sql
+     UPDATE task_schedule_blocks
+        SET scheduled_start = scheduled_start + ({novo_inicio}::timestamptz - {antigo_inicio}::timestamptz),
+            updated_at = now()
+      WHERE task_id = {task_id} AND COALESCE(is_completed,false) = false;
+     ```
+     (delta = do `scheduled_start_time` se mexido; senão do `due_date`.)
+   - **VERIFICAR**: re-ler tarefa + blocos e confirmar que batem antes de reportar DONE.
+   - **Ambíguo? PERGUNTE ao responsável** (NÃO adivinhe): 2+ blocos sem deslocamento
+     uniforme (ex: só mudou o horário do dia), blocos `is_completed`, ou colisão com
+     reunião (`can_be_split=false`) → **ESCALATE** ao chief com
+     `redirect_to: request-task-date-change` / sugestão de auto-scheduling, explicando
+     que a redistribuição precisa de decisão do creator/owner.
 6. **Validar enums no UPDATE:**
    - `status` ∈ `('todo','doing','done')`
    - `block_type` ∈ `('task','meeting','focus_time','personal','unavailable')`
@@ -104,6 +129,8 @@
 - **[A6] Enum validation:** status/block_type/priority/urgency rejeitam valores fora do schema.
 - **[A7] Echo claro ao user:** quando REQUEST_CREATED, mensagem explica POR QUE foi request (não acesso direto) + QUEM aprova + COMO acelerar (peça ao owner).
 - **[A8] No silent UPDATE:** specialist NUNCA atualiza due_date sem checar autorização primeiro.
+- **[A9] Tarefa e execução andam juntas:** se `due_date`/`scheduled_start_time` mudou e a tarefa tem blocos, os `task_schedule_blocks` pendentes foram deslocados pelo mesmo delta NO MESMO fluxo (não delegado ao trigger) e o resultado foi RE-LIDO e confere. Mudar a tarefa sem a execução = FALHA.
+- **[A10] Ambíguo → pergunta, não adivinha:** redistribuição não-uniforme (2+ blocos, blocos concluídos, colisão com reunião) NUNCA é inventada — vira REQUEST/ESCALATE ao responsável (creator/owner).
 
 ---
 

@@ -89,12 +89,15 @@ phases:
       - amount: numeric (can be negative/positive)
       - currency: ISO 4217 (default 'EUR'; ECHO se != EUR para confirmar)
       - type: "expense" | "income"
-      - category_id (or category_name resolved)
+      - category_id (or category_name resolved) — OBRIGATÓRIO (DB CHECK chk_category_required_non_transfer)
       - first_date: when first occurrence happens (Europe/Rome)
       - skip_weekends (bool, opcional — default false)
+      - bank_account_id OR credit_card_id — EXATAMENTE UM É OBRIGATÓRIO (de onde a EMPRESA é
+        derivada; o DB rejeita sem nenhum dos dois: CHECK chk_payment_account_present desde
+        2026-06-27). Vale para o parent E todos os filhos. `brand` preenchido por trigger.
     optional_params:
       - recurrence_due_day (if monthly with specific day)
-      - cost_center_id / bank_account_id / description
+      - cost_center_id / credit_card_id / description
       - installment flag (se is installment-style vs standalone recurrence)
       - opportunity_id / customer_id (para linkage — INV-FR-05 propaga)
       - exchange_rate (numeric — OBRIGATÓRIO se currency ≠ moeda nativa

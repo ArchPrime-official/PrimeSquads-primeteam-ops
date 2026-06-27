@@ -252,12 +252,17 @@ playbooks:
       - amount numeric parse
       - transaction_date date parse
       - type in [income, expense, transfer]
-      - category_name → category_id resolve
-      - bank_account_name → bank_account_id resolve
+      - category_name → category_id resolve (OBRIGATÓRIO exceto type=transfer — DB CHECK chk_category_required_non_transfer)
+      - bank_account_name → bank_account_id (OU credit_card_name → credit_card_id) resolve.
+        OBRIGATÓRIO: cada linha precisa resolver conta OU cartão (de onde a EMPRESA é derivada).
+        Linha sem nenhum dos dois → ERRO no dry-run, NÃO importa (DB rejeita: CHECK
+        chk_payment_account_present desde 2026-06-27). `brand` (empresa) é preenchido por trigger.
       Dedup por (amount, transaction_date, bank_account_id, bank_transaction_id)
     phase_6_insert: |
       INSERT INTO finance_transactions (..., user_id=auth.uid(),
-        status='confirmed', import_batch_id, import_file_name);
+        status='completed', import_batch_id, import_file_name);
+      -- status SEMPRE 'completed' (valor canônico em prod). NUNCA 'confirmed'/'pending'/'cleared'
+      -- (não existem no enum de status e violam o CHECK).
 
   list_import_batches:
     description: >

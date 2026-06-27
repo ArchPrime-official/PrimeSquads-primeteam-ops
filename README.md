@@ -156,6 +156,23 @@ Copia o resultado, cola no Slack no `#tech` e avisa Pablo. Você não precisa en
 
 Ainda sem o comando global `pto`? Use `npm start`, `npm run login` etc. O wizard `pto setup` instala o global quando rodar pela primeira vez.
 
+### Sub-squads (creative-studio, etc.)
+
+Os sub-squads operacionais vêm como **submódulos** em `squads/<nome>/` e são sincronizados
+automaticamente pelo `pto setup` e pelo `pto update` (`git submodule update --init --remote`).
+Hoje: **creative-studio** (geração de criativos + animação das telas Lovarch via
+`@screen-motion-engineer`).
+
+> **Acesso:** cada membro precisa ser collaborator do repo do sub-squad também
+> (`ArchPrime-official/creative-studio-squad`). Pablo adiciona via
+> `gh repo add-collaborator ArchPrime-official/creative-studio-squad <user> --permission read`.
+
+> **Já tinha o `pto` instalado antes desta versão?** Rode uma vez para pegar o novo
+> comportamento + os sub-squads:
+> ```bash
+> cd ~/archprime-cli/PrimeSquads-primeteam-ops && git pull && npm install && git submodule update --init --remote
+> ```
+
 ---
 
 ## Coisas que o squad **NÃO** faz (de propósito)

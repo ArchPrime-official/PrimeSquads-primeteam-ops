@@ -132,6 +132,18 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
 
   if (pullSpin) pullSpin.succeed(t('cli:update.applied'));
 
+  // Sincroniza os sub-squads (submódulos: creative-studio, etc.). Não-fatal:
+  // se o membro não tiver acesso ao repo do sub-squad, apenas avisa e segue.
+  const subSpin = silent ? null : ora('Sincronizando sub-squads...').start();
+  try {
+    await runSubmoduleSync(repoRoot);
+    if (subSpin) subSpin.succeed('Sub-squads atualizados');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (subSpin) subSpin.warn('Sub-squads não sincronizados (verifique acesso aos repos dos sub-squads)');
+    if (process.env.PTO_DEBUG === '1') console.error(pc.dim(msg));
+  }
+
   if (shaBefore && packageLockChanged(shaBefore, 'HEAD', repoRoot)) {
     const npmSpin = silent ? null : ora(t('cli:update.deps_updating')).start();
     try {
@@ -146,6 +158,24 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   }
 
   return result;
+}
+
+function runSubmoduleSync(cwd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', ['submodule', 'update', '--init', '--remote', '--recursive'], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `git submodule update exited ${code}`));
+    });
+    child.on('error', reject);
+  });
 }
 
 function runNpmInstall(cwd: string): Promise<void> {

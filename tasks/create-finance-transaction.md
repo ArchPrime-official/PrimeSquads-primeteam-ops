@@ -32,10 +32,9 @@ Entregue pelo `ops-chief` via `*handoff` ceremony:
   - `type` ("income" | "expense" | "transfer") — se não explícito, infere do sign do amount
   - `transaction_date` (date opcional — default today Europe/Rome)
   - `description` (string, free-form)
-  - `category_name` ou `category_id` (um dos dois — se name, faço list_categories filter)
+  - `category_name` ou `category_id` (**OBRIGATÓRIO exceto type=transfer** — se name, faço list_categories filter). DB rejeita non-transfer sem categoria (CHECK chk_category_required_non_transfer).
   - `cost_center_name` ou `cost_center_id` (opcional)
-  - `bank_account_name` ou `bank_account_id` (opcional; se vier credit_card, não vem bank_account)
-  - `credit_card_name` ou `credit_card_id` (opcional)
+  - `bank_account_name`/`bank_account_id` OU `credit_card_name`/`credit_card_id` (**EXATAMENTE UM É OBRIGATÓRIO** — de onde a EMPRESA é derivada. O DB rejeita transação sem nenhum dos dois: CHECK chk_payment_account_present, desde 2026-06-27). A coluna `brand` (empresa) é preenchida automaticamente por trigger a partir da conta/cartão.
   - `currency` (ISO 4217, default "EUR")
   - `payment_method` (string opcional: "SEPA", "card", "cash")
   - `notes`, `tags`, `reference` (opcionais)
@@ -76,7 +75,7 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
    - 1 match → usar
    - >1 match → ESCALATE com listagem dos candidatos
 5. **Resolver cost_center** — mesma lógica se veio `cost_center_name`.
-6. **Resolver conta** — exatamente UM entre `bank_account_id` e `credit_card_id`. Se ambos vierem, ESCALATE. Se nenhum vier e user mencionou algo, fazer lookup; se nada, aceitar NULL (Supabase permite).
+6. **Resolver conta (OBRIGATÓRIO)** — exatamente UM entre `bank_account_id` e `credit_card_id`. Se ambos vierem, ESCALATE. Se NENHUM vier, fazer lookup pelo que o user mencionou; se ainda assim nenhum resolver, **BLOCKED — pedir ao user a conta/cartão** (NÃO aceitar NULL: o DB rejeita com CHECK chk_payment_account_present desde 2026-06-27, pois sem conta/cartão não há empresa). A empresa (`brand`) é derivada automaticamente da conta/cartão por trigger.
 7. **Validar transaction_date** — parse natural language se necessário ("hoje", "ontem", "2026-04-20"), resolver a formato DATE (sem timezone — é date, não timestamp). Default today em Europe/Rome.
 8. **Confirmar com user** — mostrar TODO o resolvido:
    ```
@@ -130,7 +129,7 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
 - **[A1] Amount parsed correctly:** handoff card mostra o valor numeric final + o raw input do user. Se parsing for ambíguo, task TERMINA em ESCALATE (zero Supabase calls).
 - **[A2] Sign correct:** expense sempre gravado negativo, income sempre positivo. handoff card tem `sign_inferred_from: "keyword despesa"` ou similar quando o sign não foi explícito no amount.
 - **[A3] Category resolved by ID:** se user deu `category_name`, a task resolve para category_id via list_categories e grava no INSERT. Se 0 ou >1 match, ESCALATE (não inventar match).
-- **[A4] Account exclusivity:** bank_account_id XOR credit_card_id (ambos não-nulos = ESCALATE). Ambos podem ser null.
+- **[A4] Account exclusivity + obrigatoriedade:** bank_account_id XOR credit_card_id (ambos não-nulos = ESCALATE). **Ambos NULL = BLOCKED** (DB rejeita: CHECK chk_payment_account_present). Exatamente UM é obrigatório — é a fonte da empresa (`brand`, preenchida por trigger).
 - **[A5] Confirmation before mutation:** user vê mensagem com todos os campos resolvidos (incluindo IDs e nomes humanos) antes de qualquer INSERT.
 - **[A6] RLS clarity:** se `has_finance_access()` nega, verdict=BLOCKED, error code=42501, mensagem clara mencionando role requirement.
 - **[A7] JWT scoping:** INSERT usa o JWT do user (header Authorization). `user_id` gravado é `auth.uid()` do user.

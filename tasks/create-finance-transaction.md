@@ -34,7 +34,8 @@ Entregue pelo `ops-chief` via `*handoff` ceremony:
   - `description` (string, free-form)
   - `category_name` ou `category_id` (**OBRIGATÓRIO exceto type=transfer** — se name, faço list_categories filter). DB rejeita non-transfer sem categoria (CHECK chk_category_required_non_transfer).
   - `cost_center_name` ou `cost_center_id` (opcional)
-  - `bank_account_name`/`bank_account_id` OU `credit_card_name`/`credit_card_id` (**EXATAMENTE UM É OBRIGATÓRIO** — de onde a EMPRESA é derivada. O DB rejeita transação sem nenhum dos dois: CHECK chk_payment_account_present, desde 2026-06-27). A coluna `brand` (empresa) é preenchida automaticamente por trigger a partir da conta/cartão.
+  - `bank_account_name`/`bank_account_id` OU `credit_card_name`/`credit_card_id` (**EXATAMENTE UM É OBRIGATÓRIO** — de onde a EMPRESA é derivada. O DB rejeita transação sem nenhum dos dois: CHECK chk_payment_account_present, desde 2026-06-27).
+  - `brand` (empresa: `archprime` | `lovarch`): para transações de **CONTA bancária**, é preenchido automaticamente por trigger (conta = 1 empresa). Para transações de **CARTÃO DE CRÉDITO**, é **OBRIGATÓRIO informar explicitamente** — cartões são multi-empresa (um cartão pode ter gastos de empresas diferentes), o trigger NÃO deriva do cartão, e o DB rejeita transação de cartão sem `brand` (NOT NULL). Pergunte ao user de qual empresa é o gasto.
   - `currency` (ISO 4217, default "EUR")
   - `payment_method` (string opcional: "SEPA", "card", "cash")
   - `notes`, `tags`, `reference` (opcionais)

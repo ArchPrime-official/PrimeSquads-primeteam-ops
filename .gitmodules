@@ -1,0 +1,3 @@
+[submodule "squads/creative-studio"]
+	path = squads/creative-studio
+	url = https://github.com/ArchPrime-official/creative-studio-squad.git

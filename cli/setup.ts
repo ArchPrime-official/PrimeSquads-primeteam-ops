@@ -108,6 +108,20 @@ export async function setup(options: { reset?: boolean } = {}): Promise<void> {
     }
   });
 
+  // Sub-squads (submódulos: creative-studio, etc.) — traz os arquivos p/ squads/<nome>/.
+  // Não-fatal: se o membro não tiver acesso ao repo do sub-squad, avisa e segue.
+  await runStep('submodules_synced', async () => {
+    const s = p.spinner();
+    s.start('Sincronizando sub-squads (creative-studio, ...)');
+    try {
+      await runCmd('git', ['submodule', 'update', '--init', '--remote', '--recursive'], repoRoot);
+      s.stop('Sub-squads sincronizados');
+    } catch (err) {
+      s.stop(pc.yellow('Sub-squads não sincronizados (verifique acesso aos repos) — opcional'));
+      if (process.env.PTO_DEBUG === '1') p.log.error(err instanceof Error ? err.message : String(err));
+    }
+  });
+
   await runStep('bin_linked', async () => {
     if (isBinAvailable('pto')) {
       p.log.success(t('cli:setup.bin_already'));

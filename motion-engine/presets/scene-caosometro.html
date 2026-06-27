@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Caosometro (Ritratto dello studio)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* ───────────── TOP NAV (idêntica ao render-studio) ───────────── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:9999px;background:rgba(238,235,231,0.6);border:1px solid var(--border);color:var(--muted-foreground)}
+  .credits-pill svg{width:16px;height:16px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;background-size:cover;background-position:center}
+
+  /* ───────────── CONTENT ───────────── */
+  .content{position:absolute;top:56px;left:0;right:0;bottom:0;padding:26px 40px 0 40px;display:flex;flex-direction:column}
+
+  /* header: Ritratto dello studio + parágrafo */
+  .portrait-head{margin-bottom:18px}
+  .portrait-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:600;color:var(--foreground);letter-spacing:-0.01em}
+  .portrait-title em{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;color:var(--accent)}
+  .portrait-desc{margin-top:7px;max-width:1560px;font-size:13.5px;line-height:1.55;color:var(--text-dim)}
+
+  /* grid 2x2 dos cards */
+  .grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:18px;flex:1;min-height:0}
+  .card{background:#F5F3F0;border:1px solid var(--border);border-radius:16px;padding:18px 22px;position:relative;overflow:hidden}
+  .card-title{font-family:'Outfit',sans-serif;font-size:16px;font-weight:600;color:var(--foreground);letter-spacing:-0.01em;margin-bottom:6px}
+  .card-title em{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;color:var(--accent)}
+
+  /* ── Analisi del business (radar) ── */
+  .analisi-body{display:flex;gap:14px;height:100%}
+  .legend{display:flex;flex-direction:column;gap:13px;padding-top:34px;flex-shrink:0;width:230px}
+  .legend-item{display:flex;align-items:center;gap:11px}
+  .legend-badge{width:30px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11.5px;flex-shrink:0}
+  .legend-label{font-size:13px;color:var(--muted-foreground);font-weight:500}
+  .radar-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-width:0}
+  #radar{display:block}
+
+  /* ── Principale ostacolo ── */
+  .ostacolo-text{font-size:14px;line-height:1.62;color:var(--muted-foreground)}
+
+  /* ── Metodo ArchPrime ── */
+  .metodo-score{position:absolute;top:16px;right:22px;display:flex;align-items:baseline;gap:3px}
+  .metodo-score .num{font-family:'DM Sans',sans-serif;font-weight:700;font-size:38px;line-height:1;color:var(--accent)}
+  .metodo-score .den{font-size:11px;color:var(--text-ghost);font-weight:600;letter-spacing:.04em}
+  .fase-line{margin-top:2px}
+  .fase-name{font-size:13.5px;font-weight:600;color:var(--foreground)}
+  .fase-prog{font-size:12.5px;color:var(--text-dim);margin-top:3px}
+  .fase-prog b{color:var(--accent);font-weight:700}
+  .impr-label{margin-top:16px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-ghost)}
+  .impr-list{margin-top:12px;display:flex;flex-direction:column;gap:13px}
+  .impr-item{display:flex;align-items:center;gap:11px;font-size:13.5px;color:var(--muted-foreground)}
+  .impr-circle{width:16px;height:16px;border-radius:50%;border:1.6px solid #D6D1CA;flex-shrink:0}
+
+  /* ── Orientamenti prioritari ── */
+  .orient-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .orient-item{display:flex;align-items:center;gap:13px;padding:11px 4px;border-bottom:1px solid rgba(227,227,227,0.65)}
+  .orient-item:last-child{border-bottom:0}
+  .orient-circle{width:18px;height:18px;border-radius:50%;border:1.6px solid #D6D1CA;flex-shrink:0}
+  .orient-num{font-family:'DM Sans',sans-serif;font-weight:700;font-size:12px;color:var(--text-ghost);flex-shrink:0}
+  .orient-text{font-size:13.5px;color:var(--muted-foreground);line-height:1.4}
+
+  /* ───────────── PROMPT BAR (igual estilo Lovarch) ───────────── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:64px;display:flex;justify-content:center;padding:0 40px;z-index:30}
+  .prompt-bar{width:780px;border-radius:22px;background:rgba(255,255,255,0.98);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);overflow:hidden}
+  .pb-chips-row{display:flex;align-items:center;gap:8px;padding:11px 16px 0 16px}
+  .pb-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9999px;font-size:12.5px;font-weight:600;line-height:1}
+  .pb-chip.gold{color:var(--accent);background:rgba(161,98,7,0.10);border:1px solid rgba(161,98,7,0.20)}
+  .pb-chip.ghost{color:var(--muted-foreground);background:transparent}
+  .pb-chip svg{width:13px;height:13px}
+  .pb-input-row{display:flex;align-items:flex-start;gap:12px;padding:13px 18px 4px 20px}
+  #prompt-input{flex:1;border:0;outline:0;background:transparent;resize:none;font-family:'Inter',sans-serif;font-size:15.5px;color:var(--foreground);line-height:1.5;min-height:30px;overflow:hidden}
+  #prompt-input::placeholder{color:rgba(87,83,78,0.5)}
+  .pb-bottom{display:flex;align-items:center;justify-content:flex-end;padding:4px 16px 14px 16px;gap:10px}
+  .mic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:18px;height:18px}
+  #send-btn{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(238,235,231,0.9);color:var(--text-ghost);border:1px solid var(--border)}
+  #send-btn svg{width:18px;height:18px}
+
+  /* ───────────── MODULE PILLS (bottom) ───────────── */
+  .module-bar{position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;gap:6px;z-index:20}
+  .mod-pill{display:flex;align-items:center;gap:7px;padding:8px 15px;border-radius:9999px;font-size:13px;font-weight:500;color:var(--muted-foreground);line-height:1}
+  .mod-pill svg{width:15px;height:15px}
+  .mod-pill.active{background:var(--accent);color:#FAF9F7;box-shadow:0 2px 10px rgba(161,98,7,0.25)}
+  .mod-pill .beta{font-size:8px;font-weight:700;letter-spacing:.06em;padding:1px 4px;border-radius:4px;background:rgba(161,98,7,0.14);color:var(--accent)}
+
+  /* cursor */
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform;opacity:0}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg><span class="credit-num">99.961</span></div>
+      <div class="avatar"></div>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="portrait-head">
+      <div class="portrait-title">Ritratto <em>dello studio</em></div>
+      <div class="portrait-desc">Sei uno studio di architettura con sede a Milano, attivo da due anni e composto da 2–5 professionisti. Ti rivolgi a imprenditori IT con ruoli decisionali, alto stress professionale e una significativa capacità di investimento in progetti abitativi di qualità. I tuoi clienti arrivano da Instagram e da indicazioni della tua rete, ma la conversione dei lead dalla tua presenza digitale è una sfida attuale.</div>
+    </div>
+
+    <div class="grid">
+      <!-- Analisi del business -->
+      <div class="card">
+        <div class="card-title">Analisi <em>del business</em></div>
+        <div class="analisi-body">
+          <div class="legend">
+            <div class="legend-item"><span class="legend-badge" style="background:rgba(161,98,7,0.12);color:var(--accent)">65</span><span class="legend-label">Presenza e Brand</span></div>
+            <div class="legend-item"><span class="legend-badge" style="background:rgba(180,83,9,0.10);color:#C2671A">25</span><span class="legend-label">Acquisizione e Marketing</span></div>
+            <div class="legend-item"><span class="legend-badge" style="background:rgba(161,98,7,0.12);color:var(--accent)">70</span><span class="legend-label">Commerciale</span></div>
+            <div class="legend-item"><span class="legend-badge" style="background:rgba(180,83,9,0.10);color:#C2671A">30</span><span class="legend-label">Finanze e Gestione</span></div>
+            <div class="legend-item"><span class="legend-badge" style="background:rgba(161,98,7,0.12);color:var(--accent)">75</span><span class="legend-label">Operazioni</span></div>
+          </div>
+          <div class="radar-wrap">
+            <svg id="radar" width="360" height="300" viewBox="0 0 360 300"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Principale ostacolo -->
+      <div class="card">
+        <div class="card-title">Principale <em>ostacolo</em></div>
+        <div class="ostacolo-text" id="ostacolo">Il problema principale è l'inefficacia delle tue attività di marketing nel generare nuovi lead qualificati. Con zero lead questo mese e l'ultimo registrato quasi due mesi fa, la tua pipeline è a secco, mettendo a rischio la continuità dei progetti e la stabilità finanziaria futura. Questo blocco nell'acquisizione di nuovi clienti impedisce direttamente la crescita del tuo studio e compromette il fatturato a medio termine.</div>
+      </div>
+
+      <!-- Metodo ArchPrime -->
+      <div class="card">
+        <div class="card-title">Metodo <em>ArchPrime</em></div>
+        <div class="metodo-score"><span class="num" id="score-num">0</span><span class="den">/100</span></div>
+        <div class="fase-line">
+          <div class="fase-name">Fase 2 · Attrai</div>
+          <div class="fase-prog"><b>0/5</b> imprescindibili completati</div>
+        </div>
+        <div class="impr-label">Imprescindibili della fase</div>
+        <div class="impr-list">
+          <div class="impr-item"><span class="impr-circle"></span>Piano Editoriale 90 Giorni attivo</div>
+          <div class="impr-item"><span class="impr-circle"></span>3 pilastri (Viralità / Valore / Vendita)</div>
+          <div class="impr-item"><span class="impr-circle"></span>WhatsApp Business configurato</div>
+          <div class="impr-item"><span class="impr-circle"></span>CRM attivo su Lovarch</div>
+          <div class="impr-item"><span class="impr-circle"></span>Script della prima chiamata memorizzato</div>
+        </div>
+      </div>
+
+      <!-- Orientamenti prioritari -->
+      <div class="card">
+        <div class="card-title">Orientamenti <em>prioritari</em></div>
+        <div class="orient-list">
+          <div class="orient-item"><span class="orient-circle"></span><span class="orient-num">01</span><span class="orient-text">Definisci 3–5 pilastri di contenuto che parlino direttamente al tuo avatar</span></div>
+          <div class="orient-item"><span class="orient-circle"></span><span class="orient-num">02</span><span class="orient-text">Configura il tuo account WhatsApp Business con un profilo professionale</span></div>
+          <div class="orient-item"><span class="orient-circle"></span><span class="orient-num">03</span><span class="orient-text">Struttura uno script di vendita per le prime chiamate con i lead</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PROMPT BAR -->
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+      <div class="pb-chips-row">
+        <div class="pb-chip gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v4h-4"/></svg>Aggiorna info</div>
+        <div class="pb-chip ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>Rifai diagnosi</div>
+      </div>
+      <div class="pb-input-row">
+        <textarea id="prompt-input" rows="1" placeholder="Condividi cosa hai raggiunto questa settimana…"></textarea>
+      </div>
+      <div class="pb-bottom">
+        <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+        <div id="send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE PILLS -->
+  <div class="module-bar">
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>Clienti</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Progetti</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/></svg>Portale Cliente<span class="beta">BETA</span></div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Finanze</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Pianificazione</div>
+    <div class="mod-pill active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12l5-3"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>La Caosometro</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>DISC + SWOT</div>
+  </div>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+window.__DURATION = 10000;
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+/* persona avatar */
+const AVATAR='https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/user-assets/8f46c892-5f97-4927-ae56-cc9383cde38a/avatar.webp';
+(function(){const av=document.querySelector('.avatar');av.textContent='';av.style.backgroundImage='url('+AVATAR+')';})();
+
+const stage=document.querySelector('.stage');
+const cursorEl=document.getElementById('cursor');
+const scoreNum=document.getElementById('score-num');
+const ostacolo=document.getElementById('ostacolo');
+const radar=document.getElementById('radar');
+
+/* ───────── RADAR geometry ─────────
+   axes order (clockwise from top): Presenza(top), Captazione(right),
+   Commerciale(bottom-right), Finanze(bottom-left), Operazioni(left) */
+const RADAR_CX=180, RADAR_CY=150, RADAR_R=98;
+const AXES=[
+  {label:'Presenza',     val:65},
+  {label:'Captazione',   val:25},
+  {label:'Commerciale',  val:70},
+  {label:'Finanze',      val:30},
+  {label:'Operazioni',   val:75},
+];
+const N=AXES.length;
+function axisAngle(i){return -Math.PI/2 + (Math.PI*2/N)*i;} // start top, clockwise
+function pt(i,frac){const a=axisAngle(i);const r=RADAR_R*frac;return [RADAR_CX+Math.cos(a)*r, RADAR_CY+Math.sin(a)*r];}
+
+function buildRadarStatic(){
+  const NS='http://www.w3.org/2000/svg';
+  // grid rings
+  [0.25,0.5,0.75,1].forEach(f=>{
+    const pts=[];for(let i=0;i<N;i++){const[x,y]=pt(i,f);pts.push(x.toFixed(1)+','+y.toFixed(1));}
+    const poly=document.createElementNS(NS,'polygon');
+    poly.setAttribute('points',pts.join(' '));
+    poly.setAttribute('fill','none');
+    poly.setAttribute('stroke','rgba(120,113,108,0.16)');
+    poly.setAttribute('stroke-width','1');
+    radar.appendChild(poly);
+  });
+  // spokes
+  for(let i=0;i<N;i++){
+    const[x,y]=pt(i,1);
+    const ln=document.createElementNS(NS,'line');
+    ln.setAttribute('x1',RADAR_CX);ln.setAttribute('y1',RADAR_CY);
+    ln.setAttribute('x2',x.toFixed(1));ln.setAttribute('y2',y.toFixed(1));
+    ln.setAttribute('stroke','rgba(120,113,108,0.14)');ln.setAttribute('stroke-width','1');
+    radar.appendChild(ln);
+  }
+  // filled area (animated) — created last among shapes, before labels
+  const area=document.createElementNS(NS,'polygon');
+  area.setAttribute('id','radar-area');
+  area.setAttribute('fill','rgba(161,98,7,0.16)');
+  area.setAttribute('stroke','rgba(161,98,7,0.85)');
+  area.setAttribute('stroke-width','2');
+  area.setAttribute('stroke-linejoin','round');
+  radar.appendChild(area);
+  // vertex dots
+  for(let i=0;i<N;i++){
+    const d=document.createElementNS(NS,'circle');
+    d.setAttribute('id','radar-dot-'+i);
+    d.setAttribute('r','3');
+    d.setAttribute('fill','#A16207');
+    radar.appendChild(d);
+  }
+  // labels
+  for(let i=0;i<N;i++){
+    const[lx,ly]=pt(i,1.18);
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x',lx.toFixed(1));
+    t.setAttribute('y',(ly+3).toFixed(1));
+    t.setAttribute('font-family','Inter,sans-serif');
+    t.setAttribute('font-size','10.5');
+    t.setAttribute('font-weight','500');
+    t.setAttribute('fill','#78716C');
+    t.setAttribute('text-anchor', i===0?'middle':(Math.cos(axisAngle(i))>0.1?'start':(Math.cos(axisAngle(i))<-0.1?'end':'middle')));
+    t.textContent=AXES[i].label;
+    radar.appendChild(t);
+  }
+}
+buildRadarStatic();
+
+function drawRadarArea(prog){
+  const area=document.getElementById('radar-area');
+  const pts=[];
+  for(let i=0;i<N;i++){
+    const frac=(AXES[i].val/100)*prog;
+    const[x,y]=pt(i,frac);
+    pts.push(x.toFixed(2)+','+y.toFixed(2));
+    const dot=document.getElementById('radar-dot-'+i);
+    dot.setAttribute('cx',x.toFixed(2));dot.setAttribute('cy',y.toFixed(2));
+    dot.setAttribute('opacity',prog.toFixed(3));
+  }
+  area.setAttribute('points',pts.join(' '));
+  area.setAttribute('opacity',clamp01(prog*1.3).toFixed(3));
+}
+drawRadarArea(0);
+
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+
+const SCORE_TARGET=53;
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+
+  /* cursor: enters from bottom-right toward the radar card, then to score */
+  const radarC=centerOf(radar);
+  const sX=1880,sY=1050; let cx,cy,co=0;
+  if(T<400){cx=sX;cy=sY;co=smoothstep(0,400,T)*0.0;}
+  else if(T<1300){const e=easeInOut((T-400)/900);cx=lerp(sX,radarC.x,e);cy=lerp(sY,radarC.y,e);co=smoothstep(400,700,T);}
+  else if(T<3200){cx=radarC.x;cy=radarC.y;co=1;}
+  else if(T<4200){const e=easeInOut((T-3200)/1000);const sc=centerOf(scoreNum);cx=lerp(radarC.x,sc.x,e);cy=lerp(radarC.y,sc.y,e);co=1;}
+  else{const sc=centerOf(scoreNum);cx=sc.x;cy=sc.y;co=1-smoothstep(8800,9600,T);}
+  placeCursor(cx,cy);
+  cursorEl.style.opacity=co.toFixed(3);
+
+  /* radar draws in: T 1000 → 3000 */
+  const radarProg=easeInOut(clamp01((T-1000)/2000));
+  drawRadarArea(radarProg);
+
+  /* score counts 0 → 53: T 1500 → 3500 */
+  const scoreProg=easeInOut(clamp01((T-1500)/2000));
+  scoreNum.textContent=Math.round(SCORE_TARGET*scoreProg);
+
+  /* ostacolo / anello debole fade-in: T 3500 → 4500 */
+  const ostP=smoothstep(3500,4500,T);
+  ostacolo.style.opacity=lerp(0.25,1,ostP).toFixed(3);
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "name": "render-image-generation",
+  "account": "olimpia",
+  "viewport": {
+    "width": 1600,
+    "height": 900
+  },
+  "out": "flow-render-image.mp4",
+  "_desc": "Fluxo completo de geração de imagem no Render Studio: toggle Immagine → dropdown modo Crea → prompt → Genera → loading real → resultado.",
+  "steps": [
+    {
+      "action": "goto",
+      "module": "render",
+      "ms": 4500
+    },
+    {
+      "action": "wait",
+      "ms": 1200
+    },
+    {
+      "action": "clickText",
+      "text": "Immagine",
+      "required": false
+    },
+    {
+      "action": "wait",
+      "ms": 900
+    },
+    {
+      "action": "pickMode",
+      "mode": "Crea"
+    },
+    {
+      "action": "wait",
+      "ms": 900
+    },
+    {
+      "action": "type",
+      "text": "Soggiorno moderno e minimale, luce calda del tramonto, rovere chiaro e pietra naturale, grandi vetrate"
+    },
+    {
+      "action": "wait",
+      "ms": 1000
+    },
+    {
+      "action": "generate",
+      "label": "render",
+      "timeout": 120000
+    },
+    {
+      "action": "wait",
+      "ms": 3500
+    }
+  ]
+}

@@ -507,6 +507,16 @@ routing_map:
     scope: Google Calendar boundary (read events + watch channel + trigger re-sync)
     role_required: [owner, comercial, admin]
 
+  screen_motion:
+    triggers: ["animar tela", "animação de tela", "motion da plataforma",
+               "vídeo da tela Lovarch", "animate", "tela Lovarch", "screen motion",
+               "animação Lovarch"]
+    agent: screen-motion-engineer
+    scope: Animação determinística das telas Lovarch (motion-engine — presets HTML
+           __render, render frame-a-frame Playwright+ffmpeg, flow real via EF, smoke SSIM)
+    role_required: [owner, marketing, admin]
+    # Setup 1x na máquina: bash motion-engine/setup.sh (playwright + chromium + ffmpeg)
+
   content_builder:
     triggers: ["criar LP", "landing page", "edit blocos", "form", "quiz",
                "add block", "publicar LP"]

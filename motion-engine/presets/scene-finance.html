@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Business / Finanze (Numeri)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --gold:#C9995C; --gold-strong:#B8761F; --gold-soft:rgba(161,98,7,0.10);
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+    --card-bg:#F4F2EF; --card-bd:#EAE7E2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* ─────────── TOP NAV (identical to render-studio-motion) ─────────── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:9999px;background:rgba(161,98,7,0.10);border:1px solid rgba(161,98,7,0.18);color:var(--accent)}
+  .credits-pill svg{width:15px;height:15px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px}
+
+  /* ─────────── DASHBOARD CONTENT ─────────── */
+  .content{position:absolute;top:56px;left:0;right:0;bottom:0;padding:22px 40px 0 40px;overflow:hidden}
+
+  /* PREVISIONALE banner */
+  .prev-banner{display:flex;align-items:center;gap:14px;background:var(--card-bg);border:1px solid var(--card-bd);border-radius:16px;padding:16px 24px;margin-bottom:18px;position:relative}
+  .prev-gear{width:24px;height:24px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0}
+  .prev-gear svg{width:13px;height:13px}
+  .prev-title{font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--foreground);text-transform:uppercase}
+  .prev-year{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);font-weight:500}
+  .prev-year svg{width:13px;height:13px}
+  .prev-stats{position:absolute;left:0;right:0;bottom:-46px;display:flex;padding:0 24px;pointer-events:none}
+  .prev-stat{flex:0 0 33.33%;display:flex;flex-direction:column;gap:3px}
+  .prev-stat .lbl{font-size:10px;letter-spacing:.12em;color:var(--text-ghost);text-transform:uppercase;font-weight:600}
+  .prev-stat .val{font-family:'DM Sans',sans-serif;font-size:19px;font-weight:700;color:var(--foreground);letter-spacing:.2px}
+  .prev-stat .sub{font-size:11px;color:var(--text-ghost);margin-top:1px}
+
+  /* KPI big row */
+  .kpi-row{display:flex;gap:18px;margin:60px 0 26px 0}
+  .kpi{flex:1;display:flex;flex-direction:column;gap:7px}
+  .kpi-top{display:flex;align-items:center;justify-content:space-between;height:30px}
+  .kpi-spark{height:22px;width:84px}
+  .kpi-icon{width:22px;height:22px;color:var(--text-dim)}
+  .kpi-icon svg{width:18px;height:18px}
+  .kpi-val{font-family:'DM Sans',sans-serif;font-size:30px;font-weight:700;color:var(--foreground);letter-spacing:.3px;line-height:1}
+  .kpi-lbl{font-size:13px;color:var(--text-dim);font-weight:500}
+
+  /* two-column charts row */
+  .charts-row{display:flex;gap:24px}
+  .panel{background:transparent}
+  .panel-flusso{flex:1 1 64%;min-width:0}
+  .panel-cat{flex:0 0 33%}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .panel-title{font-size:13px;color:var(--text-dim);font-weight:500}
+  .seg-toggle{display:inline-flex;align-items:center;gap:0;background:transparent}
+  .seg-toggle .opt{font-size:13px;font-weight:600;color:var(--text-dim);padding:5px 14px;border-radius:9999px;cursor:default}
+  .seg-toggle .opt.active{background:var(--foreground);color:var(--background)}
+
+  .flusso-chart{position:relative;width:100%;height:130px}
+  .flusso-chart svg{width:100%;height:100%;display:block;overflow:visible}
+  .months{display:flex;justify-content:space-between;font-size:11px;color:var(--text-ghost);padding:4px 2px 0 2px}
+  .legend{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:8px;font-size:13px}
+  .legend .it{display:flex;align-items:center;gap:7px;color:var(--text-dim)}
+  .legend .it.inc{color:var(--gold-strong);font-weight:600}
+  .legend .dot{width:13px;height:13px;border-radius:50%;border:2px solid currentColor;position:relative}
+  .legend .dot::after{content:'';position:absolute;left:50%;top:50%;width:5px;height:5px;border-radius:50%;background:currentColor;transform:translate(-50%,-50%)}
+
+  /* donut */
+  .donut-wrap{display:flex;align-items:center;gap:24px}
+  .donut{position:relative;width:128px;height:128px;flex-shrink:0}
+  .donut svg{width:128px;height:128px;transform:rotate(-90deg)}
+  .donut .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+  .donut .center .v{font-family:'DM Sans',sans-serif;font-size:21px;font-weight:700;color:var(--foreground)}
+  .donut .center .t{font-size:11px;color:var(--text-ghost)}
+  .cat-list{flex:1}
+  .cat-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--foreground)}
+  .cat-row .nm{font-weight:600}
+  .cat-row .am{font-family:'DM Sans',sans-serif;font-weight:600}
+
+  /* three info blocks */
+  .info-row{display:flex;gap:24px;margin-top:34px}
+  .info-col{flex:1;min-width:0}
+  .info-head{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-dim);font-weight:500;margin-bottom:7px}
+  .info-head svg{width:14px;height:14px}
+  .info-val{font-family:'DM Sans',sans-serif;font-size:26px;font-weight:700;margin-bottom:2px;letter-spacing:.3px}
+  .info-val.gold{color:var(--gold-strong)}
+  .info-val.neutral{color:#2b2926}
+  .info-sub{font-size:12px;color:var(--text-ghost);margin-bottom:10px}
+  .tx-mini{display:flex;align-items:center;justify-content:space-between;font-size:12px;line-height:1.9;color:var(--text-dim)}
+  .tx-mini .am{font-family:'DM Sans',sans-serif;color:var(--gold-strong);font-weight:600}
+  .bank-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--foreground);line-height:2}
+  .bank-row .dot{width:8px;height:8px;border-radius:50%;background:var(--gold-strong);margin-right:8px;flex-shrink:0}
+  .bank-row .nm{display:flex;align-items:center}
+  .bank-row .am{font-family:'DM Sans',sans-serif;font-weight:600}
+
+  /* bottom row: entrate vs uscite + transazioni + conto economico */
+  .bottom-row{display:flex;gap:24px;margin-top:30px}
+  .bcol{flex:1;min-width:0}
+  .bcol-title{font-size:13px;color:var(--text-dim);font-weight:500;margin-bottom:6px}
+  .bar-chart{position:relative;height:120px}
+  .bar-chart svg{width:100%;height:100%;display:block}
+  .ce-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .ce-row .ce-lbl{font-size:12px;color:var(--text-dim);width:96px;flex-shrink:0}
+  .ce-bar{flex:1;height:8px;border-radius:6px;background:var(--gold-strong);min-width:6px}
+  .ce-bar.thin{background:#1f1d1b}
+  .ce-row .ce-am{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--foreground);width:78px;text-align:right;flex-shrink:0}
+  .tx-list-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(0,0,0,0.05)}
+  .tx-list-row .ic{width:18px;height:18px;border-radius:5px;background:rgba(161,98,7,0.12);color:var(--gold-strong);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .tx-list-row .ic svg{width:11px;height:11px}
+  .tx-list-row .txt{flex:1;min-width:0}
+  .tx-list-row .t1{font-size:12.5px;color:var(--foreground);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tx-list-row .t2{font-size:11px;color:var(--text-ghost)}
+  .tx-list-row .am{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--gold-strong);flex-shrink:0}
+  .tx-filters{display:flex;gap:4px;margin-left:auto}
+  .tx-filters .tf{font-size:11.5px;font-weight:500;color:var(--text-dim);padding:4px 11px;border-radius:9999px}
+  .tx-filters .tf.active{background:var(--foreground);color:var(--background)}
+  .tx-head{display:flex;align-items:center;margin-bottom:4px}
+
+  /* ─────────── PROMPT DOCK ─────────── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:118px;display:flex;justify-content:center;padding:0 40px;z-index:40}
+  .prompt-bar{width:720px;border-radius:22px;background:rgba(255,255,255,0.98);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);overflow:hidden}
+  .pb-tabs{display:flex;align-items:center;gap:8px;padding:12px 16px 0 16px}
+  .pb-tabs .seg{display:inline-flex;background:rgba(238,235,231,0.7);border-radius:9999px;padding:3px;gap:2px}
+  .pb-tabs .seg-btn{display:flex;align-items:center;gap:6px;padding:6px 15px;border-radius:9999px;font-size:12.5px;font-weight:600;color:var(--muted-foreground);line-height:1}
+  .pb-tabs .seg-btn svg{width:13px;height:13px}
+  .pb-tabs .seg-btn.active{background:var(--foreground);color:var(--background)}
+  .pb-actions{display:flex;align-items:center;gap:22px;padding:13px 20px 4px 22px}
+  .pb-action{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-dim);font-weight:500}
+  .pb-action svg{width:16px;height:16px;color:var(--gold-strong)}
+  .pb-input-row{display:flex;align-items:center;gap:12px;padding:8px 18px 16px 22px}
+  #fin-input{flex:1;border:0;outline:0;background:transparent;font-family:'Inter',sans-serif;font-size:16px;color:var(--text-ghost)}
+  .pb-mic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .pb-mic svg{width:18px;height:18px}
+
+  /* module pills */
+  .mod-dock{position:absolute;left:0;right:0;bottom:54px;display:flex;justify-content:center;z-index:39}
+  .mod-pills{display:flex;align-items:center;gap:8px}
+  .mod{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:9999px;font-size:13.5px;font-weight:500;color:var(--muted-foreground);line-height:1}
+  .mod svg{width:15px;height:15px}
+  .mod .beta{font-size:8px;font-weight:800;letter-spacing:.06em;color:var(--gold-strong);background:rgba(161,98,7,0.12);padding:2px 5px;border-radius:5px;margin-left:2px}
+  .mod.active{background:linear-gradient(135deg,#C9995C,#A16207);color:#fff;box-shadow:0 4px 14px rgba(161,98,7,0.30);font-weight:600}
+
+  /* cursor */
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg><span class="credit-num">99.961</span></div>
+      <div class="avatar">O</div>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- PREVISIONALE banner -->
+    <div class="prev-banner">
+      <div class="prev-gear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
+      <div class="prev-title">Previsionale · Giugno</div>
+      <div class="prev-year">2026<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="prev-stats">
+        <div class="prev-stat"><div class="lbl">Entrate</div><div class="val" data-count="456749" data-suffix=" €">456.749 €</div></div>
+        <div class="prev-stat"><div class="lbl">Uscite</div><div class="val" data-count="540" data-suffix=" €">540 €</div></div>
+        <div class="prev-stat"><div class="lbl">Cassa</div><div class="val" data-count="456209" data-suffix=" €">456.209 €</div></div>
+      </div>
+    </div>
+
+    <!-- KPI big row -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-top"><svg class="kpi-spark" viewBox="0 0 84 22" fill="none"><path d="M2 16 L20 12 L38 17 L56 9 L72 14 L82 6" stroke="#C9995C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="kpi-val" data-count="0" data-suffix=" €">0 €</div>
+        <div class="kpi-lbl">Entrate</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-top"><svg class="kpi-spark" viewBox="0 0 84 22" fill="none"><path d="M2 8 L20 14 L38 6 L56 16 L72 11 L82 18" stroke="#A16207" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="kpi-val" data-count="480" data-suffix=" €">480 €</div>
+        <div class="kpi-lbl">Uscite</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-top"><svg class="kpi-spark" viewBox="0 0 84 22" fill="none"><path d="M2 12 L22 11 L34 4 L46 18 L60 11 L82 12" stroke="#57534E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="kpi-val" data-count="-480" data-suffix=" €">-480 €</div>
+        <div class="kpi-lbl">Profitto</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-top"><svg class="kpi-spark" viewBox="0 0 84 22" fill="none"><path d="M2 7 L24 8 L36 16 L48 4 L62 16 L82 9" stroke="#A16207" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="kpi-val" data-count="0" data-suffix="%">0%</div>
+        <div class="kpi-lbl">Margine</div>
+      </div>
+    </div>
+
+    <!-- Flusso di cassa + Categorie -->
+    <div class="charts-row">
+      <div class="panel panel-flusso">
+        <div class="panel-head"><div class="panel-title">Flusso di Cassa</div></div>
+        <div class="flusso-chart">
+          <svg viewBox="0 0 600 130" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="incFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#C9995C" stop-opacity="0.18"/>
+                <stop offset="1" stop-color="#C9995C" stop-opacity="0"/>
+              </linearGradient>
+              <clipPath id="revealClip"><rect id="revealRect" x="0" y="0" width="0" height="130"/></clipPath>
+            </defs>
+            <line x1="0" y1="92" x2="600" y2="92" stroke="#1f1d1b" stroke-width="1.4"/>
+            <g clip-path="url(#revealClip)">
+              <path id="incArea" d="M0,90 C120,90 230,89 340,88 C420,87 470,82 520,66 C555,52 580,30 600,12 L600,92 L0,92 Z" fill="url(#incFill)"/>
+              <path id="expLine" d="M0,91 C120,91 230,90 340,89 C420,88 470,84 520,72 C555,60 580,42 600,30"
+                fill="none" stroke="#1f1d1b" stroke-width="2.2" stroke-linecap="round"/>
+              <path id="incLine" d="M0,90 C120,90 230,89 340,88 C420,87 470,82 520,66 C555,52 580,30 600,12"
+                fill="none" stroke="#C9995C" stroke-width="2.4" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+        <div class="months"><span>Feb</span><span>Mar</span><span>Apr</span><span>Mag</span><span>Giu</span></div>
+        <div class="legend">
+          <div class="it"><span class="dot"></span>Expenses</div>
+          <div class="it inc"><span class="dot"></span>Income</div>
+        </div>
+      </div>
+
+      <div class="panel panel-cat">
+        <div class="panel-head">
+          <div class="panel-title">Categorie</div>
+          <div class="seg-toggle"><div class="opt active">Uscite</div><div class="opt">Entrate</div></div>
+        </div>
+        <div class="donut-wrap">
+          <div class="donut">
+            <svg viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#EDE9E3" stroke-width="14"/>
+              <circle id="donutArc" cx="60" cy="60" r="48" fill="none" stroke="#A84B12" stroke-width="14" stroke-linecap="round"
+                stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+            </svg>
+            <div class="center"><div class="v" data-count="540" data-suffix=" €">540 €</div><div class="t">Totale</div></div>
+          </div>
+          <div class="cat-list">
+            <div class="cat-row"><span class="nm">Altro</span><span class="am">540 €</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Da Incassare / Da Pagare / Conti Bancari -->
+    <div class="info-row">
+      <div class="info-col">
+        <div class="info-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>Da Incassare</div>
+        <div class="info-val gold" data-count="627959" data-suffix=" €">627.959 €</div>
+        <div class="info-sub">28 in sospeso</div>
+        <div class="tx-mini"><span>Onorari: Loft Lambrate · SAL 4 · consegna</span><span class="am">11.760 €</span></div>
+        <div class="tx-mini"><span>Onorari: progetto-ristrutturazione · SAL 2 · CILA</span><span class="am">5500 €</span></div>
+        <div class="tx-mini"><span>Onorari: progetto-ristrutturazione · SAL 2 · CILA</span><span class="am">5500 €</span></div>
+        <div class="tx-mini"><span>Onorari: Casa Colonica Belvedere · Chianti · SAL 3 · 50% lavori</span><span class="am">9500 €</span></div>
+        <div class="tx-mini"><span>Onorari: progetto-ristrutturazione · SAL 1 · firma</span><span class="am">3300 €</span></div>
+      </div>
+      <div class="info-col">
+        <div class="info-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7L7 17M15 17H7V9"/></svg>Da Pagare</div>
+        <div class="info-val neutral" data-count="3110" data-suffix=" €">3110 €</div>
+        <div class="info-sub">5 in sospeso</div>
+      </div>
+      <div class="info-col">
+        <div class="info-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>Conti Bancari</div>
+        <div class="info-val neutral" data-count="230000" data-suffix=" €">230.000 €</div>
+        <div class="info-sub" style="margin-bottom:14px"></div>
+        <div class="bank-row"><span class="nm"><span class="dot"></span>intesa</span><span class="am">0 €</span></div>
+        <div class="bank-row"><span class="nm"><span class="dot"></span>Conto corrente</span><span class="am">230.000 €</span></div>
+      </div>
+    </div>
+
+    <!-- Entrate vs Uscite | Transazioni | Conto Economico -->
+    <div class="bottom-row">
+      <div class="bcol">
+        <div class="bcol-title">Entrate vs Uscite</div>
+        <div class="bar-chart">
+          <svg viewBox="0 0 420 120" preserveAspectRatio="none">
+            <line x1="40" y1="14" x2="420" y2="14" stroke="#EFEBE5" stroke-width="1"/>
+            <line x1="40" y1="44" x2="420" y2="44" stroke="#EFEBE5" stroke-width="1"/>
+            <line x1="40" y1="74" x2="420" y2="74" stroke="#EFEBE5" stroke-width="1"/>
+            <line x1="40" y1="100" x2="420" y2="100" stroke="#E0DAD1" stroke-width="1.2"/>
+            <text x="36" y="17" text-anchor="end" font-size="8" fill="#A8A29E" font-family="DM Sans">200.000 €</text>
+            <text x="36" y="47" text-anchor="end" font-size="8" fill="#A8A29E" font-family="DM Sans">100.000 €</text>
+            <text x="36" y="77" text-anchor="end" font-size="8" fill="#A8A29E" font-family="DM Sans">50.000 €</text>
+            <text x="36" y="103" text-anchor="end" font-size="8" fill="#A8A29E" font-family="DM Sans">0 €</text>
+            <line x1="70" y1="100" x2="150" y2="100" stroke="#C9995C" stroke-width="2.4"/>
+            <rect x="150" y="78" width="60" height="22" rx="3" fill="#A84B12"/>
+            <rect x="260" y="58" width="60" height="42" rx="3" fill="#A84B12"/>
+            <text x="110" y="116" text-anchor="middle" font-size="9" fill="#A8A29E">Mar</text>
+            <text x="290" y="116" text-anchor="middle" font-size="9" fill="#A8A29E">Apr</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="bcol">
+        <div class="tx-head">
+          <div class="bcol-title" style="margin:0">Transazioni</div>
+          <div class="tx-filters"><div class="tf active">Tutti</div><div class="tf">Entrate</div><div class="tf">Uscite</div><div class="tf">In Sospeso</div></div>
+        </div>
+        <div class="tx-list-row">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+          <div class="txt"><div class="t1">Onorari: Loft Lambrate · SAL 4 · consegna</div><div class="t2">19 feb · in sospeso</div></div>
+          <div class="am">+11.760 €</div>
+        </div>
+        <div class="tx-list-row">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+          <div class="txt"><div class="t1">Onorari: progetto-ristrutturazione · SAL 2 · CILA</div><div class="t2">14 feb · in sospeso</div></div>
+          <div class="am">+5500 €</div>
+        </div>
+      </div>
+
+      <div class="bcol">
+        <div class="bcol-title">Conto Economico</div>
+        <div class="ce-row"><span class="ce-lbl">Ricavi</span><span class="ce-bar"></span><span class="ce-am">456.749 €</span></div>
+        <div class="ce-row"><span class="ce-lbl">Costi Variabili</span><span class="ce-bar thin" style="flex:0 0 6px"></span><span class="ce-am">-0 €</span></div>
+        <div class="ce-row"><span class="ce-lbl">Margine Lordo</span><span class="ce-bar"></span><span class="ce-am">456.749 €</span></div>
+        <div class="ce-row"><span class="ce-lbl">Costi Fissi</span><span class="ce-bar thin" style="flex:0 0 6px"></span><span class="ce-am">-0 €</span></div>
+        <div class="ce-row"><span class="ce-lbl">Utile Netto</span><span class="ce-bar"></span><span class="ce-am">456.749 €</span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PROMPT DOCK -->
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+      <div class="pb-tabs">
+        <div class="seg">
+          <div class="seg-btn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard</div>
+          <div class="seg-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Transazioni</div>
+        </div>
+      </div>
+      <div class="pb-actions">
+        <div class="pb-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuova Transazione</div>
+        <div class="pb-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V4h9l8.6 8.6a2 2 0 0 1 0 .8z"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></svg>Categorie</div>
+      </div>
+      <div class="pb-input-row">
+        <input id="fin-input" type="text" placeholder="Chiedi qualcosa sui tuoi dati finanziari…" readonly />
+        <div class="pb-mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE PILLS -->
+  <div class="mod-dock">
+    <div class="mod-pills">
+      <div class="mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>Clienti</div>
+      <div class="mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Progetti</div>
+      <div class="mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Portale Cliente<span class="beta">BETA</span></div>
+      <div class="mod active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Finanze</div>
+      <div class="mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Pianificazione</div>
+      <div class="mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 5-7"/></svg>Caosometro</div>
+      <div class="mod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>DISC + SWOT</div>
+    </div>
+  </div>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+window.__DURATION = 9000;
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+const stage=document.querySelector('.stage');
+const cursorEl=document.getElementById('cursor');
+const revealRect=document.getElementById('revealRect');
+const donutArc=document.getElementById('donutArc');
+const DONUT_LEN=301.6;
+const counters=Array.from(document.querySelectorAll('[data-count]'));
+
+function fmtEuro(n,suffix){
+  const neg=n<0; n=Math.abs(Math.round(n));
+  let s=n.toLocaleString('it-IT'); // 456.749
+  return (neg?'-':'')+s+(suffix||'');
+}
+function fmtPercent(n,suffix){return Math.round(n)+(suffix||'');}
+
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+
+  /* KPI / value count-up: T 800 → 2800 */
+  const cp=easeInOut(clamp01((T-800)/2000));
+  for(const el of counters){
+    const target=parseFloat(el.getAttribute('data-count'));
+    const suffix=el.getAttribute('data-suffix')||'';
+    const cur=target*cp;
+    el.textContent = (suffix==='%') ? fmtPercent(cur,suffix) : fmtEuro(cur,suffix);
+  }
+
+  /* Flusso di cassa draws in: T 1200 → 3200 (left→right reveal) */
+  const fp=easeInOut(clamp01((T-1200)/2000));
+  revealRect.setAttribute('width',(600*fp).toFixed(1));
+
+  /* Donut fills: T 1500 → 3000 (full ring since single category) */
+  const dp=easeInOut(clamp01((T-1500)/1500));
+  donutArc.setAttribute('stroke-dashoffset',(DONUT_LEN*(1-dp)).toFixed(1));
+
+  /* cursor: enters bottom-right, glides to the prompt/dashboard area */
+  const dashC=centerOf(document.querySelector('.seg-btn.active'));
+  const sX=1860,sY=1010; let cx,cy;
+  if(T<500){cx=sX;cy=sY;}
+  else if(T<1500){const e=easeInOut((T-500)/1000);cx=lerp(sX,dashC.x,e);cy=lerp(sY,dashC.y,e);}
+  else if(T<4200){cx=dashC.x;cy=dashC.y;}
+  else{ // drift up toward the KPI / banner reveal
+    const fin=centerOf(document.querySelector('.mod.active'));
+    const e=easeInOut(clamp01((T-4200)/1400));cx=lerp(dashC.x,fin.x,e);cy=lerp(dashC.y,fin.y,e);
+  }
+  placeCursor(cx,cy);
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

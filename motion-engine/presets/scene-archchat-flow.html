@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — ArchChat flow (empty → conversation)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --gold-deep:#92560A; --bg-nav:rgba(250,249,247,0.82);
+    --surface:rgba(238,235,231,0.55); --surface-hover:rgba(228,224,219,0.85);
+    --accent-bg:rgba(161,98,7,0.10); --accent-text:#92560A;
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04);
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* ── BACKGROUND (new-home 3-layer + constellation) ── */
+  #bg-grad{position:absolute;inset:0;background:linear-gradient(180deg,#FFFFFF 0%,#FAF9F7 40%,#F5F3F0 100%)}
+  #bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,0,0,0.025) .5px,transparent .5px),linear-gradient(90deg,rgba(0,0,0,0.025) .5px,transparent .5px);background-size:96px 96px}
+  #bg-glow{position:absolute;top:8%;right:8%;width:640px;height:640px;border-radius:50%;filter:blur(160px);background:rgba(161,98,7,0.06)}
+  #constellation{position:absolute;inset:0;pointer-events:none;opacity:.7}
+
+  /* ── TOP NAV ── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid rgba(227,227,227,.6)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:9999px;background:rgba(238,235,231,0.55);border:1px solid var(--border);color:var(--muted-foreground)}
+  .credits-pill svg{width:15px;height:15px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;line-height:1;color:var(--foreground)}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);background-size:cover;background-position:center}
+
+  /* ── EMPTY STATE (centered column) ── */
+  #empty{position:absolute;top:56px;left:0;right:0;bottom:230px;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:10px}
+  #empty .col{width:560px;text-align:center}
+  .hero .glyph{width:54px;height:54px;margin:0 auto 8px}
+  .ac-title{font-family:'DM Sans',sans-serif;font-weight:600;font-size:22px;color:var(--foreground)}
+  .ac-sub{font-size:15px;color:var(--muted-foreground);margin-top:2px;margin-bottom:18px}
+  .sugg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .sugg-card{display:flex;align-items:flex-start;gap:8px;padding:14px 16px;border-radius:14px;background:var(--surface);font-size:14px;color:var(--muted-foreground);text-align:left;line-height:1.35}
+  .sugg-card .sp{flex:0 0 16px;color:var(--accent);margin-top:1px}
+  .sugg-card .sp svg{width:15px;height:15px}
+  .conv-head{display:flex;align-items:center;gap:8px;text-align:left}
+  .conv-label{font-size:11px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--accent-text)}
+  .conv-search{margin-left:auto;color:var(--muted-foreground)}
+  .conv-search svg{width:15px;height:15px}
+  .conv-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+  .conv-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:var(--surface);text-align:left}
+  .conv-item .cic{flex:0 0 16px;color:var(--muted-foreground)}
+  .conv-item .cic svg{width:16px;height:16px}
+  .ctitle{font-size:14px;color:var(--foreground)}
+  .cmeta{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(87,83,78,.5);margin-top:1px}
+
+  /* ── CHAT MODE (sidebar + thread) ── */
+  #chat{position:absolute;top:78px;left:0;right:0;bottom:230px;z-index:10;display:flex;opacity:0;padding:0 40px}
+  .side{flex:0 0 256px;overflow:hidden;padding-right:8px}
+  .newchat{display:flex;align-items:center;gap:8px;width:100%;padding:11px 12px;border-radius:12px;margin-bottom:14px;font-size:14px;font-weight:500;background:var(--surface-hover);color:var(--foreground)}
+  .newchat svg{width:16px;height:16px}
+  .side-group-label{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(87,83,78,.5);padding:0 12px;margin-bottom:6px}
+  .side-item{padding:8px 12px;border-radius:12px;margin-bottom:2px}
+  .side-item.active{background:var(--surface-hover)}
+  .side-item .st{font-size:14px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side-item.active .st{color:var(--foreground);font-weight:500}
+  .side-item .sm{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(87,83,78,.45);margin-top:1px}
+
+  .chatmain{flex:1;display:flex;flex-direction:column;min-width:0;padding-left:8px}
+  .chat-top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .chat-top .pl{color:var(--muted-foreground)}
+  .chat-top .pl svg{width:16px;height:16px}
+  .chat-title{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--foreground)}
+  .chat-top .dl{margin-left:auto;color:var(--muted-foreground)}
+  .chat-top .dl svg{width:16px;height:16px}
+  .thread{flex:1;overflow:hidden}
+  .thread-inner{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+  .msg{display:flex;gap:12px}
+  .msg.user{justify-content:flex-end}
+  .ava{width:32px;height:32px;border-radius:50%;flex:0 0 32px;display:flex;align-items:center;justify-content:center;margin-top:4px}
+  .ava.ai{background:var(--accent-bg);color:var(--accent)}
+  .ava.ai svg{width:19px;height:19px}
+  .ava.u{background:rgba(120,113,108,.18);color:var(--muted-foreground);order:2}
+  .ava.u svg{width:17px;height:17px}
+  .bub{max-width:80%;padding:13px 18px;font-size:16px;line-height:1.6}
+  .bub.user{background:var(--foreground);color:var(--background);border-radius:18px;border-bottom-right-radius:6px;white-space:pre-wrap}
+  .bub.ai{background:var(--surface);color:#2b2723;border-radius:18px;border-bottom-left-radius:6px;white-space:pre-wrap}
+  .bub.ai.md{white-space:normal}
+  .bub.ai p{margin:0 0 10px}.bub.ai p:last-child{margin-bottom:0}
+  .bub.ai strong{font-weight:700}
+  .bub.ai h4{font-size:16px;font-weight:700;margin:12px 0 6px}
+  .bub.ai ul{margin:4px 0 10px;padding-left:20px}
+  .bub.ai li{margin-bottom:5px}
+  #ai-caret2{display:inline-block;width:2px;height:16px;background:rgba(24,24,27,.6);margin-left:1px;vertical-align:middle}
+  .think{display:flex;gap:12px}
+  .think .tb{background:var(--surface);border-radius:18px;border-bottom-left-radius:6px;padding:14px 18px;display:flex;gap:7px;align-items:center}
+  .think .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+
+  /* ── PROMPT DOCK (floating, rich toolbar) ── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:96px;z-index:30;display:flex;justify-content:center;padding:0 40px}
+  .prompt-bar{width:860px;border-radius:24px;background:rgba(255,255,255,0.97);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);overflow:hidden}
+  .pb-text-wrap{padding:18px 22px 4px;min-height:54px}
+  #prompt-text{font-family:'Inter',sans-serif;font-size:17px;line-height:1.5;color:var(--foreground)}
+  #prompt-text.placeholder{color:rgba(87,83,78,0.5)}
+  #caret{display:inline-block;width:2px;height:19px;background:var(--accent);vertical-align:middle;margin-left:1px;opacity:0}
+  .pb-bottom{display:flex;align-items:center;justify-content:space-between;padding:6px 14px 12px}
+  .pb-left{display:flex;align-items:center;gap:4px}
+  .pb-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .pb-ic svg{width:17px;height:17px}
+  .pb-sel{display:flex;align-items:center;gap:4px;padding:6px 9px;border-radius:9px;color:var(--muted-foreground);font-size:13px;font-weight:500}
+  .pb-sel svg{width:13px;height:13px;opacity:.7}
+  .pb-tog{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:9px;color:var(--muted-foreground);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif}
+  .pb-tog svg{width:14px;height:14px}
+  .pb-tog .beta{font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:rgba(161,98,7,.15);color:var(--accent);padding:2px 4px;border-radius:4px}
+  .pb-right{display:flex;align-items:center;gap:6px}
+  .mic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:17px;height:17px}
+  #send-btn{position:relative;width:40px;height:40px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff}
+  #send-btn svg{width:18px;height:18px}
+  #ripple{position:absolute;left:50%;top:50%;width:40px;height:40px;border-radius:12px;background:rgba(161,98,7,.45);transform:translate(-50%,-50%) scale(1);opacity:0;pointer-events:none}
+
+  /* ── BOTTOM MODULE PILLS (7) ── */
+  .bottom-dock{position:absolute;left:0;right:0;bottom:42px;z-index:30;display:flex;justify-content:center;gap:6px}
+  .dock-pill{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9999px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);font-size:12px;font-weight:500;color:rgba(24,24,27,.72)}
+  .dock-pill svg{width:14px;height:14px}
+  .dock-pill .beta{font-size:8px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:1px}
+
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div id="bg-grad"></div><div id="bg-grid"></div><div id="bg-glow"></div>
+  <canvas id="constellation"></canvas>
+
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg><span class="credit-num">99.961</span></div>
+      <div class="avatar"></div>
+    </div>
+  </header>
+
+  <!-- EMPTY STATE -->
+  <div id="empty">
+    <div class="col">
+      <div class="hero">
+        <div class="glyph">
+          <svg viewBox="0 0 64 64" fill="none" stroke="#3a3a3a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="32,8 54,20 54,44 32,56 10,44 10,20" />
+            <line x1="32" y1="8" x2="32" y2="56"/><line x1="10" y1="20" x2="54" y2="44"/>
+            <line x1="54" y1="20" x2="10" y2="44"/><line x1="32" y1="8" x2="54" y2="44"/>
+            <line x1="32" y1="8" x2="10" y2="44"/><line x1="32" y1="56" x2="54" y2="20"/>
+            <line x1="32" y1="56" x2="10" y2="20"/><line x1="10" y1="20" x2="54" y2="20"/>
+            <line x1="10" y1="44" x2="54" y2="44"/>
+            <g fill="#3a3a3a" stroke="none">
+              <circle cx="32" cy="8" r="2.4"/><circle cx="54" cy="20" r="2.4"/><circle cx="54" cy="44" r="2.4"/>
+              <circle cx="32" cy="56" r="2.4"/><circle cx="10" cy="44" r="2.4"/><circle cx="10" cy="20" r="2.4"/>
+              <circle cx="32" cy="32" r="2.6"/>
+            </g>
+          </svg>
+        </div>
+        <div class="ac-title">ArchChat</div>
+        <div class="ac-sub">Il tuo assistente AI per architettura e design</div>
+      </div>
+      <div class="sugg" id="sugg"></div>
+      <div class="conv-head">
+        <div class="conv-label">Conversazioni Recenti</div>
+        <div class="conv-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></div>
+      </div>
+      <div class="conv-list" id="conv-list"></div>
+    </div>
+  </div>
+
+  <!-- CHAT MODE -->
+  <div id="chat">
+    <div class="side">
+      <div class="newchat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuova chat</div>
+      <div class="side-group-label">Precedenti</div>
+      <div id="side-list"></div>
+    </div>
+    <div class="chatmain">
+      <div class="chat-top">
+        <span class="pl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></span>
+        <span class="chat-title" id="chat-title">ArchChat</span>
+        <span class="dl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
+      </div>
+      <div class="thread">
+        <div class="thread-inner">
+          <div class="msg user"><div class="bub user" id="user-bub2"></div><div class="ava u"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div></div>
+          <div id="think" class="think"><div class="ava ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="4" y1="7.5" x2="20" y2="16.5"/><line x1="20" y1="7.5" x2="4" y2="16.5"/></svg></div><div class="tb"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+          <div id="ai-msg" class="msg" style="display:none"><div class="ava ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="4" y1="7.5" x2="20" y2="16.5"/><line x1="20" y1="7.5" x2="4" y2="16.5"/></svg></div><div class="bub ai"><span id="ai-text2"></span><span id="ai-caret2"></span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROMPT DOCK -->
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+      <div class="pb-text-wrap"><span id="prompt-text" class="placeholder">Come posso aiutarti oggi?</span><span id="caret"></span></div>
+      <div class="pb-bottom">
+        <div class="pb-left">
+          <div class="pb-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05l-8.5 8.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></div>
+          <div class="pb-sel" id="agent-sel">Assistente Generale<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+          <div class="pb-sel" id="model-sel">Gemini 3.1 Pro<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+          <div class="pb-tog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A4.5 4.5 0 0 0 5 6.5c0 1 .3 1.7.3 1.7A4 4 0 0 0 4 11.5 4 4 0 0 0 6 15a3.5 3.5 0 0 0 3.5 3.5"/><path d="M14.5 2A4.5 4.5 0 0 1 19 6.5c0 1-.3 1.7-.3 1.7A4 4 0 0 1 20 11.5 4 4 0 0 1 18 15a3.5 3.5 0 0 1-3.5 3.5"/><path d="M9.5 2v16.5M14.5 2v16.5"/></svg>Ragionamento</div>
+          <div class="pb-tog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>Azioni<span class="beta">Beta</span></div>
+        </div>
+        <div class="pb-right">
+          <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+          <div id="send-btn"><span id="ripple"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-dock">
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Render Studio</div>
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5"/></svg>Moodboard</div>
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20c1 0 1.7-.8 1.7-1.8 0-1-.7-1.7-.7-2.4 0-1 .8-1.8 1.8-1.8H17a5 5 0 0 0 5-5c0-4.4-4.5-8-10-8z"/></svg>Branding</div>
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>Content Studio<span class="beta">Beta</span></div>
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/></svg>Clienti</div>
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Progetti</div>
+    <div class="dock-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Caosometro</div>
+  </div>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+window.__CONTENT = Object.assign({
+  userMsg: "Scrivi un'email per comunicare con tatto un aumento di tariffa del 15% a un cliente storico.",
+  // markdown leggero: **grassetto**, "## " titolo, "- " elenco, riga vuota = paragrafo
+  aiMsg: "Ecco una bozza pronta da personalizzare:\n\n**Oggetto:** Aggiornamento delle mie tariffe\n\nGentile Cliente, la collaborazione di questi anni è stata per me un privilegio.\n\nDal prossimo incarico la mia tariffa sarà adeguata del **15%**: lo stesso livello di cura, con un valore allineato al lavoro.\n\nResto volentieri a disposizione per parlarne con calma.",
+  convTitle: "Email aumento tariffa cliente",
+  recent: [
+    { t: "Follow-up preventivo progetto interior", m: "19 giu · 16:34" },
+    { t: "Gestione delle finanze personali", m: "17 giu · 16:38" },
+    { t: "Chat senza titolo", m: "17 giu · 16:38" },
+    { t: "Strategia operativa per studio", m: "16 giu · 09:12" },
+  ],
+  avatar: "",
+}, window.__CONTENT || {});
+const C = window.__CONTENT;
+window.__DURATION = 13000;
+
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+const stage=document.querySelector('.stage');
+const SUGG=["Analizza il mio studio: punti di forza e debolezze","Crea un piano marketing per il mese prossimo","Come posso migliorare la mia presenza su Instagram?","Suggeriscimi trend di design per il 2026"];
+const sparkSvg='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.3 3.2a.8 .8 0 0 1 1.4 0l1.5 3.6a.8 .8 0 0 0 .4 .4l3.6 1.5a.8 .8 0 0 1 0 1.4l-3.6 1.5a.8 .8 0 0 0-.4 .4l-1.5 3.6a.8 .8 0 0 1-1.4 0l-1.5-3.6a.8 .8 0 0 0-.4-.4l-3.6-1.5a.8 .8 0 0 1 0-1.4l3.6-1.5a.8 .8 0 0 0 .4-.4z"/></svg>';
+document.getElementById('sugg').innerHTML = SUGG.map(s=>`<div class="sugg-card"><span class="sp">${sparkSvg}</span><span class="txt">${s}</span></div>`).join('');
+const chatSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.9 7.6L3 21l1.9-6.1A8.4 8.4 0 1 1 21 11.5z"/></svg>';
+document.getElementById('conv-list').innerHTML = C.recent.map(r=>`<div class="conv-item"><span class="cic">${chatSvg}</span><div class="cbody"><div class="ctitle">${r.t}</div><div class="cmeta">${r.m}</div></div></div>`).join('');
+document.getElementById('side-list').innerHTML = C.recent.map((r,i)=>`<div class="side-item${i===0?' active':''}"><div class="st">${i===0?C.convTitle:r.t}</div><div class="sm">${r.m}</div></div>`).join('');
+document.getElementById('chat-title').textContent = C.convTitle;
+if(C.avatar){const av=document.querySelector('.avatar');av.style.backgroundImage='url('+C.avatar+')';}
+
+const promptText=document.getElementById('prompt-text'), caret=document.getElementById('caret');
+const sendBtn=document.getElementById('send-btn'), ripple=document.getElementById('ripple'), cursorEl=document.getElementById('cursor');
+const emptyEl=document.getElementById('empty'), chatEl=document.getElementById('chat');
+const userBub2=document.getElementById('user-bub2'), aiText2=document.getElementById('ai-text2'), aiCaret2=document.getElementById('ai-caret2');
+const thinkEl=document.getElementById('think'), aiMsgEl=document.getElementById('ai-msg');
+
+const USER_MSG=C.userMsg, AI_MSG=C.aiMsg;
+
+// markdown leggero → HTML (renderizzato a streaming finito)
+function mdToHtml(md){
+  const blocks=md.split(/\n\n+/);
+  return blocks.map(b=>{
+    b=b.trim();
+    if(b.startsWith('## ')) return '<h4>'+inline(b.slice(3))+'</h4>';
+    if(/^[-•]\s/.test(b)){
+      const items=b.split(/\n/).map(l=>'<li>'+inline(l.replace(/^[-•]\s/,''))+'</li>').join('');
+      return '<ul>'+items+'</ul>';
+    }
+    return '<p>'+inline(b).replace(/\n/g,'<br>')+'</p>';
+  }).join('');
+}
+function inline(s){return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');}
+
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function leftOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+22)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x}px,${y}px)`;}
+
+// ── constellation (deterministico, funzione pura di T) ──
+const cv=document.getElementById('constellation'), cx2=cv.getContext('2d');
+cv.width=1920; cv.height=1080;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd=mulberry32(20260627);
+const PTS=[];for(let i=0;i<60;i++)PTS.push({x:rnd()*1920,y:rnd()*1080,vx:(rnd()-0.5)*0.3,vy:(rnd()-0.5)*0.3,r:rnd()*2+0.8,o:rnd()*0.4+0.1});
+function drawConstellation(T){
+  cx2.clearRect(0,0,1920,1080);
+  const f=T/16.67;
+  const P=PTS.map(p=>{let x=p.x+p.vx*f,y=p.y+p.vy*f;const W=1920,H=1080;x=((x%W)+W)%W;y=((y%H)+H)%H;return{x,y,r:p.r,o:p.o};});
+  for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){const dx=P[i].x-P[j].x,dy=P[i].y-P[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<140){cx2.beginPath();cx2.moveTo(P[i].x,P[i].y);cx2.lineTo(P[j].x,P[j].y);cx2.strokeStyle=`rgba(0,0,0,${(1-d/140)*0.2})`;cx2.lineWidth=0.6;cx2.stroke();}}
+  for(const p of P){cx2.beginPath();cx2.arc(p.x,p.y,p.r,0,Math.PI*2);cx2.fillStyle=`rgba(0,0,0,${p.o})`;cx2.fill();}
+}
+
+/* timeline:
+   0-600    cursor parked bottom-right
+   600-1300 cursor → input
+   1300-4400 type prompt
+   4400-5000 cursor → send
+   5000-5300 click+ripple
+   5300-6000 TRANSIZIONE: empty fade-out, chat fade-in, user bubble
+   6000-6900 thinking (loader)
+   6900-12200 AI streams plain text
+   12200+    render markdown */
+const TYPE_START=1300, TYPE_END=4400, SEND_T=5050;
+const TRANS_START=5300, TRANS_END=6000, THINK_END=6900;
+const AI_START=6900, AI_END=12200;
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+  drawConstellation(T);
+
+  const sent=T>=SEND_T;
+  // typing into prompt bar
+  let chars=0;
+  if(T>=TYPE_START)chars=Math.round(clamp01((T-TYPE_START)/(TYPE_END-TYPE_START))*USER_MSG.length);
+  if(T>=TYPE_END)chars=USER_MSG.length;
+  if(!sent){
+    if(chars>0){promptText.classList.remove('placeholder');promptText.textContent=USER_MSG.slice(0,chars);}
+    else{promptText.classList.add('placeholder');promptText.textContent='Come posso aiutarti oggi?';}
+    caret.style.opacity=(T>=900&&(Math.floor(T/500)%2===0))?'1':'0';
+  }else{
+    promptText.classList.add('placeholder');promptText.textContent='Come posso aiutarti oggi?';caret.style.opacity='0';
+  }
+
+  // cursor path
+  const inputC=leftOf(document.querySelector('.pb-text-wrap'));
+  const btnC=centerOf(sendBtn);
+  const sX=1820,sY=1015; let cx,cy;
+  if(T<600){cx=sX;cy=sY;}
+  else if(T<1300){const e=easeInOut((T-600)/700);cx=lerp(sX,inputC.x,e);cy=lerp(sY,inputC.y,e);}
+  else if(T<4400){cx=inputC.x;cy=inputC.y;}
+  else if(T<5000){const e=easeInOut((T-4400)/600);cx=lerp(inputC.x,btnC.x,e);cy=lerp(inputC.y,btnC.y,e);}
+  else{cx=btnC.x;cy=btnC.y;}
+  placeCursor(cx,cy);
+
+  // send press + ripple
+  let bs=1,rs=1,ro=0;
+  if(T>=SEND_T-100&&T<SEND_T+250){const p=clamp01((T-(SEND_T-100))/350);bs=lerp(0.9,1,easeInOut(p));rs=lerp(1,3.2,p);ro=(1-p)*0.85;}
+  sendBtn.style.transform=`scale(${bs})`;
+  ripple.style.transform=`translate(-50%,-50%) scale(${rs})`;ripple.style.opacity=ro.toFixed(3);
+
+  // TRANSITION empty → chat
+  const trans=smoothstep(TRANS_START,TRANS_END,T);
+  emptyEl.style.opacity=(1-trans).toFixed(3);
+  emptyEl.style.transform=`translateY(${trans*-12}px)`;
+  chatEl.style.opacity=trans.toFixed(3);
+  chatEl.style.transform=`translateY(${(1-trans)*12}px)`;
+
+  if(trans>0.01){
+    userBub2.textContent=USER_MSG;
+    const thinking=T>=TRANS_START&&T<THINK_END;
+    thinkEl.style.display=thinking?'flex':'none';
+    if(thinking){const o=(i)=>0.3+0.7*(0.5+0.5*Math.sin((T/110)-i*0.9));const ds=thinkEl.querySelectorAll('.dot');ds[0].style.opacity=o(0);ds[1].style.opacity=o(1);ds[2].style.opacity=o(2);}
+    const showAi=T>=AI_START;
+    aiMsgEl.style.display=showAi?'flex':'none';
+    if(showAi){
+      const bub=aiMsgEl.querySelector('.bub');
+      if(T>=AI_END){bub.classList.add('md');bub.innerHTML=mdToHtml(AI_MSG);}
+      else{
+        bub.classList.remove('md');
+        const n=Math.round(clamp01((T-AI_START)/(AI_END-AI_START))*AI_MSG.length);
+        aiText2.textContent=AI_MSG.slice(0,n);
+        aiCaret2.style.opacity=(Math.floor(T/400)%2===0)?'0.6':'0.15';
+        bub.appendChild(aiCaret2);
+      }
+    }
+  }else{
+    thinkEl.style.display='none';aiMsgEl.style.display='none';userBub2.textContent='';
+  }
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();window.addEventListener('load',boot);
+</script>
+</body>
+</html>

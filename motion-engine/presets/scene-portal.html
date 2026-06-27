@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Portale Cliente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.10), 0 0 60px rgba(161,98,7,0.03);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* ───── TOP NAV (reused chrome) ───── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:8px;padding:7px 14px 7px 12px;border-radius:9999px;background:rgba(238,235,231,0.55);border:1px solid var(--border);color:var(--foreground)}
+  .credits-pill svg{width:16px;height:16px;color:var(--muted-foreground)}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;background-size:cover;background-position:center}
+
+  /* ───── CONTENT ───── */
+  .content{position:absolute;top:56px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:50px 0 0 0}
+  .block{width:920px;max-width:920px}
+
+  /* title row */
+  .title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+  .page-title{font-family:'Outfit',sans-serif;font-size:34px;font-weight:600;letter-spacing:-0.01em;color:var(--foreground);line-height:1.1}
+  .page-sub{margin-top:8px;font-family:'Inter',sans-serif;font-size:16px;color:var(--muted-foreground);line-height:1.3}
+  .premium-pill{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:9999px;background:var(--background);border:1px solid var(--border);box-shadow:var(--shadow-sm);font-size:14.5px;font-weight:600;color:var(--foreground);flex-shrink:0;line-height:1;margin-top:4px}
+  .premium-pill svg{width:16px;height:16px;color:var(--muted-foreground)}
+
+  /* filter tabs */
+  .ftabs{display:flex;align-items:center;gap:12px;margin-top:26px}
+  .ftab{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:9999px;font-size:14.5px;font-weight:600;color:var(--muted-foreground);background:rgba(238,235,231,0.55);border:1px solid transparent;line-height:1}
+  .ftab svg{width:16px;height:16px;color:var(--text-dim)}
+  .ftab.active{background:var(--accent);color:#FAF9F7}
+  .ftab.active svg{color:#FAF9F7}
+
+  /* empty state */
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;margin-top:120px;user-select:none}
+  .empty-glyph{width:64px;height:64px;border-radius:18px;background:rgba(161,98,7,0.10);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+  .empty-glyph svg{width:30px;height:30px}
+  .empty-t1{font-family:'Outfit',sans-serif;font-size:19px;font-weight:600;color:var(--foreground)}
+  .empty-t2{font-family:'Inter',sans-serif;font-size:15.5px;color:var(--text-dim);line-height:1.45;max-width:360px}
+
+  /* ───── PROMPT BAR ───── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:76px;display:flex;justify-content:center;padding:0 40px}
+  .prompt-bar{width:1000px;min-height:118px;border-radius:24px;background:rgba(255,255,255,0.97);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);padding:22px 24px 20px 28px;display:flex;flex-direction:column}
+  #prompt-input{flex:1;border:0;outline:0;background:transparent;resize:none;font-family:'Inter',sans-serif;font-size:18px;color:var(--foreground);line-height:1.5;min-height:30px;overflow:hidden}
+  #prompt-input::placeholder{color:rgba(120,113,108,0.65)}
+  .pb-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:auto}
+  .mic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:19px;height:19px}
+  #send-btn{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(161,98,7,0.22);color:var(--accent);box-shadow:0 2px 8px rgba(161,98,7,0.14)}
+  #send-btn svg{width:19px;height:19px}
+
+  /* ───── BOTTOM NAV (Business sub-tabs) ───── */
+  .bottomnav{position:absolute;left:0;right:0;bottom:18px;display:flex;align-items:center;justify-content:center;gap:14px;z-index:30}
+  .bnav{display:inline-flex;align-items:center;gap:9px;padding:9px 18px;border-radius:9999px;font-size:14.5px;font-weight:600;color:var(--muted-foreground);background:rgba(238,235,231,0.55);line-height:1}
+  .bnav svg{width:16px;height:16px;color:var(--text-dim)}
+  .bnav.active{background:var(--accent);color:#FAF9F7}
+  .bnav.active svg{color:#FAF9F7}
+  .beta{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;color:rgba(250,249,247,0.78);background:rgba(255,255,255,0.18);padding:2px 6px;border-radius:6px;line-height:1}
+
+  /* footer credits (faint, bottom-right) */
+  .footer-credits{position:absolute;right:40px;bottom:84px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text-ghost);z-index:20;opacity:.0}
+
+  /* cursor */
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform}
+
+  /* fade-in stagger helpers */
+  .anim{opacity:0;transform:translateY(14px);will-change:opacity,transform}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- TOP NAV -->
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="credit-num">99.961</span></div>
+      <div class="avatar" id="avatar"></div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <main class="content">
+    <div class="block">
+      <div class="title-row">
+        <div>
+          <h1 class="page-title anim" data-i="0">Portale Cliente</h1>
+          <p class="page-sub anim" data-i="1">I tuoi clienti, i progetti che seguono e i messaggi.</p>
+        </div>
+        <div class="premium-pill anim" data-i="2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          Anteprima premium
+        </div>
+      </div>
+
+      <div class="ftabs">
+        <div class="ftab active anim" data-i="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</div>
+        <div class="ftab anim" data-i="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg>Messaggi</div>
+        <div class="ftab anim" data-i="5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M9 18h6"/></svg>Agente IA</div>
+        <div class="ftab anim" data-i="6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M3 21h18"/><path d="M8 21v-5h8v5"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg>Studio</div>
+      </div>
+
+      <div class="empty">
+        <div class="empty-glyph anim" data-i="7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="empty-t1 anim" data-i="8">Nessun cliente con progetti</div>
+        <div class="empty-t2 anim" data-i="9">I clienti che seguono almeno un progetto appariranno qui.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PROMPT BAR -->
+  <div class="prompt-dock">
+    <div class="prompt-bar anim" data-i="10">
+      <textarea id="prompt-input" rows="1" placeholder="Come posso aiutarti oggi?"></textarea>
+      <div class="pb-actions">
+        <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+        <div id="send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV (Business sub-tabs) -->
+  <nav class="bottomnav anim" data-i="11">
+    <div class="bnav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</div>
+    <div class="bnav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 8.5l-7.1 7.1a2 2 0 0 1-2.8 0L3 8V4h4l8.6 8.6"/><circle cx="6.5" cy="6.5" r="1"/></svg>Progetti</div>
+    <div class="bnav active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Portale Cliente<span class="beta">BETA</span></div>
+    <div class="bnav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-7"/><path d="M21 8v6"/></svg>Finanze</div>
+    <div class="bnav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>Pianificazione</div>
+    <div class="bnav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>Caosometro</div>
+    <div class="bnav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18a5.5 5.5 0 0 1 11 0"/></svg>DISC + SWOT</div>
+  </nav>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+window.__CONTENT = Object.assign({
+  avatar: "https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/user-assets/8f46c892-5f97-4927-ae56-cc9383cde38a/avatar.webp",
+  // optional prompt text typed into the bar; empty = placeholder stays
+  prompt: "",
+}, window.__CONTENT || {});
+const C = window.__CONTENT;
+
+window.__DURATION = 9000;
+
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeOut(x){x=clamp01(x);return 1-Math.pow(1-x,3);}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+const stage=document.querySelector('.stage');
+const cursorEl=document.getElementById('cursor');
+const promptInput=document.getElementById('prompt-input');
+const animEls=[...document.querySelectorAll('.anim')].sort((a,b)=>(+a.dataset.i)-(+b.dataset.i));
+
+/* avatar persona */
+if(C.avatar){const av=document.getElementById('avatar');av.textContent='';av.style.backgroundImage="url('"+C.avatar+"')";}
+
+const PROMPT_TEXT = C.prompt || "";
+
+/* staggered fade-in timing (ms): each element revealed over a window */
+const STAGGER_START = 600;   // first element starts after cursor enters
+const STAGGER_STEP  = 230;   // delay between elements
+const REVEAL_DUR    = 520;   // each element's fade duration
+
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+
+  /* staggered fade-in of every element */
+  animEls.forEach((el,idx)=>{
+    const t0=STAGGER_START+idx*STAGGER_STEP;
+    const p=easeOut((T-t0)/REVEAL_DUR);
+    el.style.opacity=p.toFixed(3);
+    el.style.transform=`translateY(${(1-p)*14}px)`;
+  });
+
+  /* cursor: enters from bottom-right, drifts toward the prompt bar */
+  const promptC=centerOf(promptInput);
+  const sX=1860,sY=1010;
+  let cx,cy;
+  if(T<500){cx=sX;cy=sY;}
+  else if(T<2100){const e=easeInOut((T-500)/1600);cx=lerp(sX,promptC.x-260,e);cy=lerp(sY,promptC.y,e);}
+  else {cx=promptC.x-260;cy=promptC.y;}
+  placeCursor(cx,cy);
+
+  /* optional prompt typing (only if PROMPT_TEXT set) */
+  if(PROMPT_TEXT){
+    let chars=0;
+    if(T>=3200){chars=Math.round(clamp01((T-3200)/3200)*PROMPT_TEXT.length);}
+    if(T>=6600)chars=PROMPT_TEXT.length;
+    promptInput.value=PROMPT_TEXT.slice(0,chars);
+    promptInput.style.height='auto';
+    promptInput.style.height=Math.max(30,Math.min(promptInput.scrollHeight,120))+'px';
+  }
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

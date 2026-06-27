@@ -1,0 +1,9 @@
+{
+  "preset": "scene-crm.html",
+  "out": "22-clienti-crm.mp4",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "duration_ms": null,
+  "content": {}
+}

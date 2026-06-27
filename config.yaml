@@ -169,6 +169,18 @@ agents:
       sempre cria com active=false (sandbox). 10 playbooks. NÃO escreve copy
       autoral — consulta /creativeStudio ou /metaAds para isso.
 
+  - id: screen-motion-engineer
+    file: agents/screen-motion-engineer.md
+    tier: 2
+    role: execution
+    reports_to: "@ops-chief"
+    description: >
+      Animação determinística das telas da plataforma Lovarch (motion graphics).
+      motion-engine/ embutido: presets HTML __render frame-a-frame (Playwright+ffmpeg),
+      screen-anim (ground-truth animado), flow-runner (jornada real via EF
+      primevoices-session), gallery, smoke-verify SSIM, seed-demo-data. Setup 1x:
+      bash motion-engine/setup.sh. Comando do chief: *animate {tela}.
+
   - id: automation-specialist
     file: agents/automation-specialist.md
     tier: 2

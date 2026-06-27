@@ -1,0 +1,9 @@
+{
+  "preset": "scene-moodboard.html",
+  "out": "18-moodboard.mp4",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "duration_ms": null,
+  "content": {}
+}

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Profilo DISC / Analisi SWOT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+    /* DISC colors (faithful to GT) */
+    --disc-d:#EF4444; --disc-i:#F59E0B; --disc-s:#22C55E; --disc-c:#92602A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* ───────────── TOP NAV (idêntica) ───────────── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:9999px;background:rgba(238,235,231,0.6);border:1px solid var(--border);color:var(--muted-foreground)}
+  .credits-pill svg{width:16px;height:16px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;background-size:cover;background-position:center}
+
+  /* ───────────── CONTENT ───────────── */
+  .content{position:absolute;top:56px;left:0;right:0;bottom:0;padding:22px 44px 0 44px;display:flex;flex-direction:column;gap:14px}
+
+  /* ── Profilo DISC header ── */
+  .disc-head{display:flex;align-items:flex-start;gap:30px}
+  .donut-box{flex-shrink:0;width:150px;display:flex;align-items:center;justify-content:center;position:relative}
+  #donut{display:block;transform:rotate(-90deg)}
+  .donut-center{position:absolute;left:0;top:0;width:150px;height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+  .donut-center .dc-letters{font-family:'DM Sans',sans-serif;font-weight:700;font-size:34px;color:var(--foreground);line-height:1;letter-spacing:.02em}
+  .donut-center .dc-sub{font-family:'Inter',sans-serif;font-size:11px;font-weight:500;letter-spacing:.22em;color:var(--text-dim);margin-top:4px}
+  .disc-info{flex:1;min-width:0;padding-top:4px}
+  .disc-title{font-family:'Outfit',sans-serif;font-size:21px;font-weight:600;color:var(--foreground);letter-spacing:-0.01em;line-height:1.1}
+  .disc-type{margin-top:5px;font-size:13.5px;font-weight:500;color:var(--text-dim)}
+  .disc-desc{margin-top:14px;max-width:1560px;font-size:13.5px;line-height:1.62;color:var(--muted-foreground)}
+
+  /* ── DISC percentages row ── */
+  .disc-pct-row{display:grid;grid-template-columns:repeat(4,1fr);margin-top:-4px}
+  .disc-pct{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .disc-pct .p{font-family:'DM Sans',sans-serif;font-weight:700;font-size:23px;line-height:1}
+  .disc-pct .l{font-size:12px;font-weight:500;color:var(--text-dim);letter-spacing:.04em}
+
+  /* ── 4-col advice (Punti di Forza / Aree di Sviluppo) + Consigli Studio ── */
+  .advice-grid{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+  .adv-col{display:flex;flex-direction:column}
+  .adv-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .adv-head svg{width:15px;height:15px}
+  .adv-head .lbl{font-size:13.5px;font-weight:700;letter-spacing:.01em}
+  .adv-li{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;line-height:1.5;color:var(--muted-foreground);margin-bottom:5px}
+  .adv-li .dot{width:5px;height:5px;border-radius:50%;margin-top:7px;flex-shrink:0}
+  .consigli-studio{margin-top:2px}
+  .cs-head{font-size:13.5px;font-weight:700;color:var(--accent);margin-bottom:8px}
+  .cs-li{font-size:12.5px;line-height:1.55;color:var(--muted-foreground);margin-bottom:4px}
+
+  /* ── SWOT ── */
+  .swot-title{font-family:'Outfit',sans-serif;font-size:20px;font-weight:600;color:var(--foreground);letter-spacing:-0.01em;margin-top:2px}
+  .swot-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px 60px;margin-top:6px}
+  .swot-q{display:flex;flex-direction:column}
+  .swot-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .swot-head svg{width:16px;height:16px}
+  .swot-head .lbl{font-size:14px;font-weight:700}
+  .swot-li{font-size:12.5px;line-height:1.5;color:var(--muted-foreground);margin-bottom:4px}
+
+  /* ── summary + Consigli Strategici ── */
+  .summary-block{margin-top:4px}
+  .summary-text{font-size:12.5px;line-height:1.6;color:var(--muted-foreground);text-align:justify}
+  .strat-head{font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;color:var(--accent);margin-top:14px;margin-bottom:8px;letter-spacing:-0.01em}
+  .strat-li{font-size:12.5px;line-height:1.55;color:var(--muted-foreground);margin-bottom:4px}
+
+  /* ───────────── PROMPT BAR ───────────── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:64px;display:flex;justify-content:center;padding:0 40px;z-index:30}
+  .prompt-bar{width:760px;border-radius:22px;background:rgba(255,255,255,0.98);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);overflow:hidden}
+  .pb-input-row{display:flex;align-items:flex-start;gap:12px;padding:16px 18px 4px 20px}
+  #prompt-input{flex:1;border:0;outline:0;background:transparent;resize:none;font-family:'Inter',sans-serif;font-size:15.5px;color:var(--foreground);line-height:1.5;min-height:28px;overflow:hidden}
+  #prompt-input::placeholder{color:rgba(87,83,78,0.5)}
+  .pb-bottom{display:flex;align-items:center;justify-content:flex-end;padding:2px 16px 14px 16px;gap:10px}
+  .mic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:18px;height:18px}
+  #send-btn{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(161,98,7,0.12);color:var(--accent);border:1px solid rgba(161,98,7,0.18)}
+  #send-btn svg{width:18px;height:18px}
+
+  /* ───────────── MODULE PILLS (bottom) ───────────── */
+  .module-bar{position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;gap:6px;z-index:20}
+  .mod-pill{display:flex;align-items:center;gap:7px;padding:8px 15px;border-radius:9999px;font-size:13px;font-weight:500;color:var(--muted-foreground);line-height:1;background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+  .mod-pill svg{width:15px;height:15px}
+  .mod-pill.active{background:var(--accent);color:#FAF9F7;border-color:var(--accent);box-shadow:0 2px 10px rgba(161,98,7,0.25)}
+  .mod-pill .beta{font-size:8px;font-weight:700;letter-spacing:.06em;padding:1px 4px;border-radius:4px;background:rgba(161,98,7,0.14);color:var(--accent)}
+
+  /* cursor */
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform;opacity:0}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg><span class="credit-num">99.961</span></div>
+      <div class="avatar"></div>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- PROFILO DISC -->
+    <div class="disc-head">
+      <div class="donut-box">
+        <svg id="donut" width="150" height="150" viewBox="0 0 150 150"></svg>
+        <div class="donut-center"><div class="dc-letters">SI</div><div class="dc-sub">DISC</div></div>
+      </div>
+      <div class="disc-info">
+        <div class="disc-title">Profilo DISC</div>
+        <div class="disc-type">Stabilità + Dominanza</div>
+        <div class="disc-desc anim-text">Este perfil combina la Estabilidad con la Influencia, resultando en un profesional colaborativo y empático, con capacidad para generar consenso. Prioriza ambientes armónicos y relaciones sólidas con clientes y equipo, mientras mantiene un enfoque en la conexión humana. Su estilo se adapta bien a la gestión de expectativas y la comunicación fluida en proyectos arquitectónicos diversos.</div>
+      </div>
+    </div>
+
+    <!-- PERCENTAGES -->
+    <div class="disc-pct-row">
+      <div class="disc-pct"><span class="p" data-disc="d" style="color:var(--disc-d)">0%</span><span class="l">D</span></div>
+      <div class="disc-pct"><span class="p" data-disc="i" style="color:var(--disc-i)">0%</span><span class="l">I</span></div>
+      <div class="disc-pct"><span class="p" data-disc="s" style="color:var(--disc-s)">0%</span><span class="l">S</span></div>
+      <div class="disc-pct"><span class="p" data-disc="c" style="color:var(--disc-c)">0%</span><span class="l">C</span></div>
+    </div>
+
+    <!-- ADVICE 2 COLS -->
+    <div class="advice-grid anim-text">
+      <div class="adv-col">
+        <div class="adv-head" style="color:var(--disc-s)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.3H22l-6 4.4 2.3 7.3L12 16.7 5.7 21l2.3-7.3-6-4.4h7.6z"/></svg>
+          <span class="lbl">Punti di Forza</span>
+        </div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-s)"></span>Abilità nel costruire relazioni durature con clienti e fornitori.</div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-s)"></span>Capacità di mediare e risolvere conflitti dentro del team di progetto.</div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-s)"></span>Gran empatia nel comprendere le necessità e i desideri del cliente.</div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-s)"></span>Stile di comunicazione persuasivo, ideale per presentazioni e negoziazioni.</div>
+      </div>
+      <div class="adv-col">
+        <div class="adv-head" style="color:var(--disc-i)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+          <span class="lbl">Aree di Sviluppo</span>
+        </div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-i)"></span>Tendenza a evitare la confrontazione, il che può ritardare decisioni difficili.</div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-i)"></span>Difficoltà ad adattarsi rapidamente a cambi drastici nei requisiti del progetto.</div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-i)"></span>Possibile resistenza alla presa di rischi nella concezione di design innovativi.</div>
+        <div class="adv-li"><span class="dot" style="background:var(--disc-i)"></span>Necessità di validazione esterna, intaccando l'autonomia in certe decisioni.</div>
+      </div>
+    </div>
+
+    <!-- CONSIGLI STUDIO -->
+    <div class="consigli-studio anim-text">
+      <div class="cs-head">Consigli Studio</div>
+      <div class="cs-li">1. Fomente la collaborazione: implemente metodologie di lavoro che potenzino lo scambio di idee e la costruzione di consenso con il cliente e il team.</div>
+      <div class="cs-li">2. Desarrolle habilità di comunicazione assertiva: pratichi l'esposizione di posizioni ferme senza compromettere la relazione, specialmente in negoziazioni di scadenze o preventivi.</div>
+    </div>
+
+    <!-- ANALISI SWOT -->
+    <div class="swot-title">Analisi SWOT</div>
+    <div class="swot-grid anim-text">
+      <div class="swot-q">
+        <div class="swot-head" style="color:var(--disc-s)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>
+          <span class="lbl">Forze</span>
+        </div>
+        <div class="swot-li">Progetti autoriali e fortemente personalizzati</div>
+        <div class="swot-li">Specializzazione tecnica avanzata in un campo specifico</div>
+        <div class="swot-li">Sicurezza tecnica e profonda padronanza normativa</div>
+      </div>
+      <div class="swot-q">
+        <div class="swot-head" style="color:var(--disc-d)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span class="lbl">Debolezze</span>
+        </div>
+        <div class="swot-li">Carenze nella modellazione 3D e rendering realistico</div>
+        <div class="swot-li">Difficoltà nelle attività di vendita e chiusura contratti</div>
+        <div class="swot-li">Difficoltà nel rifiutare progetti non allineati</div>
+      </div>
+      <div class="swot-q">
+        <div class="swot-head" style="color:var(--disc-i)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+          <span class="lbl">Opportunità</span>
+        </div>
+        <div class="swot-li">Crescita del mercato immobiliare per affitti</div>
+        <div class="swot-li">Aziende che riorganizzano spazi ufficio e coworking</div>
+        <div class="swot-li">Integrazione di specialisti complementari esterni</div>
+      </div>
+      <div class="swot-q">
+        <div class="swot-head" style="color:var(--text-dim)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span class="lbl">Minacce</span>
+        </div>
+        <div class="swot-li">Specialisti esterni che dominano nicchie di mercato</div>
+        <div class="swot-li">Riduzione del credito immobiliare per i clienti</div>
+        <div class="swot-li">Minore propensione all'investimento in progetti originali</div>
+      </div>
+    </div>
+
+    <!-- SUMMARY + CONSIGLI STRATEGICI -->
+    <div class="summary-block anim-text">
+      <div class="summary-text">Lo studio dimostra una solida base di competenze autoriali, specializzazione tecnica e padronanza normativa; un portfolio aggiornato rafforzano ulteriormente questa posizione. Tuttavia, emergono debolezze significative nella gestione commerciale e finanziaria, come le difficoltà nelle vendite, preventivi e chiusura contratti limita la capacità di presentare i progetti in modo efficace e di monetizzare pienamente le competenze. Il mercato offre opportunità interessanti, come la crescita del settore e l'integrazione di specialisti complementari, che possono amplificare l'offerta e l'efficienza. Tuttavia, lo studio deve affrontare la concorrenza di specialisti di nicchia e la volatilità del credito immobiliare, che insieme alla minore disponibilità a investire in progetti di cantiere sono cruciali per mantenere la reputazione e evitare costi imprevisti. La debolezza nel rendering e nella modellazione resta il punto da affrontare con priorità.</div>
+      <div class="strat-head">Consigli Strategici</div>
+      <div class="strat-li">Investire urgentemente in formazione e software per la modellazione 3D e il rendering, per valorizzare i progetti e comunicare meglio il valore al cliente.</div>
+      <div class="strat-li">Implementare un sistema rigoroso per la preparazione di preventivi e la gestione della fatturazione, magari con consulenza esterna, per stabilizzare il flusso di cassa e aumentare la profittabilità.</div>
+      <div class="strat-li">Sviluppare un protocollo per valutare e, se necessario, rifiutare progetti non allineati con la strategia dello studio o con scarse prospettive economiche, per focalizzare le risorse su lavori a maggior valore aggiunto.</div>
+    </div>
+  </main>
+
+  <!-- PROMPT BAR -->
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+      <div class="pb-input-row">
+        <textarea id="prompt-input" rows="1" placeholder="Scopri il tuo profilo…"></textarea>
+      </div>
+      <div class="pb-bottom">
+        <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+        <div id="send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE PILLS -->
+  <div class="module-bar">
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>Clienti</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Progetti</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/></svg>Portale Cliente<span class="beta">BETA</span></div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Finanze</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Pianificazione</div>
+    <div class="mod-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20v-12"/></svg>Caosometro</div>
+    <div class="mod-pill active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/></svg>DISC + SWOT</div>
+  </div>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+window.__DURATION = 9000;
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+/* persona avatar */
+const AVATAR='https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/user-assets/8f46c892-5f97-4927-ae56-cc9383cde38a/avatar.webp';
+(function(){const av=document.querySelector('.avatar');av.textContent='';av.style.backgroundImage='url('+AVATAR+')';})();
+
+const stage=document.querySelector('.stage');
+const cursorEl=document.getElementById('cursor');
+const donut=document.getElementById('donut');
+
+/* ───────── DONUT geometry — 4 arcs D/I/S/C ─────────
+   values (must sum to 100): D 25, I 25, S 30, C 20
+   colors map to DISC vars. drawn clockwise from top (svg rotated -90deg). */
+const SEGMENTS=[
+  {key:'d', val:25, color:'#EF4444'},
+  {key:'i', val:25, color:'#F59E0B'},
+  {key:'s', val:30, color:'#22C55E'},
+  {key:'c', val:20, color:'#92602A'},
+];
+const D_CX=75, D_CY=75, D_R=58, D_W=15, GAP=3.2; /* GAP in degrees */
+const NS='http://www.w3.org/2000/svg';
+const arcEls=[];
+function polar(cx,cy,r,deg){const a=deg*Math.PI/180;return [cx+r*Math.cos(a), cy+r*Math.sin(a)];}
+function arcPath(r,startDeg,endDeg){
+  const [x1,y1]=polar(D_CX,D_CY,r,startDeg);
+  const [x2,y2]=polar(D_CX,D_CY,r,endDeg);
+  const large=(endDeg-startDeg)>180?1:0;
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+function buildDonut(){
+  /* track */
+  const track=document.createElementNS(NS,'circle');
+  track.setAttribute('cx',D_CX);track.setAttribute('cy',D_CY);track.setAttribute('r',D_R);
+  track.setAttribute('fill','none');track.setAttribute('stroke','rgba(120,113,108,0.10)');
+  track.setAttribute('stroke-width',D_W);
+  donut.appendChild(track);
+  let acc=0;
+  for(const seg of SEGMENTS){
+    const start=acc/100*360 + GAP/2;
+    const end=(acc+seg.val)/100*360 - GAP/2;
+    acc+=seg.val;
+    const p=document.createElementNS(NS,'path');
+    p.setAttribute('d',arcPath(D_R,start,end));
+    p.setAttribute('fill','none');
+    p.setAttribute('stroke',seg.color);
+    p.setAttribute('stroke-width',D_W);
+    p.setAttribute('stroke-linecap','round');
+    const len=p.getTotalLength?p.getTotalLength():200;
+    p.setAttribute('stroke-dasharray',len);
+    p.setAttribute('stroke-dashoffset',len);
+    p._len=len;
+    donut.appendChild(p);
+    arcEls.push(p);
+  }
+}
+buildDonut();
+
+/* percentages */
+const pctEls=[...document.querySelectorAll('.disc-pct .p')];
+const PCT_VALS={d:25,i:25,s:30,c:20};
+
+/* anim-text blocks fade staged */
+const textBlocks=[...document.querySelectorAll('.anim-text')];
+textBlocks.forEach(b=>{b.style.opacity='0';b.style.transform='translateY(6px)';});
+
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+
+  /* cursor: enters bottom-right → moves to donut → drifts down toward SWOT */
+  const donutC=centerOf(donut);
+  const sX=1880,sY=1050; let cx,cy,co=0;
+  if(T<400){cx=sX;cy=sY;co=0;}
+  else if(T<1300){const e=easeInOut((T-400)/900);cx=lerp(sX,donutC.x,e);cy=lerp(sY,donutC.y,e);co=smoothstep(400,700,T);}
+  else if(T<3600){cx=donutC.x;cy=donutC.y;co=1;}
+  else if(T<5200){const e=easeInOut((T-3600)/1600);const tx=560,ty=720;cx=lerp(donutC.x,tx,e);cy=lerp(donutC.y,ty,e);co=1;}
+  else{const tx=560,ty=720;cx=tx;cy=ty;co=1-smoothstep(8000,8800,T);}
+  placeCursor(cx,cy);
+  cursorEl.style.opacity=co.toFixed(3);
+
+  /* donut arcs draw: T 700 → 3000, staggered per segment */
+  for(let i=0;i<arcEls.length;i++){
+    const a=arcEls[i];
+    const t0=700+i*420, t1=t0+900;
+    const prog=easeInOut(clamp01((T-t0)/(t1-t0)));
+    a.setAttribute('stroke-dashoffset',(a._len*(1-prog)).toFixed(2));
+  }
+
+  /* percentages count up in sync with their arc: */
+  for(let i=0;i<pctEls.length;i++){
+    const key=pctEls[i].getAttribute('data-disc');
+    const t0=900+i*420, t1=t0+800;
+    const prog=easeInOut(clamp01((T-t0)/(t1-t0)));
+    pctEls[i].textContent=Math.round(PCT_VALS[key]*prog)+'%';
+  }
+
+  /* staged text fade-in:
+     desc(disc-info child) is inside anim-text? No — disc-desc has anim-text. order: */
+  const stages=[
+    {el:textBlocks[0], t0:1400}, // disc-desc
+    {el:textBlocks[1], t0:3200}, // advice-grid
+    {el:textBlocks[2], t0:3900}, // consigli studio
+    {el:textBlocks[3], t0:4500}, // swot-grid
+    {el:textBlocks[4], t0:5400}, // summary + strategici
+  ];
+  for(const s of stages){
+    if(!s.el)continue;
+    const p=smoothstep(s.t0,s.t0+850,T);
+    s.el.style.opacity=p.toFixed(3);
+    s.el.style.transform=`translateY(${(1-p)*6}px)`;
+  }
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

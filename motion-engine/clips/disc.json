@@ -1,0 +1,9 @@
+{
+  "preset": "scene-disc.html",
+  "out": "20-disc-swot.mp4",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "duration_ms": null,
+  "content": {}
+}

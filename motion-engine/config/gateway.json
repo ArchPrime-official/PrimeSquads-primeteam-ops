@@ -1,0 +1,6 @@
+{
+  "url": "https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/primevoices-session",
+  "secret": "pvg_0fb0bf218c791723ff061feb4ba9b81e80a6b2000d04023f",
+  "_note": "Shared secret de BAIXO privilégio: só libera sessão das 7 contas DEMO PrimeVoices via a EF (service_role fica server-side). Repo privado = autorizado. Rotacionar: curl Management API secrets + atualizar aqui.",
+  "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1eGJ5ZG15YWhqYXBsemt0aGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzODM3OTYsImV4cCI6MjA4Nzk1OTc5Nn0.UtHrPjSP40pwsRy6vCQseC5YA4DZ6e-hO8sXcRL8w_E"
+}

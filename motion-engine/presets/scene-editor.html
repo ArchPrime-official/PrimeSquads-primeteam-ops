@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Render Studio (Editor / Dettaglio)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* ─────────── TOP NAV (identical chrome) ─────────── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:9999px;background:rgba(161,98,7,0.10);border:1px solid rgba(161,98,7,0.18);color:var(--accent)}
+  .credits-pill svg{width:15px;height:15px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;background-size:cover;background-position:center}
+
+  /* ─────────── DETAIL / EDITOR VIEWER ─────────── */
+  /* dark dimmed backdrop covering everything below the nav */
+  .viewer{position:absolute;top:56px;left:0;right:0;bottom:0;overflow:hidden;background:#161616}
+  /* blurred, dimmed copy of the render filling the whole backdrop */
+  .viewer-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(38px) brightness(0.42) saturate(1.05);transform:scale(1.15);will-change:transform}
+  .viewer-scrim{position:absolute;inset:0;background:rgba(12,12,12,0.30)}
+
+  /* the sharp render — nearly full-bleed, rounded corners */
+  .render-frame{position:absolute;top:26px;left:78px;right:78px;bottom:30px;border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.55);background:#1a1a1a}
+  .render-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+
+  /* breadcrumb top-left on image */
+  .breadcrumb{position:absolute;top:22px;left:26px;z-index:8;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:rgba(255,255,255,0.92);text-shadow:0 1px 6px rgba(0,0,0,0.45)}
+  .breadcrumb .crumb-dim{color:rgba(255,255,255,0.62)}
+  .breadcrumb .sep{color:rgba(255,255,255,0.5)}
+
+  /* vertical-ish horizontal toolbar top-right on image */
+  .view-toolbar{position:absolute;top:18px;right:22px;z-index:8;display:flex;align-items:center;gap:10px}
+  .vt-btn{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.42);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.10);color:rgba(255,255,255,0.92);box-shadow:0 2px 10px rgba(0,0,0,0.25)}
+  .vt-btn svg{width:18px;height:18px}
+  .vt-btn.gold{background:var(--accent);border-color:rgba(255,255,255,0.18);color:#FFFFFF;box-shadow:0 3px 12px rgba(161,98,7,0.45)}
+  .vt-btn.danger{color:#F08A7A}
+
+  /* ─────────── PROMPT BAR (detail variant, floats over image bottom) ─────────── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:60px;z-index:12;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .prompt-bar{width:830px;border-radius:24px;background:rgba(255,255,255,0.98);backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 18px 50px rgba(0,0,0,0.30), var(--prompt-shadow);border:1px solid rgba(255,255,255,0.5);overflow:hidden;padding:6px}
+  .pb-top{display:flex;align-items:flex-start;gap:16px;padding:14px 16px 10px 14px}
+  /* thumbnail of the render */
+  .pb-thumb{position:relative;width:64px;height:64px;border-radius:14px;overflow:hidden;border:2px solid var(--accent);flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+  .pb-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .pb-thumb .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#3A3A3D;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.25)}
+  .pb-thumb .rm svg{width:10px;height:10px;color:#fff}
+  .pb-prompt{flex:1;min-width:0;padding-top:3px;font-family:'Inter',sans-serif;font-size:18px;font-weight:500;line-height:1.45;color:var(--foreground)}
+  .pb-top-icons{display:flex;align-items:center;gap:12px;padding-top:5px;flex-shrink:0}
+  .pb-top-icons svg{width:21px;height:21px}
+  .tic-wand{color:var(--accent)} .tic-img{color:var(--foreground)} .tic-vid{color:var(--text-dim)}
+
+  .pb-bottom{display:flex;align-items:center;justify-content:space-between;padding:6px 12px 10px 12px;gap:10px}
+  .pb-left{display:flex;align-items:center;gap:10px}
+  .attach{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .attach svg{width:18px;height:18px}
+  .chip{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9999px;font-size:14px;font-weight:500;line-height:1;color:rgba(24,24,27,0.80);background:rgba(238,235,231,0.7)}
+  .chip svg.lead{width:15px;height:15px;color:var(--muted-foreground)}
+  .chip .chev{width:14px;height:14px;color:inherit;opacity:.55}
+  .pb-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+  .mic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:19px;height:19px}
+  .add-btn{display:flex;align-items:center;gap:9px;padding:11px 20px;border-radius:9999px;background:var(--accent);color:#FFFFFF;font-family:'Inter',sans-serif;font-size:15px;font-weight:600;line-height:1;box-shadow:0 4px 14px rgba(161,98,7,0.30)}
+  .add-btn svg{width:17px;height:17px}
+
+  /* mode pills under the bar */
+  .mode-pills{display:flex;align-items:center;gap:10px}
+  .mode-pill{display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:9999px;font-size:14px;font-weight:600;line-height:1;color:rgba(255,255,255,0.92);background:rgba(40,40,42,0.78);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.10)}
+  .mode-pill svg{width:15px;height:15px}
+  .mode-pill.active{background:var(--accent);color:#FFFFFF;border-color:rgba(255,255,255,0.16);box-shadow:0 4px 14px rgba(161,98,7,0.35)}
+
+  /* animated cursor */
+  #cursor{position:absolute;left:0;top:0;z-index:90;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform;opacity:0}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg><span class="credit-num">248</span></div>
+      <div class="avatar">A</div>
+    </div>
+  </header>
+
+  <main class="viewer">
+    <div class="viewer-bg" id="viewer-bg"></div>
+    <div class="viewer-scrim"></div>
+
+    <div class="render-frame">
+      <img id="render-img" alt="" />
+
+      <div class="breadcrumb">
+        <span class="crumb-dim">Le Tue Creazioni</span>
+        <span class="sep">·</span>
+        <span>Walkthrough</span>
+      </div>
+
+      <div class="view-toolbar">
+        <!-- magic / enhance (active gold) -->
+        <div class="vt-btn gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 10V8M11.5 6.5h-2M20.5 6.5h-2"/><path d="M9 15l8.5-8.5a1.5 1.5 0 0 1 2 2L11 17.5z" fill="currentColor" stroke="none"/><path d="M4 20l5-5"/></svg></div>
+        <!-- folder -->
+        <div class="vt-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+        <!-- download -->
+        <div class="vt-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+        <!-- trash (danger) -->
+        <div class="vt-btn danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M10 11v6M14 11v6"/></svg></div>
+        <!-- close -->
+        <div class="vt-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+      </div>
+    </div>
+
+    <div class="prompt-dock">
+      <div class="prompt-bar">
+        <div class="pb-top">
+          <div class="pb-thumb">
+            <img id="thumb-img" src="" alt="" />
+            <span class="rm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+          <div class="pb-prompt" id="pb-prompt">Soggiorno moderno e minimale, luce calda del tramonto, rovere chiaro e pietra naturale</div>
+          <div class="pb-top-icons">
+            <span class="tic-wand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 10V8M11.5 6.5h-2M20.5 6.5h-2"/><path d="M9 15l8.5-8.5a1.5 1.5 0 0 1 2 2L11 17.5z" fill="currentColor" stroke="none"/><path d="M4 20l5-5"/></svg></span>
+            <span class="tic-img"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.4" fill="#FAF9F7"/><path d="M21 16l-5-5-7 7h12z" fill="#FAF9F7"/></svg></span>
+            <span class="tic-vid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg></span>
+          </div>
+        </div>
+        <div class="pb-bottom">
+          <div class="pb-left">
+            <div class="attach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05l-8.5 8.5a5 5 0 0 1-7.07-7.07l8.49-8.49a3.34 3.34 0 0 1 4.72 4.72l-8.5 8.49a1.67 1.67 0 0 1-2.36-2.36l7.79-7.78"/></svg></div>
+            <div class="chip"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5L9 20l-5 1 1-5z"/><path d="M14 5l5 5"/></svg>Arredo<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="chip"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5L9 20l-5 1 1-5z"/><path d="M14 5l5 5"/></svg><span id="chip-ratio">16:9</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div class="pb-right">
+            <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+            <div class="add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Aggiungi oggetto</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-pills">
+        <div class="mode-pill active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Render Studio</div>
+        <div class="mode-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M3 12h18M3 19h18"/><circle cx="7" cy="5" r="2" fill="currentColor" stroke="none"/><circle cx="14" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="9" cy="19" r="2" fill="currentColor" stroke="none"/></svg>Moodboard</div>
+        <div class="mode-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>Branding</div>
+      </div>
+    </div>
+  </main>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+/* ═══════════ PRESET CONTENT ═══════════ */
+window.__CONTENT = Object.assign({
+  prompt: "Soggiorno moderno e minimale, luce calda del tramonto, rovere chiaro e pietra naturale",
+  render: "render-sample.png",
+  ratio:  "16:9",
+  avatar: "https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/user-assets/8f46c892-5f97-4927-ae56-cc9383cde38a/avatar.webp",
+}, window.__CONTENT || {});
+const C = window.__CONTENT;
+
+window.__DURATION = 3000;
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+const stage=document.querySelector('.stage');
+const cursorEl=document.getElementById('cursor');
+
+/* apply preset content */
+document.getElementById('render-img').src=C.render;
+document.getElementById('thumb-img').src=C.render;
+document.getElementById('viewer-bg').style.backgroundImage='url('+C.render+')';
+document.getElementById('pb-prompt').textContent=C.prompt;
+document.getElementById('chip-ratio').textContent=C.ratio;
+if(C.avatar){const av=document.querySelector('.avatar');av.textContent='';av.style.backgroundImage='url('+C.avatar+')';}
+
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+
+const toolbarBtns=[...document.querySelectorAll('.view-toolbar .vt-btn')];
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+
+  /* cursor: enters from outside, drifts across the toolbar icons ~800-2600, then settles */
+  let cx,cy,cop=0;
+  const targets=toolbarBtns.map(centerOf);
+  const entry={x:1880,y:160};
+  if(T<700){cop=clamp01((T-200)/400);cx=entry.x;cy=entry.y;}
+  else if(T<2600){
+    cop=1;
+    // sweep across the 5 toolbar buttons right→left
+    const p=easeInOut((T-700)/1900);
+    const fp=p*(targets.length-1);
+    const i=Math.min(targets.length-2,Math.floor(fp));
+    const seg=fp-i;
+    // reverse order so it enters near the last (X) and ends on gold wand
+    const a=targets[targets.length-1-i], b=targets[targets.length-2-i];
+    cx=lerp(a.x,b.x,seg);cy=lerp(a.y,b.y,seg)+Math.sin(p*Math.PI*2)*4;
+  } else {
+    cop=1;const g=targets[0];cx=g.x;cy=g.y;
+  }
+  placeCursor(cx,cy);
+  cursorEl.style.opacity=cop.toFixed(3);
+
+  /* subtle hover highlight on the button nearest the cursor while sweeping */
+  if(T>=700&&T<2700){
+    let best=-1,bd=1e9;
+    targets.forEach((t,k)=>{const d=Math.hypot(t.x-cx,t.y-cy);if(d<bd){bd=d;best=k;}});
+    toolbarBtns.forEach((b,k)=>{
+      const on=(k===best&&bd<26);
+      if(b.classList.contains('gold'))b.style.transform=on?'scale(1.07)':'scale(1)';
+      else b.style.background=on?'rgba(0,0,0,0.58)':'';
+      b.style.transform=on?'scale(1.07)':'scale(1)';
+    });
+  } else {
+    toolbarBtns.forEach(b=>{b.style.transform='';b.style.background='';});
+  }
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Render Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /* ─── Lovarch Design System V8 tokens (light / warm white) ─── */
+  :root{
+    --background:#FAF9F7;          /* warm white */
+    --foreground:#18181B;          /* 240 6% 10% */
+    --muted-foreground:#57534E;    /* 25 5% 33% */
+    --card:#F2F0ED;                /* 33 10% 95% */
+    --muted:#EEEBE7;               /* 33 10% 93% */
+    --border:#E3E3E3;              /* 0 0% 89% */
+    --accent:#A16207;              /* gold */
+    --accent-light:#D4A843;
+    --surface-hover:rgba(0,0,0,0.045);
+    --bg-nav:rgba(250,249,247,0.92);
+    --icon-bg:rgba(0,0,0,0.04);
+    --icon-border:rgba(0,0,0,0.06);
+    --text-dim:#78716C;
+    --text-ghost:#A8A29E;
+    --radius:0.75rem;
+    --radius-sm:0.5rem;
+    --radius-lg:1rem;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{
+    width:1920px;height:1080px;overflow:hidden;position:relative;
+    background:var(--background);color:var(--foreground);
+    font-family:'Inter',sans-serif;
+  }
+
+  /* ─── Top Nav (h-14 ≈ 56px, real px-8) ─── */
+  .topnav{
+    position:absolute;top:0;left:0;right:0;height:56px;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 32px;
+    background:var(--bg-nav);
+    backdrop-filter:blur(24px) saturate(1.3);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  /* center tab pill group */
+  .tabs{
+    display:flex;align-items:center;gap:4px;
+    background:rgba(238,235,231,0.6);
+    border-radius:9999px;padding:4px;
+  }
+  .tab{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 16px;border-radius:9999px;
+    font-size:14px;font-weight:500;color:var(--muted-foreground);
+    cursor:default;transition:all .2s;line-height:1;
+  }
+  .tab svg{width:14px;height:14px}
+  .tab.active{
+    background:var(--background);color:var(--foreground);
+    box-shadow:var(--shadow-sm);
+  }
+  /* right cluster */
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{
+    width:34px;height:34px;border-radius:9999px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted-foreground);cursor:default;
+  }
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{
+    display:flex;align-items:center;gap:7px;
+    padding:6px 13px 6px 11px;border-radius:9999px;
+    background:rgba(161,98,7,0.10);
+    border:1px solid rgba(161,98,7,0.18);
+    color:var(--accent);cursor:default;
+  }
+  .credits-pill svg{width:15px;height:15px}
+  .credits-pill .credit-num{
+    font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;
+    letter-spacing:.2px;line-height:1;
+  }
+  .avatar{
+    width:32px;height:32px;border-radius:9999px;
+    background:linear-gradient(135deg,#2d2d33,#18181B);
+    color:#FAF9F7;display:flex;align-items:center;justify-content:center;
+    font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;
+  }
+
+  /* ─── Main content ─── */
+  .content{
+    position:absolute;top:56px;left:0;right:0;bottom:0;
+    display:flex;flex-direction:column;
+    padding:28px 40px 0 40px;
+  }
+  /* gallery header */
+  .gallery-head{
+    display:flex;align-items:center;gap:12px;margin-bottom:16px;
+  }
+  .gallery-title{
+    font-family:'Outfit',sans-serif;font-size:15px;font-weight:600;
+    color:var(--foreground);
+  }
+  .filters{display:flex;gap:6px;margin-left:auto}
+  .filter{
+    padding:5px 13px;border-radius:9999px;
+    font-size:12px;font-weight:500;color:var(--muted-foreground);
+    cursor:default;line-height:1;
+  }
+  .filter.active{background:var(--foreground);color:var(--background)}
+
+  /* render canvas area (16:9) */
+  .canvas-wrap{
+    flex:1;min-height:0;display:flex;justify-content:center;align-items:flex-start;
+  }
+  #render-slot{
+    position:relative;
+    width:1180px;height:664px;            /* ~16:9 */
+    border-radius:14px;overflow:hidden;
+    background:
+      radial-gradient(120% 120% at 30% 20%, #FFFFFF 0%, #F3F1EE 55%, #EDEAE5 100%);
+    border:1px solid var(--border);
+    box-shadow:var(--shadow-lg);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #render-img{width:100%;height:100%;object-fit:cover;display:none}
+  .render-label{
+    font-family:'DM Sans',sans-serif;font-size:13px;letter-spacing:1px;
+    color:var(--text-ghost);text-transform:uppercase;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    user-select:none;
+  }
+  .render-label .glyph{
+    width:42px;height:42px;border-radius:12px;
+    border:1.5px solid var(--text-ghost);opacity:.5;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .render-label .glyph svg{width:20px;height:20px}
+  /* small "Riferimento" thumb strip top-left, like real editor sidebar hint */
+  .canvas-badge{
+    position:absolute;top:14px;left:14px;
+    display:flex;align-items:center;gap:7px;
+    padding:6px 11px;border-radius:9999px;
+    background:rgba(255,255,255,0.78);backdrop-filter:blur(8px);
+    border:1px solid var(--border);
+    font-size:11px;font-weight:600;color:var(--muted-foreground);
+  }
+  .canvas-badge .dot{width:7px;height:7px;border-radius:9999px;background:var(--accent)}
+
+  /* ─── Floating prompt bar ─── */
+  .prompt-dock{
+    position:absolute;left:0;right:0;bottom:26px;
+    display:flex;justify-content:center;padding:0 40px;
+  }
+  .prompt-bar{
+    width:980px;border-radius:24px;
+    background:rgba(255,255,255,0.96);
+    backdrop-filter:blur(24px) saturate(1.3);
+    box-shadow:var(--prompt-shadow);
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
+  /* mode tabs row: Render / Modifica  +  Immagini/Video/Per Progetto */
+  .pb-tabs{
+    display:flex;align-items:center;gap:6px;
+    padding:11px 16px 0 16px;
+  }
+  .seg{
+    display:inline-flex;background:rgba(238,235,231,0.7);
+    border-radius:9999px;padding:3px;gap:2px;
+  }
+  .seg-btn{
+    padding:5px 14px;border-radius:9999px;font-size:12.5px;font-weight:600;
+    color:var(--muted-foreground);cursor:default;line-height:1;
+  }
+  .seg-btn.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .seg-right{display:inline-flex;gap:4px;margin-left:auto}
+  .mini-pill{
+    padding:5px 12px;border-radius:9999px;font-size:11.5px;font-weight:500;
+    color:var(--muted-foreground);cursor:default;line-height:1;
+  }
+  .mini-pill.active{background:var(--foreground);color:var(--background)}
+
+  /* textarea / prompt input */
+  .pb-input-row{display:flex;align-items:flex-start;padding:14px 20px 4px 20px}
+  #prompt-input{
+    flex:1;border:0;outline:0;background:transparent;resize:none;
+    font-family:'Inter',sans-serif;font-size:16px;color:var(--foreground);
+    line-height:1.5;min-height:30px;
+  }
+  #prompt-input::placeholder{color:rgba(87,83,78,0.55)}
+
+  /* bottom action row: chips left, mic + Crea right */
+  .pb-bottom{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 16px 14px 14px;gap:10px;
+  }
+  .pb-left{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+  .attach{
+    width:34px;height:34px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted-foreground);cursor:default;flex-shrink:0;
+  }
+  .attach svg{width:17px;height:17px}
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 13px;border-radius:9999px;
+    font-size:12.5px;font-weight:500;line-height:1;cursor:default;
+    color:rgba(24,24,27,0.72);background:rgba(238,235,231,0.55);
+  }
+  .chip svg{width:13px;height:13px}
+  .chip.active{color:var(--accent);background:rgba(161,98,7,0.10)}
+  .chip .chev{width:13px;height:13px;color:inherit;opacity:.7}
+
+  .pb-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .mic{
+    width:36px;height:36px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted-foreground);cursor:default;
+  }
+  .mic svg{width:18px;height:18px}
+  #genera-btn{
+    display:flex;align-items:center;gap:7px;
+    padding:9px 20px;border-radius:13px;
+    background:var(--accent);color:#fff;
+    font-family:'Inter',sans-serif;font-size:14px;font-weight:600;
+    box-shadow:0 2px 8px rgba(161,98,7,0.28);
+    cursor:default;line-height:1;
+  }
+  #genera-btn svg{width:15px;height:15px}
+
+  /* ── animation layer ── */
+  #cursor{position:absolute;left:0;top:0;z-index:100;transform:translate(1620px,940px);transition:transform .9s cubic-bezier(.4,0,.2,1);opacity:0;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+  #cursor.press{transition:transform .12s ease}
+  .ripple{position:absolute;border:2px solid var(--accent);border-radius:50%;width:50px;height:50px;opacity:.6;z-index:99;pointer-events:none;animation:rip .55s ease-out forwards}
+  @keyframes rip{to{transform:scale(2.1);opacity:0}}
+  #spinner{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(243,241,238,.9);z-index:5}
+  .spin{width:48px;height:48px;border-radius:50%;border:3px solid rgba(161,98,7,.18);border-top-color:var(--accent);animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .spin-label{font-family:'Outfit',sans-serif;font-size:15px;color:var(--muted-foreground);font-weight:500}
+  .spin-bar{width:240px;height:5px;border-radius:3px;background:rgba(0,0,0,.06);overflow:hidden}
+  .spin-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#A16207,#D4A843);border-radius:3px}
+  #caption{position:absolute;left:50%;bottom:22px;transform:translateX(-50%) translateY(12px);opacity:0;transition:all .6s cubic-bezier(.16,1,.3,1);display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.97);border:1px solid var(--border);box-shadow:var(--shadow-lg);border-radius:9999px;padding:11px 20px;font-family:'Inter',sans-serif;font-size:14.5px;color:var(--foreground);z-index:6;white-space:nowrap}
+  #caption.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #caption b{color:var(--accent);font-weight:600}
+  #caption .star{width:16px;height:16px;color:var(--accent);flex-shrink:0}
+
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ───────── TOP NAV ───────── -->
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+
+    <nav class="tabs">
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>
+        Home
+      </div>
+      <div class="tab active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+        Studio
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>
+        Business
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>
+        Formazione
+      </div>
+    </nav>
+
+    <div class="nav-right">
+      <div class="icon-btn" title="Lingua">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
+      </div>
+      <div class="icon-btn" title="Tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </div>
+      <div class="icon-btn" title="Notifiche">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      </div>
+      <div class="credits-pill" title="Crediti">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>
+        <span class="credit-num">248</span>
+      </div>
+      <div class="avatar">A</div>
+    </div>
+  </header>
+
+  <!-- ───────── CONTENT ───────── -->
+  <main class="content">
+
+    <div class="gallery-head">
+      <div class="gallery-title">Le Tue Creazioni</div>
+      <div class="filters">
+        <div class="filter active">Tutti</div>
+        <div class="filter">Immagini</div>
+        <div class="filter">Video</div>
+        <div class="filter">Per Progetto</div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div id="render-slot">
+        <div class="canvas-badge"><span class="dot"></span>Riferimento</div>
+        <img id="render-img" alt="" />
+        <div class="render-label">
+          <span class="glyph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>
+          </span>
+          [ render ]
+        </div>
+        <div id="spinner">
+          <div class="spin"></div>
+          <div class="spin-label">Generazione in corso…</div>
+          <div class="spin-bar"><i></i></div>
+        </div>
+        <div id="caption">
+          <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>
+          L’IA dà un risultato diverso ogni volta — <b>tu scegli e affini.</b>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ───────── FLOATING PROMPT BAR ───────── -->
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+
+      <div class="pb-tabs">
+        <div class="seg">
+          <div class="seg-btn active">Render</div>
+          <div class="seg-btn">Modifica</div>
+        </div>
+        <div class="seg-right">
+          <div class="mini-pill active">Immagini</div>
+          <div class="mini-pill">Video</div>
+          <div class="mini-pill">Per Progetto</div>
+        </div>
+      </div>
+
+      <div class="pb-input-row">
+        <textarea id="prompt-input" rows="1" placeholder="Descrivi lo spazio che vuoi creare…"></textarea>
+      </div>
+
+      <div class="pb-bottom">
+        <div class="pb-left">
+          <div class="attach" title="Allega">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05l-8.5 8.5a5 5 0 0 1-7.07-7.07l8.49-8.49a3.34 3.34 0 0 1 4.72 4.72l-8.5 8.49a1.67 1.67 0 0 1-2.36-2.36l7.79-7.78"/></svg>
+          </div>
+          <div class="chip active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>
+            Render Studio
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+            Moodboard
+          </div>
+          <div class="chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 0 1 0-20 9 9 0 0 1 0 18c-1.6 0-2-1.4-1.2-2.4.7-1 1.2-1.6 1.2-2.6 0-1.4-1-2-2-2"/></svg>
+            Branding
+          </div>
+          <div class="chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
+            Content Studio
+          </div>
+        </div>
+
+        <div class="pb-right">
+          <div class="mic" title="Voce">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg>
+          </div>
+          <div id="genera-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>
+            Crea
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+  <div id="cursor">
+    <svg width="26" height="26" viewBox="0 0 24 24"><path d="M4 2l5 16 2.5-6.5L18 9z" fill="#fff" stroke="#18181B" stroke-width="1.4" stroke-linejoin="round"/></svg>
+  </div>
+  <script>
+  const stage=document.querySelector('.stage'),cursor=document.getElementById('cursor'),
+        input=document.getElementById('prompt-input'),btn=document.getElementById('genera-btn'),
+        img=document.getElementById('render-img'),label=document.querySelector('.render-label'),
+        spinner=document.getElementById('spinner'),bar=spinner.querySelector('.spin-bar i'),
+        caption=document.getElementById('caption');
+  function moveTo(el,dx,dy){const r=el.getBoundingClientRect();cursor.style.transform=`translate(${r.left+r.width/2+(dx||0)}px,${r.top+r.height/2+(dy||0)}px)`;}
+  const PROMPT="Soggiorno moderno e minimale, luce calda del tramonto, rovere chiaro e pietra naturale, divano in lino";
+  function type(el,txt,cps,cb){let i=0;const iv=setInterval(()=>{i++;el.value=txt.slice(0,i);el.style.height='auto';el.style.height=Math.min(el.scrollHeight,64)+'px';if(i>=txt.length){clearInterval(iv);cb&&cb();}},1000/cps);}
+  function run(){
+    setTimeout(()=>cursor.style.opacity=1,200);
+    setTimeout(()=>moveTo(input,-300,-6),700);
+    setTimeout(()=>type(input,PROMPT,26),1850);
+    setTimeout(()=>moveTo(btn),6100);
+    setTimeout(()=>{
+      cursor.classList.add('press');const r=btn.getBoundingClientRect();
+      const rip=document.createElement('div');rip.className='ripple';
+      rip.style.left=(r.left+r.width/2-25)+'px';rip.style.top=(r.top+r.height/2-25)+'px';
+      stage.appendChild(rip);setTimeout(()=>rip.remove(),600);
+      btn.style.transition='transform .14s';btn.style.transform='scale(.94)';
+      setTimeout(()=>btn.style.transform='',170);
+    },7050);
+    setTimeout(()=>{label.style.display='none';spinner.style.display='flex';
+      requestAnimationFrame(()=>{bar.style.transition='width 1.9s ease';bar.style.width='100%';});},7300);
+    setTimeout(()=>{
+      img.src='render-sample.png';img.style.display='block';img.style.opacity='0';img.style.transform='scale(1.05)';
+      img.style.transition='opacity .9s ease,transform 1.3s ease';
+      spinner.style.transition='opacity .5s';spinner.style.opacity='0';
+      requestAnimationFrame(()=>{img.style.opacity='1';img.style.transform='scale(1)';});
+      setTimeout(()=>spinner.style.display='none',520);},9350);
+    setTimeout(()=>caption.classList.add('show'),10500);
+  }
+  document.fonts.ready.then(()=>setTimeout(run,300));
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Render Studio · Genera Video (Motion preset)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.12), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:9999px;background:rgba(161,98,7,0.10);border:1px solid rgba(161,98,7,0.18);color:var(--accent)}
+  .credits-pill svg{width:15px;height:15px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px}
+
+  .content{position:absolute;top:56px;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:28px 40px 0 40px}
+  .gallery-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .gallery-title{font-family:'Outfit',sans-serif;font-size:15px;font-weight:600;color:var(--foreground)}
+  .filters{display:flex;gap:6px;margin-left:auto}
+  .filter{padding:5px 13px;border-radius:9999px;font-size:12px;font-weight:500;color:var(--muted-foreground);line-height:1}
+  .filter.active{background:var(--foreground);color:var(--background)}
+
+  .canvas-wrap{flex:1;min-height:0;display:flex;justify-content:center;align-items:flex-start}
+  #render-slot{position:relative;width:1180px;height:664px;border-radius:14px;overflow:hidden;background:radial-gradient(120% 120% at 30% 20%, #FFFFFF 0%, #F7F5F2 55%, #F1EEE9 100%);border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center}
+
+  #base-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:1;will-change:opacity}
+  #result-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;transform:scale(1.04);transform-origin:center;will-change:opacity,transform}
+  /* badge "Video" no canto do slot quando resultado */
+  #vid-badge{position:absolute;left:16px;top:14px;z-index:7;display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:9999px;background:rgba(24,24,27,0.62);color:#fff;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;backdrop-filter:blur(6px);opacity:0;will-change:opacity}
+  #vid-badge svg{width:14px;height:14px}
+  #vid-badge .dot{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:rec 1.4s ease-out infinite}
+  @keyframes rec{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}100%{box-shadow:0 0 0 7px rgba(239,68,68,0)}}
+  /* progress bar do vídeo */
+  #vid-progress{position:absolute;left:0;right:0;bottom:0;height:4px;z-index:7;background:rgba(255,255,255,0.18);opacity:0}
+  #vid-progress > i{display:block;height:100%;width:0;background:var(--accent)}
+
+  /* GENERATING (loader neural — idêntico ao render) */
+  #gen-state{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;background:rgba(250,249,247,0.55);backdrop-filter:blur(16px) saturate(1.05);-webkit-backdrop-filter:blur(16px) saturate(1.05)}
+  .gen-label{text-shadow:0 1px 10px rgba(250,249,247,0.9)}
+  #gen-canvas{display:block}
+  .gen-label{position:relative;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;letter-spacing:.3px;color:var(--muted-foreground);background:linear-gradient(100deg,var(--muted-foreground) 0%,var(--muted-foreground) 38%,var(--accent) 50%,var(--muted-foreground) 62%,var(--muted-foreground) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;background-position-x:100%;animation:sweep 2800ms linear infinite}
+  @keyframes sweep{0%{background-position-x:100%}100%{background-position-x:-200%}}
+  .gen-meta{font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:.6px;color:var(--text-ghost)}
+
+  /* PROMPT BAR (modo VIDEO) */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:26px;display:flex;justify-content:center;padding:0 40px}
+  .prompt-bar{width:1000px;border-radius:24px;background:rgba(255,255,255,0.97);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);overflow:hidden}
+  .pb-input-row{display:flex;align-items:flex-start;gap:12px;padding:16px 18px 4px 20px}
+  .pb-thumb{width:46px;height:46px;border-radius:10px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;position:relative}
+  .pb-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .pb-thumb .lbl{position:absolute;left:0;right:0;bottom:0;text-align:center;font-family:'Inter',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.04em;color:#fff;background:rgba(0,0,0,0.5);padding:1px 0}
+  #prompt-input{flex:1;border:0;outline:0;background:transparent;resize:none;font-family:'Inter',sans-serif;font-size:16px;color:var(--foreground);line-height:1.5;min-height:30px;overflow:hidden;padding-top:4px}
+  #prompt-input::placeholder{color:rgba(87,83,78,0.55)}
+  .pb-irow-icons{display:flex;align-items:center;gap:10px;padding-top:7px;flex-shrink:0}
+  .irow-ic svg{width:20px;height:20px}
+  .irow-wand{color:var(--accent)} .irow-img{color:var(--text-dim)} .irow-vid{color:var(--accent)}
+  .irow-vid-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:rgba(161,98,7,0.12)}
+  .pb-bottom{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 14px 14px;gap:10px}
+  .pb-left{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .pb-chips{display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
+  .attach{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);flex-shrink:0}
+  .attach svg{width:17px;height:17px}
+  .chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9999px;font-size:12.5px;font-weight:500;line-height:1;color:rgba(24,24,27,0.78);background:rgba(238,235,231,0.6)}
+  .chip svg.lead{width:14px;height:14px;color:var(--muted-foreground)}
+  .chip .chev{width:13px;height:13px;color:inherit;opacity:.55}
+  .pb-credits{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:9999px;font-size:11.5px;font-weight:600;color:var(--accent);background:rgba(161,98,7,0.08);align-self:flex-start}
+  .pb-credits svg{width:12px;height:12px}
+  .pb-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .mic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:18px;height:18px}
+  #genera-btn{position:relative;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(161,98,7,0.30);transform-origin:center;will-change:transform}
+  #genera-btn svg{width:19px;height:19px}
+  #ripple{position:absolute;left:50%;top:50%;width:24px;height:24px;border-radius:9999px;border:2px solid var(--accent);transform:translate(-50%,-50%) scale(1);opacity:0;pointer-events:none;z-index:60}
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg><span class="credit-num" id="credit-num">99.961</span></div>
+      <div class="avatar">O</div>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="gallery-head">
+      <div class="gallery-title">Le Tue Creazioni</div>
+      <div class="filters"><div class="filter">Tutti</div><div class="filter">Immagini</div><div class="filter active">Video</div><div class="filter">Per Progetto</div></div>
+    </div>
+    <div class="canvas-wrap">
+      <div id="render-slot">
+        <img id="base-img" alt="" />
+        <video id="result-video" data-anim muted playsinline preload="auto"></video>
+        <div id="vid-badge"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="vid-badge-txt">Video · 5s</span></div>
+        <div id="vid-progress"><i></i></div>
+        <div id="gen-state">
+          <canvas id="gen-canvas"></canvas>
+          <div class="gen-label">Generando il video…</div>
+          <div class="gen-meta" id="gen-meta"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+      <div class="pb-input-row">
+        <div class="pb-thumb"><img id="pb-thumb-img" src="" alt="" /><span class="lbl">Inizio</span></div>
+        <textarea id="prompt-input" rows="1" placeholder="Descrivi le istruzioni per il video (opzionale)…"></textarea>
+        <div class="pb-irow-icons">
+          <div class="irow-ic irow-wand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 10V8M11.5 6.5h-2M20.5 6.5h-2"/><path d="M9 15l8.5-8.5a1.5 1.5 0 0 1 2 2L11 17.5z" fill="currentColor" stroke="none"/><path d="M4 20l5-5"/></svg></div>
+          <div class="irow-ic irow-img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/><path d="M21 16l-5-5-7 7"/></svg></div>
+          <div class="irow-ic"><div class="irow-vid-wrap"><span class="irow-vid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg></span></div></div>
+        </div>
+      </div>
+      <div class="pb-bottom">
+        <div class="pb-left">
+          <div class="pb-chips">
+            <div class="attach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05l-8.5 8.5a5 5 0 0 1-7.07-7.07l8.49-8.49a3.34 3.34 0 0 1 4.72 4.72l-8.5 8.49a1.67 1.67 0 0 1-2.36-2.36l7.79-7.78"/></svg></div>
+            <div class="chip"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg><span id="chip-mode">Presentazione</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="chip"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="chip-model">Runway Gen-4.5</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="chip"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="chip-dur">5s</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="chip"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/></svg><span id="chip-ratio">16:9</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div class="pb-credits"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg><span id="chip-credits">~600</span></div>
+        </div>
+        <div class="pb-right">
+          <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+          <div id="genera-btn"><span id="ripple"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+/* ═══════════ PRESET CONTENT — troque para um vídeo novo (persona/aula) ═══════════ */
+window.__CONTENT = Object.assign({
+  base:   "render-sample.png",        // frame iniziale (imagem base / Inizio)
+  video:  "sample-video.mp4",         // VÍDEO REAL gerado na plataforma (galeria do PrimeVoice)
+  prompt: "Lenta panoramica cinematografica, luce del tramonto che si muove dolcemente",
+  mode:   "Presentazione",
+  model:  "Runway Gen-4.5",
+  dur:    "5s",
+  ratio:  "16:9",
+  credits:"~600",
+  name:   "Olimpia",
+  avatar: "https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/user-assets/8f46c892-5f97-4927-ae56-cc9383cde38a/avatar.webp",
+}, window.__CONTENT || {});
+const C = window.__CONTENT;
+
+window.__DURATION = 17500;
+function mulberry32(seed){let a=seed>>>0;return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+const stage=document.querySelector('.stage');
+const promptInput=document.getElementById('prompt-input');
+const generaBtn=document.getElementById('genera-btn');
+const ripple=document.getElementById('ripple');
+const cursorEl=document.getElementById('cursor');
+const genState=document.getElementById('gen-state');
+const genCanvas=document.getElementById('gen-canvas');
+const baseImg=document.getElementById('base-img');
+const resultVideo=document.getElementById('result-video');
+const vidBadge=document.getElementById('vid-badge');
+const vidProgress=document.getElementById('vid-progress');
+const vidProgressBar=vidProgress.querySelector('i');
+
+/* apply preset content */
+baseImg.src=C.base;
+document.getElementById('pb-thumb-img').src=C.base;
+resultVideo.src=C.video;
+if(C.avatar){const av=document.querySelector('.avatar');av.textContent='';av.style.backgroundImage='url('+C.avatar+')';av.style.backgroundSize='cover';av.style.backgroundPosition='center';}
+document.getElementById('chip-mode').textContent=C.mode;
+document.getElementById('chip-model').textContent=C.model;
+document.getElementById('chip-dur').textContent=C.dur;
+document.getElementById('chip-ratio').textContent=C.ratio;
+document.getElementById('chip-credits').textContent=C.credits;
+document.getElementById('vid-badge-txt').textContent='Video · '+C.dur;
+document.getElementById('gen-meta').textContent=(C.model+' · '+C.dur+' · '+C.ratio).toLowerCase();
+
+const PROMPT_TEXT=C.prompt;
+const LOADER_SIZE=120, DPR=2;
+genCanvas.width=LOADER_SIZE*DPR; genCanvas.height=LOADER_SIZE*DPR;
+genCanvas.style.width=LOADER_SIZE+'px'; genCanvas.style.height=LOADER_SIZE+'px';
+const genCtx=genCanvas.getContext('2d');
+const GEN_START=6400;
+
+/* ─── loader neural (idêntico ao render-studio-motion) ─── */
+function buildSymbol(cx,cy,R){const r=R*0.45;const o=[], in_=[];for(let i=0;i<6;i++){const ao=(Math.PI/3)*i-Math.PI/2;o.push([cx+Math.cos(ao)*R,cy+Math.sin(ao)*R]);const ai=(Math.PI/3)*i-Math.PI/2+Math.PI/6;in_.push([cx+Math.cos(ai)*r,cy+Math.sin(ai)*r]);}const verts=[...o,...in_,[cx,cy]];const edges=[];for(let i=0;i<6;i++)edges.push([i,(i+1)%6]);for(let i=0;i<6;i++)edges.push([i,12]);for(let i=0;i<6;i++)edges.push([6+i,6+((i+1)%6)]);for(let i=0;i<6;i++){edges.push([i,6+i]);edges.push([i,6+((i+5)%6)]);}return{verts,edges};}
+function buildLoaderModel(size){const rand=mulberry32(1234);const R=size*0.34;const cx=size/2,cy=size/2;const CONNECTION_DIST=R*0.85;const WANDER_RADIUS=R*1.4;const CYCLE=3600;const sym=buildSymbol(cx,cy,R);const neurons=[];for(let i=0;i<13;i++){const ang=rand()*Math.PI*2;neurons.push({x:cx+Math.cos(ang)*WANDER_RADIUS*(0.3+rand()*0.5),y:cy+Math.sin(ang)*WANDER_RADIUS*(0.3+rand()*0.5),vx:(rand()-0.5)*0.25,vy:(rand()-0.5)*0.25,phase:rand()*Math.PI*2,r:0.8+rand()*0.4,pulse:rand()});}return{R,cx,cy,CONNECTION_DIST,WANDER_RADIUS,CYCLE,sym,neurons};}
+function updateWander(n,dt,m){n.phase+=dt*0.001;const wf=0.012;const ax=Math.sin(n.phase*1.3)*wf+Math.cos(n.phase*0.7)*wf*0.5;const ay=Math.cos(n.phase*1.1)*wf+Math.sin(n.phase*0.9)*wf*0.5;const dx=n.x-m.cx,dy=n.y-m.cy;const dist=Math.hypot(dx,dy);let px=0,py=0;if(dist>m.WANDER_RADIUS){const pull=(dist-m.WANDER_RADIUS)*0.005;px=-(dx/dist)*pull;py=-(dy/dist)*pull;}n.vx=(n.vx+ax+px)*0.97;n.vy=(n.vy+ay+py)*0.97;n.x+=n.vx;n.y+=n.vy;n.pulse=(Math.sin(n.phase*2)+1)/2;}
+function drawLoaderCanvas(T,size){const ctx=genCtx;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,genCanvas.width,genCanvas.height);ctx.setTransform(DPR,0,0,DPR,0,0);const m=buildLoaderModel(size);const{neurons,sym,CONNECTION_DIST,CYCLE}=m;const TL=Math.max(0,T-GEN_START);const steps=Math.floor(TL/16);const dt=16;let cf=0;for(let s=0;s<steps;s++){const el=((s+1)*dt)%CYCLE;cf=(Math.sin((el/CYCLE)*Math.PI*2-Math.PI/2)+1)/2;const ws=1-cf*0.92;for(let i=0;i<neurons.length;i++){const n=neurons[i];updateWander(n,dt*ws,m);const t=sym.verts[i];n.x+=(t[0]-n.x)*cf*0.1;n.y+=(t[1]-n.y)*cf*0.1;n.vx*=1-cf*0.4;n.vy*=1-cf*0.4;}}const fs=size*0.38,fe=size*0.5;function fade(x,y){const d=Math.hypot(x-size/2,y-size/2);if(d<=fs)return 1;if(d>=fe)return 0;return 1-(d-fs)/(fe-fs);}const COL='110,105,100',ACC='161,98,7';if(cf<0.85){for(let i=0;i<neurons.length;i++)for(let j=i+1;j<neurons.length;j++){const a=neurons[i],b=neurons[j];const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<CONNECTION_DIST){const f=(fade(a.x,a.y)+fade(b.x,b.y))/2;const al=(1-d/CONNECTION_DIST)*0.15*f;ctx.strokeStyle=`rgba(${COL},${al})`;ctx.lineWidth=0.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}}if(cf>0.15){const ea=Math.min(1,(cf-0.15)/0.6)*0.4;for(const e of sym.edges){const a=neurons[e[0]],b=neurons[e[1]];const f=(fade(a.x,a.y)+fade(b.x,b.y))/2;ctx.strokeStyle=`rgba(${COL},${ea*f})`;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}for(const n of neurons){const f=fade(n.x,n.y);const ba=(0.25+n.pulse*0.15)*f;ctx.fillStyle=`rgba(${COL},${ba})`;ctx.beginPath();ctx.arc(n.x,n.y,n.r*(0.6+n.pulse*0.15),0,Math.PI*2);ctx.fill();if(cf>0.8&&n.pulse>0.7){ctx.fillStyle=`rgba(${ACC},0.06)`;ctx.beginPath();ctx.arc(n.x,n.y,n.r*1.5,0,Math.PI*2);ctx.fill();}}}
+
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+
+const VID_START=11500;             // quando o vídeo entra
+const VID_DUR=5.0;                 // segundos do clipe
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+
+  /* digitação do prompt de movimento (1.4s → 5.2s) */
+  let chars=0;
+  if(T>=1400)chars=Math.round(clamp01((T-1400)/3800)*PROMPT_TEXT.length);
+  if(T>=5200)chars=PROMPT_TEXT.length;
+  promptInput.value=PROMPT_TEXT.slice(0,chars);
+  promptInput.style.height='auto';
+  promptInput.style.height=Math.max(30,Math.min(promptInput.scrollHeight,64))+'px';
+
+  /* cursor: canto → prompt → Genera */
+  const inputC=centerOf(promptInput), btnC=centerOf(generaBtn);
+  const sX=1860,sY=1010; let cx,cy;
+  if(T<600){cx=sX;cy=sY;}
+  else if(T<1400){const e=easeInOut((T-600)/800);cx=lerp(sX,inputC.x,e);cy=lerp(sY,inputC.y,e);}
+  else if(T<5200){cx=inputC.x;cy=inputC.y;}
+  else if(T<6100){const e=easeInOut((T-5200)/900);cx=lerp(inputC.x,btnC.x,e);cy=lerp(inputC.y,btnC.y,e);}
+  else{cx=btnC.x;cy=btnC.y;}
+  placeCursor(cx,cy);
+
+  /* clique no Genera (ripple) */
+  let bs=1,rs=1,ro=0;
+  if(T>=6100&&T<6400){const p=(T-6100)/300;bs=lerp(0.9,1,easeInOut(p));rs=lerp(1,3.4,p);ro=(1-p)*0.85;}
+  generaBtn.style.transform=`scale(${bs})`;
+  ripple.style.transform=`translate(-50%,-50%) scale(${rs})`;
+  ripple.style.opacity=ro.toFixed(3);
+
+  /* loader "Generando il video" (6.4s → 11s) */
+  let go=0;
+  if(T>=GEN_START&&T<VID_START)go=smoothstep(GEN_START,GEN_START+250,T);
+  else if(T>=VID_START)go=1-smoothstep(VID_START,VID_START+500,T);
+  genState.style.opacity=go.toFixed(3);
+  if(go>0.001)drawLoaderCanvas(T,LOADER_SIZE);
+  else{genCtx.setTransform(1,0,0,1,0,0);genCtx.clearRect(0,0,genCanvas.width,genCanvas.height);}
+
+  /* imagem base visível até o vídeo entrar */
+  baseImg.style.opacity=(T<VID_START?1:1-smoothstep(VID_START,VID_START+700,T)).toFixed(3);
+
+  /* RESULTADO: o vídeo real entra e TOCA (seek determinístico por tempo) */
+  let vo=0,vsc=1.04;
+  if(T>=VID_START){const e=easeInOut(clamp01((T-VID_START)/900));vo=e;vsc=lerp(1.04,1,e);}
+  resultVideo.style.opacity=vo.toFixed(3);
+  resultVideo.style.transform=`scale(${vsc.toFixed(4)})`;
+  vidBadge.style.opacity=vo.toFixed(3);
+  vidProgress.style.opacity=vo.toFixed(3);
+  if(T>=VID_START){
+    const vt=clamp01((T-VID_START)/1000/VID_DUR)*VID_DUR;
+    try{ if(Math.abs((resultVideo.currentTime||0)-vt)>0.015) resultVideo.currentTime=vt; }catch(e){}
+    vidProgressBar.style.width=(clamp01(vt/VID_DUR)*100).toFixed(1)+'%';
+  }
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

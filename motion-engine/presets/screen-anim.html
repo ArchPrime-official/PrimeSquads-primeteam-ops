@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Screen Motion (ground-truth animado)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:#FAF9F7}
+  /* a tela real (ground-truth) ocupa o palco e recebe um Ken Burns determinístico */
+  #shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;will-change:opacity,transform;transform-origin:50% 38%}
+  /* leve vinheta para dar profundidade cinematográfica (sutil) */
+  #vignette{position:absolute;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(120% 120% at 50% 45%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.06) 100%)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <img id="shot" alt="" />
+  <div id="vignette"></div>
+</div>
+<script>
+/* ═══════ PRESET CONTENT — troque image para animar outra tela real ═══════ */
+window.__CONTENT = Object.assign({
+  image: "../ground-truth/mod-crm.png",  // caminho do screenshot real (relativo ao preset)
+  zoom:  0.05,                            // intensidade do Ken Burns (0.04–0.07)
+  panX:  0.0, panY: -0.012,               // deriva sutil (fração do palco)
+}, window.__CONTENT || {});
+const C = window.__CONTENT;
+
+window.__DURATION = 6000;
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function easeOut(x){x=clamp01(x);return 1-Math.pow(1-x,3);}
+
+const shot=document.getElementById('shot');
+const vignette=document.getElementById('vignette');
+shot.src=C.image;
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+  const p=T/window.__DURATION;
+  // fade-in suave da tela (0 → 520ms)
+  const fade=easeOut(clamp01(T/520));
+  shot.style.opacity=fade.toFixed(3);
+  vignette.style.opacity=(fade*1).toFixed(3);
+  // Ken Burns determinístico: zoom-in lento + leve pan (função pura do tempo)
+  const e=easeInOut(p);
+  const scale=(1+C.zoom*e).toFixed(4);
+  const tx=(C.panX*1920*e).toFixed(2);
+  const ty=(C.panY*1080*e).toFixed(2);
+  shot.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

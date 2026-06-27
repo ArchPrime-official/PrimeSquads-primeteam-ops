@@ -1,0 +1,108 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORKFLOW: wf-lovarch-screen-motion — Animar UMA tela da Lovarch (motion graphics)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Topologia: hub_and_spoke · hub: @ops-chief · executor: @screen-motion-engineer
+# Recria a tela como preset HTML fiel ao pixel → anima (função pura do tempo) →
+# renderiza frame-a-frame em MP4. Smoke test (SSIM) em LOOP até a precisão passar.
+# Funciona p/ quem NÃO tem acesso ao repo Lovarch (entry B: screenshot→recria).
+# Tudo é autossuficiente em motion-engine/ (presets, ground-truth, scripts).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+workflow:
+  id: wf-lovarch-screen-motion
+  name: Animação de Tela Lovarch (determinística, smoke-tested)
+  hub: "@ops-chief"
+  executor: "@screen-motion-engineer"
+  inputs:
+    screen: string          # ex: planning | finance | render | <key do registry>
+    ground_truth: string?   # opcional: caminho de um print enviado (entry B)
+    content_overrides: object?  # opcional: __CONTENT por persona/aula (clip.json)
+    threshold: number?      # default 0.95 (recriação vs real); 0.99 (vídeo vs ref)
+  base_path: "motion-engine"
+  references:
+    - data/lovarch-screen-registry.md   # tela → preset → ground-truth → conta → rota
+    - data/capture-infra.md             # 7 contas, login, produção, modo screenshot→recria
+    - data/motion-fidelity-rules.md     # contrato, anti-drift, DS V8 (Lei)
+  topology: hub_and_spoke
+  forbidden_paths:
+    - "declarar pronto sem smoke-verify (número SSIM)"
+    - "recriar a partir do código do protótipo em vez do screenshot real"
+    - "animação não-determinística (rAF/Date.now/random não-semeado)"
+  status_machine: [Triaged, GroundTruthReady, Recreating, AnimReady, Rendered, Verified, Done]
+
+state:
+  file: "motion-engine/clips/{screen}.state.json"
+  owner: "@ops-chief grava; @screen-motion-engineer executa"
+  schema: { fase, status, iteracao, ssim_recreate, ssim_video, mp4_path, updated_at }
+  resume_rule: "Retoma na fase salva; não refaz o que já está Verified."
+
+# ─────────────────────────────────────────────────────────────────────────────
+phases:
+
+  - id: 0
+    name: "Ground-truth (a tela real)"
+    executor: "@screen-motion-engineer"
+    actions:
+      - "Resolver a tela no registry (preset, ground-truth, conta, rota)."
+      - "ENTRY A (tem acesso/contas): capture-ground-truth.mjs {screen} → ground-truth/<key>.png (produção, sem patch)."
+      - "ENTRY B (sem repo Lovarch): receber o print do funcionário e salvar em ground-truth/<key>.png."
+    checkpoint: "Existe um screenshot REAL e atual da tela?"
+    veto: "Sem ground-truth real → não prossegue (anti-drift)."
+    on_pass: "state {fase:1, status:GroundTruthReady}"
+
+  - id: 1
+    name: "Recriar/atualizar o preset HTML"
+    executor: "@screen-motion-engineer"
+    produce: "motion-engine/presets/<preset>.html (window.__CONTENT/__DURATION/__render)"
+    actions:
+      - "Preset existe → atualizar só o que divergiu do print. Não existe → clonar o preset irmão mais parecido (mesmo chrome/DS V8), trocar o miolo."
+      - "Respeitar motion-fidelity-rules.md (tokens, zero azul, chrome reutilizado, determinismo)."
+    review:
+      by: "smoke-verify.mjs (recriação vs tela real)"
+      command: "node motion-engine/scripts/smoke-verify.mjs --preset <preset>.html --truth ground-truth/<key>.png --threshold {threshold|0.95}"
+    loop:
+      max_iterations: 6
+      rule: "SSIM < threshold → ler diff (layout/cor/conteúdo), ajustar HTML, re-medir. Repetir até PASS ou max."
+      on_max: "escalar ao @ops-chief com o melhor SSIM e o que falta."
+    veto: "Avançar com SSIM < threshold → PROIBIDO."
+    on_pass: "state {fase:2, status:Recreating→AnimReady, ssim_recreate}"
+
+  - id: 2
+    name: "Animar (função pura do tempo)"
+    executor: "@screen-motion-engineer"
+    actions:
+      - "Definir window.__DURATION (ms) e window.__render(T): entradas/stagger/cursor/loader — determinístico (PRNG semeado)."
+      - "Render Studio: imagem nasce no tamanho final; RIFERIMENTO só faz fade-in (NÃO encolher)."
+    checkpoint: "boot() → __render(0) ok; __render(T) puro p/ todo T em [0, __DURATION]."
+    on_pass: "state {fase:3, status:Rendered}"
+
+  - id: 3
+    name: "Renderizar MP4"
+    executor: "@screen-motion-engineer"
+    produce: "motion-engine/out/<nome>.mp4"
+    actions:
+      - "clip.json (preset, out, fps, w/h, duration_ms, content) OU flags."
+      - "render-motion.mjs: frame-a-frame (Playwright) + ffmpeg (H.264, yuv420p)."
+    command: "node motion-engine/scripts/render-motion.mjs motion-engine/clips/<screen>.json"
+    on_pass: "state {fase:4, status:Rendered, mp4_path}"
+
+  - id: 4
+    name: "Smoke-test final (no vídeo)"
+    executor: "@screen-motion-engineer"
+    actions:
+      - "Extrair frame do MP4 e conferir (não só HTML isolado)."
+      - "Se existe vídeo de referência: smoke-verify --video out/<nome>.mp4 --ref <ref> (regressão, alvo ≥0.99)."
+    review:
+      command: "node motion-engine/scripts/smoke-verify.mjs --video out/<nome>.mp4 --ref <ref.mp4> --threshold 0.99"
+    veto: "MP4 com SSIM abaixo do alvo vs referência → volta à Fase 1/2."
+    on_pass: "state {fase:5, status:Verified, ssim_video}"
+
+  - id: 5
+    name: "Handoff"
+    executor: "@screen-motion-engineer → @ops-chief"
+    output_package: ["preset", "mp4_path", "ssim_recreate", "ssim_video", "ground_truth", "ajustes do loop"]
+    on_pass: "state {status:Done}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NOTA: comprovado em 2026-06-27 — scene-planning.html re-renderizado bate
+# SSIM 0.99997 vs ~/Desktop/motions-academy/21-pianificazione-MOTION.mp4.

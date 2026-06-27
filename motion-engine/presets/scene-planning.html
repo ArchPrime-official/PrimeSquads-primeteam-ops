@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<title>Lovarch — Pianificazione (Simulazione)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700&family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FAF9F7; --foreground:#18181B; --muted-foreground:#57534E;
+    --card:#F2F0ED; --muted:#EEEBE7; --border:#E3E3E3; --accent:#A16207;
+    --bg-nav:rgba(250,249,247,0.92); --text-dim:#78716C; --text-ghost:#A8A29E;
+    --green:#16A34A; --red:#DC2626;
+    --prompt-shadow:0 4px 24px rgba(0,0,0,0.10), 0 0 60px rgba(161,98,7,0.04);
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.04); --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06);
+    --card-shadow:0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.035);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a}
+  .stage{width:1920px;height:1080px;overflow:hidden;position:relative;background:var(--background);color:var(--foreground);font-family:'Inter',sans-serif}
+
+  /* faint constellation dots */
+  #dots{position:absolute;inset:0;z-index:0;pointer-events:none}
+
+  /* ─── TOP NAV (reused chrome) ─── */
+  .topnav{position:absolute;top:0;left:0;right:0;height:56px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:var(--bg-nav);backdrop-filter:blur(24px) saturate(1.3);border-bottom:1px solid var(--border)}
+  .nav-logo{height:22px;width:auto;display:block;flex-shrink:0}
+  .tabs{display:flex;align-items:center;gap:4px;background:rgba(238,235,231,0.6);border-radius:9999px;padding:4px}
+  .tab{display:flex;align-items:center;gap:6px;padding:6px 16px;border-radius:9999px;font-size:14px;font-weight:500;color:var(--muted-foreground);cursor:default;line-height:1}
+  .tab svg{width:14px;height:14px}
+  .tab.active{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+  .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .icon-btn{width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .icon-btn svg{width:16px;height:16px}
+  .credits-pill{display:flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:9999px;background:rgba(161,98,7,0.10);border:1px solid rgba(161,98,7,0.18);color:var(--accent)}
+  .credits-pill svg{width:15px;height:15px}
+  .credits-pill .credit-num{font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.2px;line-height:1}
+  .avatar{width:32px;height:32px;border-radius:9999px;background:linear-gradient(135deg,#2d2d33,#18181B);color:#FAF9F7;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;background-size:cover;background-position:center}
+
+  /* ─── CONTENT GRID ─── */
+  .content{position:absolute;top:56px;left:0;right:0;bottom:0;z-index:5;padding:34px 40px 0 40px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1840px}
+
+  .sim-card{position:relative;background:var(--card);border:1px solid rgba(227,227,227,0.7);border-radius:18px;padding:24px 28px 26px 28px;box-shadow:var(--card-shadow);opacity:0;transform:translateY(14px);will-change:opacity,transform;min-height:188px}
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+  .card-titlewrap{display:flex;flex-direction:column;gap:8px}
+  .card-titlerow{display:flex;align-items:center;gap:10px}
+  .card-title{font-family:'Outfit',sans-serif;font-size:21px;font-weight:700;color:var(--foreground);letter-spacing:-.01em;line-height:1}
+  .badge{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--green);background:rgba(22,163,74,0.12);padding:3px 9px;border-radius:9999px;line-height:1}
+  .card-date{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-dim);font-weight:500}
+  .card-date svg{width:13px;height:13px;color:var(--text-ghost)}
+  .menu-dots{color:var(--text-ghost);display:flex;align-items:center;gap:0;font-weight:700;font-size:20px;letter-spacing:1px;line-height:0.5;margin-top:2px}
+  .menu-dots svg{width:18px;height:18px}
+
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-top:6px}
+  .metric .lbl{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--text-dim);text-transform:uppercase;margin-bottom:5px;line-height:1}
+  .metric .val{font-family:'DM Sans',sans-serif;font-size:21px;font-weight:700;color:var(--foreground);line-height:1;letter-spacing:-.01em}
+  .metric .val.green{color:var(--green)}
+  .metric .val.red{color:var(--red)}
+  .mensile{position:absolute;right:24px;bottom:18px;font-size:11.5px;color:var(--text-ghost);font-weight:500}
+
+  /* ─── PROMPT DOCK ─── */
+  .prompt-dock{position:absolute;left:0;right:0;bottom:74px;display:flex;justify-content:center;padding:0 40px;z-index:30}
+  .prompt-bar{position:relative;width:760px;border-radius:22px;background:rgba(248,247,245,0.98);backdrop-filter:blur(24px) saturate(1.3);box-shadow:var(--prompt-shadow);border:1px solid var(--border);padding:16px 18px 14px 22px}
+  .nuova-sim{position:absolute;top:-16px;right:18px;display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:9999px;background:#fff;border:1px solid rgba(161,98,7,0.30);color:var(--accent);font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,0.06);line-height:1}
+  .nuova-sim svg{width:14px;height:14px}
+  .pb-placeholder{font-size:18px;color:rgba(87,83,78,0.50);font-weight:400;padding:8px 0 22px 0}
+  .pb-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .pb-left{display:flex;align-items:center;gap:10px}
+  .seg-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9999px;font-size:13.5px;font-weight:600;line-height:1;color:var(--muted-foreground)}
+  .seg-pill svg{width:15px;height:15px}
+  .seg-pill.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(161,98,7,0.25)}
+  .pb-right{display:flex;align-items:center;gap:12px}
+  .mic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+  .mic svg{width:19px;height:19px}
+  #send-btn{position:relative;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(161,98,7,0.14);color:rgba(161,98,7,0.45);box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+  #send-btn svg{width:18px;height:18px}
+
+  /* ─── BOTTOM NAV ─── */
+  .bottomnav{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:10px;z-index:30}
+  .bn{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:9999px;font-size:13.5px;font-weight:500;color:var(--muted-foreground);background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);line-height:1}
+  .bn svg{width:15px;height:15px;color:var(--text-dim)}
+  .bn.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 3px 10px rgba(161,98,7,0.28)}
+  .bn.active svg{color:#fff}
+  .bn .beta{font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--accent);background:rgba(161,98,7,0.12);padding:2px 5px;border-radius:5px;line-height:1}
+
+  #cursor{position:absolute;left:0;top:0;z-index:80;width:26px;height:26px;transform:translate(0,0);pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.30));will-change:transform}
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="dots"></canvas>
+
+  <header class="topnav">
+    <img class="nav-logo" src="lovarch-logo.png" alt="LOVARCH" />
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5.1 1.4L12 17l-1.9-5.6L5 10l5.1-1.4z"/></svg>Home</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Studio</div>
+      <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Business</div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>Formazione</div>
+    </nav>
+    <div class="nav-right">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+      <div class="credits-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg><span class="credit-num">99.961</span></div>
+      <div class="avatar" id="avatar">A</div>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <div class="prompt-dock">
+    <div class="prompt-bar">
+      <div class="nuova-sim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuova simulazione</div>
+      <div class="pb-placeholder">Cerca simulazione o crea piano…</div>
+      <div class="pb-bottom">
+        <div class="pb-left">
+          <div class="seg-pill active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Simulazioni</div>
+          <div class="seg-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 5v14"/></svg>Servizi</div>
+        </div>
+        <div class="pb-right">
+          <div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></div>
+          <div id="send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottomnav">
+    <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>Clienti</div>
+    <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>Progetti</div>
+    <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Portale Cliente <span class="beta">BETA</span></div>
+    <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg>Finanze</div>
+    <div class="bn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 4v5h7M8 21v-6h8v6"/></svg>Pianificazione</div>
+    <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>Caosometro</div>
+    <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg>DISC + SWOT</div>
+  </nav>
+
+  <svg id="cursor" viewBox="0 0 24 24" fill="none"><path d="M5 3l13 8.5-5.7 1.2-2.5 5.4z" fill="#1B1B1E" stroke="#FAF9F7" stroke-width="1.2" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+window.__DURATION = 9000;
+function clamp01(x){return x<0?0:x>1?1:x;}
+function easeOut(x){x=clamp01(x);return 1-Math.pow(1-x,3);}
+function easeInOut(x){x=clamp01(x);return x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smoothstep(e0,e1,x){const t=clamp01((x-e0)/(e1-e0));return t*t*(3-2*t);}
+
+/* ── card data (read from ground truth) ── */
+const CARDS=[
+  {title:'simulazione 2026', date:'2026 · 19/02/26', ricavo:161000, vendite:23, profitto:81545, profittoSign:'green', margine:50.6, margineSign:'green', roi:102.6, mensile:'13.333 €'},
+  {title:'simulazione 2026', date:'2026 · 19/02/26', ricavo:161000, vendite:23, profitto:81545, profittoSign:'green', margine:50.6, margineSign:'green', roi:102.6, mensile:'13.333 €'},
+  {title:'meta 2026',        date:'2026 · 11/02/26', ricavo:94500,  vendite:57, profitto:4773,  profittoSign:'green', margine:5.1,  margineSign:'red',   roi:5.3,   mensile:'7083 €'},
+  {title:'2026', badge:'ATTIVO', date:'2026 · 13/12/25', ricavo:51126, vendite:22, profitto:-21123, profittoSign:'red', margine:-41.3, margineSign:'red', roi:-274.3, mensile:'10.000 €'},
+];
+const CAL_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+const DOTS_SVG='<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>';
+
+const grid=document.getElementById('grid');
+CARDS.forEach((c,i)=>{
+  const el=document.createElement('div');el.className='sim-card';el.dataset.i=i;
+  el.innerHTML=
+   '<div class="card-head"><div class="card-titlewrap">'
+   +'<div class="card-titlerow"><span class="card-title">'+c.title+'</span>'+(c.badge?'<span class="badge">'+c.badge+'</span>':'')+'</div>'
+   +'<div class="card-date">'+CAL_SVG+'<span>'+c.date+'</span></div></div>'
+   +'<div class="menu-dots">'+DOTS_SVG+'</div></div>'
+   +'<div class="metrics">'
+   +'<div class="metric"><div class="lbl">Ricavo previsto</div><div class="val" data-num="ricavo">0 €</div></div>'
+   +'<div class="metric"><div class="lbl">Vendite</div><div class="val" data-num="vendite">0</div></div>'
+   +'<div class="metric"><div class="lbl">Profitto</div><div class="val '+c.profittoSign+'" data-num="profitto">0 €</div></div>'
+   +'<div class="metric"><div class="lbl">Margine</div><div class="val '+c.margineSign+'" data-num="margine">0%</div></div>'
+   +'<div class="metric"><div class="lbl">Roi</div><div class="val" data-num="roi">0%</div></div>'
+   +'</div>'
+   +'<div class="mensile">Mensile: '+c.mensile+'</div>';
+  grid.appendChild(el);
+});
+
+const stage=document.querySelector('.stage');
+const cursorEl=document.getElementById('cursor');
+const avatar=document.getElementById('avatar');
+avatar.textContent='';
+avatar.style.backgroundImage="url('https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/user-assets/8f46c892-5f97-4927-ae56-cc9383cde38a/avatar.webp')";
+
+/* ── number formatting (Italian: . thousands, , decimal) ── */
+function fmtEuroInt(n){
+  const neg=n<0; n=Math.abs(Math.round(n));
+  const s=n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return (neg?'−':'')+s+' €';
+}
+function fmtInt(n){return Math.round(n).toString();}
+function fmtPct(n){
+  const neg=n<0; const v=Math.abs(n).toFixed(1).replace('.',',');
+  return (neg?'−':'')+v+'%';
+}
+
+/* ── faint constellation dots ── */
+const dotsCanvas=document.getElementById('dots');
+const dctx=dotsCanvas.getContext('2d');
+dotsCanvas.width=1920;dotsCanvas.height=1080;
+function mulberry32(seed){let a=seed>>>0;return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+const DOTS=[];{const r=mulberry32(77);for(let i=0;i<60;i++){DOTS.push({x:r()*1920,y:120+r()*900,rr:0.8+r()*1.4,a:0.05+r()*0.10,ph:r()*Math.PI*2});}}
+function drawDots(T){
+  dctx.clearRect(0,0,1920,1080);
+  for(const d of DOTS){
+    const tw=0.6+0.4*Math.sin(T*0.0008+d.ph);
+    dctx.beginPath();dctx.fillStyle='rgba(120,113,108,'+(d.a*tw).toFixed(3)+')';
+    dctx.arc(d.x,d.y,d.rr,0,Math.PI*2);dctx.fill();
+  }
+}
+
+function centerOf(el){const sr=stage.getBoundingClientRect();const r=el.getBoundingClientRect();const sx=sr.width?(1920/sr.width):1;const sy=sr.height?(1080/sr.height):1;return{x:(r.left-sr.left+r.width/2)*sx,y:(r.top-sr.top+r.height/2)*sy};}
+function placeCursor(x,y){cursorEl.style.transform=`translate(${x-4}px, ${y-3}px)`;}
+
+const cardEls=[...document.querySelectorAll('.sim-card')];
+
+function __render(T){
+  T=Math.max(0,Math.min(T,window.__DURATION));
+  drawDots(T);
+
+  /* cards fade/rise in, staggered */
+  cardEls.forEach((el,i)=>{
+    const start=300+i*220;
+    const p=easeOut((T-start)/620);
+    el.style.opacity=p.toFixed(3);
+    el.style.transform='translateY('+lerp(14,0,p).toFixed(2)+'px)';
+  });
+
+  /* numbers count up — start after each card begins appearing */
+  cardEls.forEach((el,i)=>{
+    const c=CARDS[i];
+    const cStart=400+i*220;
+    const cp=easeOut((T-cStart)/1500); /* 0..1 count progress */
+    const q=el.querySelectorAll('[data-num]');
+    q.forEach(node=>{
+      const key=node.dataset.num;
+      if(key==='ricavo') node.textContent=fmtEuroInt(c.ricavo*cp);
+      else if(key==='vendite') node.textContent=fmtInt(c.vendite*cp);
+      else if(key==='profitto') node.textContent=fmtEuroInt(c.profitto*cp);
+      else if(key==='margine') node.textContent=fmtPct(c.margine*cp);
+      else if(key==='roi') node.textContent=fmtPct(c.roi*cp);
+    });
+  });
+
+  /* cursor: starts off-screen bottom-right, glides to the prompt bar / Nuova simulazione */
+  const sX=1860,sY=1010;
+  const target=document.querySelector('.nuova-sim');
+  const tC=centerOf(target);
+  let cx,cy;
+  if(T<700){cx=sX;cy=sY;}
+  else if(T<2000){const e=easeInOut((T-700)/1300);cx=lerp(sX,tC.x,e);cy=lerp(sY,tC.y,e);}
+  else if(T<6500){
+    /* gentle drift across the cards while numbers settle */
+    const e=easeInOut((T-2000)/4500);
+    const midC=centerOf(document.querySelector('.prompt-bar'));
+    cx=lerp(tC.x,midC.x-200,e);cy=lerp(tC.y,midC.y,e);
+  }
+  else{cx=lerp(centerOf(document.querySelector('.prompt-bar')).x-200,centerOf(document.querySelector('.prompt-bar')).x,easeInOut((T-6500)/2000));cy=centerOf(document.querySelector('.prompt-bar')).y;}
+  placeCursor(cx,cy);
+}
+window.__render=__render;
+function boot(){__render(0);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(boot);}
+boot();
+window.addEventListener('load',boot);
+</script>
+</body>
+</html>

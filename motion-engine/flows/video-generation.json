@@ -1,0 +1,53 @@
+{
+  "name": "video-generation",
+  "account": "olimpia",
+  "viewport": {
+    "width": 1600,
+    "height": 900
+  },
+  "out": "flow-video-generation.mp4",
+  "_desc": "Fluxo completo de geração de VÍDEO (image-to-video) no Render Studio: imagem base → toggle Video → prompt de movimento → Genera → loading (minutos) → vídeo. Requer asset base (frame iniziale). CUSTO ALTO (~600cr).",
+  "steps": [
+    {
+      "action": "goto",
+      "module": "render",
+      "ms": 4500
+    },
+    {
+      "action": "wait",
+      "ms": 1200
+    },
+    {
+      "action": "upload",
+      "asset": "motion-engine/presets/render-sample.png"
+    },
+    {
+      "action": "wait",
+      "ms": 1500
+    },
+    {
+      "action": "clickTitle",
+      "title": "Video"
+    },
+    {
+      "action": "wait",
+      "ms": 1500
+    },
+    {
+      "action": "type",
+      "text": "Lenta panoramica cinematografica, luce del tramonto che si muove dolcemente"
+    },
+    {
+      "action": "wait",
+      "ms": 1000
+    },
+    {
+      "action": "generateVideo",
+      "timeout": 360000
+    },
+    {
+      "action": "wait",
+      "ms": 4000
+    }
+  ]
+}

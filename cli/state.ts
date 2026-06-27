@@ -6,7 +6,6 @@ export type SetupStepName =
   | 'git_installed'
   | 'clone_location'
   | 'deps_installed'
-  | 'submodules_synced'
   | 'bin_linked'
   | 'logged_in'
   | 'identity_confirmed'

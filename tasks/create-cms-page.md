@@ -3,6 +3,8 @@
 > Task atômica para criar uma nova linha em `landing_pages` (tabela única para todas as landing pages multi-domain — `lp.archprime.io`, `lovarch.com`, `archprime.io`). Pós-convergência 2026-05-04 (PrimeTeam PR #1226), `cms_pages` foi consolidada em `landing_pages`. Conteúdo é `html_content` (HTML raw self-contained com pixel + form embutidos), não mais `blocks`. **SEMPRE status='draft'** + **campaign_id obrigatório** (sem ele attribution quebra).
 >
 > ⚠️ **DEBT TÉCNICO LOVARCH (CLAUDE.md):** se a página criada for em `target_domain='lovarch.com'`, o renderer público é o frontend Next.js no repo `ByPabloRuanL/lovarch` (mirror). LPs em `lovarch.com/page/{slug}` são renderizadas por código separado. Mexer no schema/renderer/tracking exige PR companion no repo Lovarch no mesmo dia OU LPs quebram silenciosamente. Para `archprime.io` mesmo flow (também ISR via Next). Para `lp.archprime.io` é SPA do próprio primeteam — sem dual-renderer. Ver `data/cms-vs-landing-pages.md`.
+>
+> 🎯 **LIÇÃO pixel `Lead` — 1× por pessoa, deduplicado (2026):** todo `fbq('track','Lead')` no HTML DEVE usar `eventID` **determinístico** derivado do `lead_id`/`opportunity_id` retornado pelo backend (`cms-form-submit` devolve `event_id` = `cms-lead-{leadId}`), para deduplicar com o CAPI server-side. **NUNCA** gerar `eventID` com `uuid()`/`Date.now()`/`Math.random()` — causa double-fire (cada pessoa conta 2-3× no Funnel do Meta). LP de THANK-YOU/GRAZIE/CONFERMATO **não** dispara `Lead` (já foi contado na LP do form) — usar `CompleteRegistration`/`ViewContent` se quiser sinalizar high-intent. `Purchase` (browser) usa `eventID = session_id + ':Purchase'` + guard one-shot em localStorage.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 

@@ -1,6 +1,8 @@
 # Task: create-lead
 
 > Task atômica para criar uma nova linha em `leads`. Requer `full_name`. Campos opcionais (email, phone, source, campaign_id) resolvidos com inferência + echo de confirmação.
+>
+> ⚠️ **LIÇÃO `source` (PrimeTeam PR #4477, 2026):** NÃO marcar `source='facebook'` só porque existe cookie `_fbp` — o `_fbp` é setado pelo pixel do PRÓPRIO site em qualquer visitante, gerando falso positivo. Exigir sinal real de clique do anúncio: `fbclid`/`fbc` presente. Capturar também `document.referrer` para atribuição de origem. Sem esses sinais, `source` fica `direct`/`organic`, não `facebook`.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 

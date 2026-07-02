@@ -1,6 +1,10 @@
 # Task: create-finance-transaction
 
 > Task atômica para criar uma nova linha em `finance_transactions`, respeitando RLS `has_finance_access()` (owner + financeiro). Parser de amount/currency/sign, resolução de category/cost_center/account por nome, echo-confirm antes de INSERT.
+>
+> ⛔ **LIÇÃO Stripe = SSoT (2026):** NUNCA lançar manualmente uma transação de VENDA que vem do Stripe. O `sync-stripe-transactions` é a fonte única — ele auto-lança a venda com valor líquido + IVA real + taxa, faz match com a transação e concilia (PRs #4384/#4481). Lançar manual gera **double-count**. Esta task é para transações que NÃO vêm de Stripe (despesas, transferências, ajustes). Se o usuário pedir para lançar uma venda Stripe, redirecionar para o sync/conciliação, não INSERT manual.
+>
+> ⚠️ **HAZARD triggers (ver `checklists/finance-triggers-hazard.md`):** mexer em `amount`/`card_amount`/`currency` dispara `trg_recompute_converted_on_update` que recomputa `converted_amount` pela taxa e **corrompe valores manuais**; e `auto_link_transaction_to_invoice` pode sugar fatura órfã. Em UPDATE/bulk, desabilitar o trigger pelo NOME antes.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 

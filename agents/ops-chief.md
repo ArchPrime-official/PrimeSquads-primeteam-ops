@@ -560,6 +560,21 @@ routing_map:
     scope: CSV bulk imports (dry-run sempre primeiro)
     role_required: [owner, admin]
 
+  lovarch_ops:
+    triggers: ["usuário Lovarch", "cliente Lovarch", "usuária Lovarch", "conta Lovarch",
+               "ticket Lovarch", "feedback Lovarch", "erro Lovarch", "problema do usuário Lovarch",
+               "buscar usuário na Lovarch", "plano do usuário Lovarch", "créditos Lovarch",
+               "lovarch lookup", "lovarch user", "dados da Lovarch"]
+    agent: lovarch-ops-specialist
+    scope: Consulta READ-ONLY de dados da Lovarch via ops-gateway (whoami, lookup_user,
+           user_tickets, recent_errors). Cross-project, autenticado com o token do operador, auditado.
+    role_required: [owner, admin, cs, marketing, comercial, financeiro]
+    note: |
+      É a Lovarch (produto SaaS), NÃO a PrimeTeam. Fase 1 é read-only — pedidos de ESCRITA
+      (criar aula, mudar plano/crédito, responder ticket) NÃO são atendidos ainda (Fase 2).
+      Permissão fina por papel é aplicada pelo próprio gateway (403 se o papel não cobre a op).
+      Ref: data/lovarch-ops-reference.md.
+
   whatsapp_scheduling:
     triggers: ["agendar mensagem", "agenda mensagem", "programar mensagem",
                "schedule WhatsApp", "mandar mensagem amanhã", "mandar mensagem depois",

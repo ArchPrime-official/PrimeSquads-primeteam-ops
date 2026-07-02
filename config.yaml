@@ -226,6 +226,16 @@ agents:
       usuário aprova sample, depois commit. 1 entry em activity_logs por batch
       (não per-row). Aceita inputs de finance, leads, students.
 
+  - id: lovarch-ops-specialist
+    file: agents/lovarch-ops-specialist.md
+    tier: 2
+    role: execution
+    description: >
+      Ponte read-only para dados da Lovarch (produto SaaS, projeto Supabase
+      separado) via Edge Function ops-gateway. Usa o token do próprio operador
+      (cross-project, auditado). Fase 1: whoami, lookup_user, user_tickets,
+      recent_errors. NÃO escreve na Lovarch. Ref: data/lovarch-ops-reference.md.
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Tasks registry (16 tasks HO-TP-001)
 # Atualizado 2026-05-10: registradas 3 tasks CMS adicionadas em 2026-05-09
@@ -862,6 +872,24 @@ tasks:
       Owner-only gate, dupla confirmation (tripla se requested_role='owner').
       Audit STRICT (falha audit = ABORT) + quality-guardian flag mandatory.
     agent: admin-specialist
+
+  # Lovarch read bridge (Sprint 24) — read-only via ops-gateway cross-project
+  - id: lovarch-whoami
+    file: tasks/lovarch-whoami.md
+    purpose: Self-test do acesso Lovarch — email/roles/allowed_operations do operador
+    agent: lovarch-ops-specialist
+  - id: lovarch-lookup-user
+    file: tasks/lovarch-lookup-user.md
+    purpose: Buscar usuário Lovarch (email/user_id) — status/plano/créditos + contagens
+    agent: lovarch-ops-specialist
+  - id: lovarch-user-tickets
+    file: tasks/lovarch-user-tickets.md
+    purpose: Tickets/feedbacks in-app de um usuário Lovarch
+    agent: lovarch-ops-specialist
+  - id: lovarch-recent-errors
+    file: tasks/lovarch-recent-errors.md
+    purpose: Erros recentes da Lovarch (globais ou por usuário)
+    agent: lovarch-ops-specialist
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Workflows registry (7 workflows multi-fase)

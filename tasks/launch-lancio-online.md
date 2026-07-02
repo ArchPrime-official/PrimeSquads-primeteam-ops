@@ -2,6 +2,12 @@
 
 > Task orquestradora para iniciar **Lancio Online estruturado** (formato launch ArchPrime: pré-lançamento → carrinho aberto → encerramento). Cria 4 LPs + 3 email sequences + flow de upsell. Wizard guiado. **Marketing-only**. Implementa F-17.3 do PRD.
 
+**✅ SCHEMA GROUNDED (2026-07-02):** NÃO existe tabela `events`. Um "evento/lançamento" **É uma `campaign`** (linha em `campaigns`). Esta task recebe o `campaign_id` (uuid = `campaigns.id`) já criado por `create-event` e vincula todos os artefatos a ele:
+> - LPs → `landing_pages.campaign_id = campaigns.id` (FK confirmada `landing_pages_campaign_id_fkey`)
+> - Leads/vendas do lançamento → `opportunities.campaign_id = campaigns.id`
+> - Agendamentos → `bookings` via `opportunity_id`/`lead_id` (sem coluna campaign própria)
+> - `products` do carrinho → uuids existentes; product principal em `campaigns.product_id`
+
 **Cumpre:** HO-TP-001
 
 ---
@@ -21,7 +27,7 @@
 
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
-  - `event_id` (uuid — evento criado via `create-event`)
+  - `campaign_id` (uuid — **`campaigns.id`** do evento/lançamento já criado via `create-event`)
   - `lancio_name` (string — ex: "Basta Aspettare Maggio 2026")
   - `phases` (object):
     - `pre_launch_start` (ISO date) — quando começa aquecimento
@@ -42,7 +48,7 @@
 ### action_items
 
 1. **Role check:** marketing/owner only. Outros → BLOCKED.
-2. **Validar event_id existe** + tem products vinculados.
+2. **Validar campaign_id existe** (`SELECT id, product_id FROM campaigns WHERE id = {campaign_id}`) + tem products vinculados (`campaigns.product_id` ou `products` passados).
 3. **Validar fases:**
    - `pre_launch_start < cart_open < cart_close`
    - Janela carrinho >= 24h (sanity)
@@ -81,13 +87,13 @@
 
    **Fase 3:** INSERT 1 automation_flow draft com nodes básicos
 
-   **Fase 4:** Linkagem cross-table (event_id, campaign_id)
+   **Fase 4:** Linkagem cross-table — as 4 LPs recebem `landing_pages.campaign_id = {campaign_id}`; sequences/flow referenciam o mesmo `campaign_id` nos seus metadados de setup. (Rastreabilidade toda por `campaigns.id`.)
 
 7. **Tratar partial failure:**
    - Se LPs OK mas sequences falham → log warning + cleanup option
    - Se flow falha → log warning, sequence sem flow é editável manual
 
-8. **Activity log STRICT:** `action='content-builder.launch_lancio_online'`, details com TUDO criado (4 LP IDs + 3 seq IDs + 1 flow ID + event_id).
+8. **Activity log STRICT:** `action='content-builder.launch_lancio_online'`, details com TUDO criado (4 LP IDs + 3 seq IDs + 1 flow ID + campaign_id).
 
 9. **Echo final:**
    ```
@@ -118,7 +124,7 @@
 - **[A3] Tudo draft:** zero items publicados — user ativa explicitamente cada um.
 - **[A4] Tripla confirmation:** "CONFIRMO LANCIO" literal uppercase (não "confirma" comum) por escala da operação.
 - **[A5] Atomic-ish batch:** se LPs OK mas sequences/flow falham, audit log captura partial state + cleanup info.
-- **[A6] Linkagem:** todos artifacts apontam para event_id (rastreabilidade).
+- **[A6] Linkagem:** todos artifacts apontam para campaign_id (rastreabilidade).
 - **[A7] Echo educacional:** próximos passos explícitos com timing sugerido.
 
 ---
@@ -127,7 +133,7 @@
 
 ### Exemplo 1 — Sandra inicia Basta Aspettare Maggio (DONE)
 
-**Input:** `event_id` (evento criado), 3 fases definidas, 3 products vinculados.
+**Input:** `campaign_id` (evento criado), 3 fases definidas, 3 products vinculados.
 
 **Specialist:** Wizard preview → "CONFIRMO LANCIO" → batch INSERT 4+3+1 → activity log → echo com calendário.
 
@@ -143,7 +149,7 @@ Se intencional (flash sale), ajustar manualmente após criação.
 
 ### Exemplo 3 — Sem products vinculados → ESCALATE
 
-**Input:** event_id sem products
+**Input:** campaign_id sem products
 
 **Specialist:** ESCALATE com `redirect_to: create-event` + lista de products faltantes.
 

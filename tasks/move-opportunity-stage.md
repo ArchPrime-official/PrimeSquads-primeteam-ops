@@ -1,6 +1,10 @@
 # Task: move-opportunity-stage
 
-> Task atômica para transicionar `opportunities.stage` entre estados. Enum real (validado contra schema 2026-06-12): 25 stages. Valida enum, auto-set closed_at em terminais (SALE_DONE/COMPLETED/LOST), exige campos extras para SALE_DONE (value) e LOST (reason).
+> Task atômica para transicionar `opportunities.stage` entre estados. Enum real (validado contra schema 2026-07-02, `types.ts` → enum `opportunity_stage`): 25 stages. Valida enum, auto-set closed_at em terminais (SALE_DONE/COMPLETED/LOST), exige campos extras para SALE_DONE (value) e LOST (reason).
+
+**⚠️ `opportunities` tem DUAS dimensões de estágio, ortogonais — esta task move APENAS `stage`:**
+- **`stage`** (coluna `opportunities.stage`, tipo enum `opportunity_stage`): o **pipeline comercial** (LEAD_OPPORTUNITY → … → SALE_DONE / LOST). É o que ESTA task move manualmente, sob confirmação.
+- **`launch_stage`** (coluna `opportunities.launch_stage`, text nullable): a **esteira do funil perpétuo** (confirmed → event → sales → downsell → lost). É **read-mostly** — NÃO se move por UPDATE manual desta task. Ver seção "launch_stage — READ-MOSTLY" abaixo.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
@@ -66,7 +70,8 @@ Entregue pelo `ops-chief`:
    - 1 match → usar
    - >1 → ESCALATE com lista (pedir pick)
 2. **Validar new_stage** — deve estar em `valid_stages` enum (25 valores). Se inválido: ESCALATE com lista completa.
-3. **Read current state** — SELECT row atual (id, stage, closed_at, pipeline, lead_id, sales_proposal_value, sales_proposal_currency, lost_reason).
+3. **Read current state** — SELECT row atual (id, stage, **launch_stage**, **product_id**, closed_at, pipeline, lead_id, sales_proposal_value, sales_proposal_currency, lost_reason).
+   - **NUNCA** incluir `launch_stage` no SET do UPDATE — é read-mostly (ver seção dedicada). Ler só para diagnóstico/contexto.
 4. **Idempotency check** — se `current_stage == new_stage`:
    - DONE com `was_idempotent=true`, NÃO executa UPDATE
    - Report "opp já está em {stage} desde {updated_at}"
@@ -74,6 +79,9 @@ Entregue pelo `ops-chief`:
    - **SALE_DONE:** require `sales_proposal_value` (numeric > 0). Se ausente:
      - ESCALATE com `ask_user_for_value`. NÃO avançar.
      - Currency default EUR se value presente sem currency explicit.
+   - **SALE_DONE — GUARD DE VENDA (produto principal, NÃO ingresso/upsell):** SALE_DONE representa o fechamento da venda do **produto PRINCIPAL**. No funil perpétuo, apenas o produto principal fecha SALE_DONE — o **ingresso** do evento (product tipo ticket, ~€19/€29) e **upsells** NÃO fecham a opp principal como SALE_DONE. Antes de mover para SALE_DONE:
+     - Se a opp tem `product_id NULL` → ESCALATE. `product_id NULL` fura o guard de venda e já gerou "Venda - Entrada" fantasma no Piano di Ascensione (trigger de entrada disparado por SALE_DONE sem produto — incidente #4478). Peça o `product_id` do principal antes de avançar.
+     - Se o `product_id` da opp é o **ingresso**/ticket do evento (ou um upsell), NÃO marcar SALE_DONE do principal: ESCALATE avisando que ingresso/upsell não fecha a venda principal (o funil perpétuo trata a compra do ingresso pela esteira `launch_stage`, não por SALE_DONE). Referência: PR #4495 (opp launch_perp só fecha SALE_DONE pelo principal, não pelo ingresso).
    - **LOST:** require `lost_reason` (min 3 chars). Se ausente: ESCALATE `ask_user_for_reason`.
    - Outras stages: nenhum extra required.
 6. **Confirmation message** — formato varia por destino:
@@ -153,7 +161,9 @@ Entregue pelo `ops-chief`:
 - **[A7] RLS clarity:** 42501 → BLOCKED com role explanation.
 - **[A8] next_step_suggestion:** sempre preenchido (pode ser null para casos "close cycle"). SALE_DONE sempre sugere Finance route.
 - **[A9] Currency echo defensivo:** se new_stage=SALE_DONE e currency NÃO foi explicitamente passada, ESCALATE com warning "DB default sales_proposal_currency='BRL' (legado). Confirma EUR ou outra?". NUNCA aceitar omissão silenciosa que vira BRL.
-- **[A10] Stage enum atualizado (2026-06-12 — 25 stages reais):** `LEAD_OPPORTUNITY, PRE_CONTACT, PRE_CONTACT_PLUS, PRICED_CONTACT, SESSION_SCHEDULED, PRICE_SENT, PHONE_OR_WHATSAPP_CONTACT, PRE_SALES_CONTACT, PRE_SALE_CONTACT, PRE_SALES_SESSION, PRE_SALES_NO_SHOW, PRE_SALES_RECONTACT, SALES_SESSION, SALES_NO_SHOW, SALES_RECONTACT, RECONTACT_FUTURE, STRATEGIC_SESSION, NO_SHOW, NO_SHOW_RECONTACT, NEGOTIATION, NEGOTIATION_PLUS, CONTRACT_SENT, SALE_DONE, COMPLETED, LOST`. Inputs como 'CHECKOUT', 'REGISTERED', 'NON_INTERESSATO', 'ON_HOLD' (legado, fora do enum) → ESCALATE com sugestão de equivalente real.
+- **[A10] Stage enum atualizado (validado 2026-07-02 vs `types.ts` enum `opportunity_stage` — 25 stages reais):** `LEAD_OPPORTUNITY, PRE_CONTACT, PRE_CONTACT_PLUS, PRICED_CONTACT, SESSION_SCHEDULED, PRICE_SENT, PHONE_OR_WHATSAPP_CONTACT, PRE_SALES_CONTACT, PRE_SALE_CONTACT, PRE_SALES_SESSION, PRE_SALES_NO_SHOW, PRE_SALES_RECONTACT, SALES_SESSION, SALES_NO_SHOW, SALES_RECONTACT, RECONTACT_FUTURE, STRATEGIC_SESSION, NO_SHOW, NO_SHOW_RECONTACT, NEGOTIATION, NEGOTIATION_PLUS, CONTRACT_SENT, SALE_DONE, COMPLETED, LOST`. Inputs como 'CHECKOUT', 'REGISTERED', 'NON_INTERESSATO', 'ON_HOLD' (legado, fora do enum) → ESCALATE com sugestão de equivalente real. Nota: `CHECKOUT`/`checkout` é valor de `launch_stage` (esteira), NÃO de `stage` — não confundir dimensões.
+- **[A11] `launch_stage` é read-mostly:** esta task NUNCA inclui `launch_stage` no SET do UPDATE. Pedido para mover a esteira (confirmed/event/sales/downsell/lost) → ESCALATE apontando a função viva `lancio_perp_advance_cohorts` / `.github/sql/funil-estado-real.sql`. Zero UPDATE em `launch_stage`.
+- **[A12] Guard SALE_DONE = produto principal:** mover para SALE_DONE exige `product_id` do PRINCIPAL. `product_id NULL` → ESCALATE (fura o guard e gera entrada fantasma no Piano di Ascensione, #4478). Se `product_id` é ingresso/ticket do evento ou upsell → ESCALATE (ingresso/upsell não fecha SALE_DONE do principal; a compra do ingresso é tratada pela esteira `launch_stage`, PR #4495).
 
 ---
 
@@ -277,6 +287,21 @@ suggested_user_message: |
 4. UPDATE: closed_at cleared (set NULL), stage=RECONTACT_FUTURE.
 
 **Return:** DONE com `warnings: ["transition atípica: LOST → RECONTACT_FUTURE, closed_at limpo"]`
+
+---
+
+## `launch_stage` — READ-MOSTLY (esteira do funil perpétuo, NÃO tocar por UPDATE manual)
+
+`opportunities.launch_stage` é a coluna que posiciona a opp na **esteira do funil perpétuo** (MM_FLP_PERPT26). Valores reais observados: `confirmed`, `checkout`, `event`, `sales`, `downsell_checkout`, `downsell_sales`, `downsell_event`, `lost` (transientes `won`). É uma dimensão **ORTOGONAL** a `stage` (pipeline comercial) — os dois nunca se anulam nem se derivam um do outro.
+
+**Regras invioláveis:**
+
+1. **Esta task NÃO move `launch_stage`.** Nunca inclua `launch_stage` no `SET` do UPDATE. Se o usuário pedir "avançar a esteira", "mover pra sales/downsell/lost da esteira", "passar de coorte" etc. → **ESCALATE** explicando que a esteira é gerida pela função viva, não por UPDATE manual.
+2. **Fonte de verdade = a FUNÇÃO VIVA, não memória/migration/doc.** Toda transição de `launch_stage` é feita pela função `lancio_perp_advance_cohorts` (+ seus crons), conforme o **estado REAL** retornado por `.github/sql/funil-estado-real.sql`. Antes de afirmar QUALQUER coisa sobre a esteira (dias por coorte, quando vira, quem vai pra `lost`), rode esse arquivo e cite a data da verificação. PROIBIDO responder por memória, comentário de migration ou doc — eles envelhecem (o modelo não-pagante já virou relógio INDIVIDUAL por `stage_entered_at`, não "segunda em grupo").
+3. **Anti-regressão:** a função é recriada por arquivo `CREATE OR REPLACE` (não vive em migrations). NUNCA re-rodar um `.github/sql/` antigo da esteira — reverteria a função inteira. Mudança na esteira = novo arquivo + atualizar `docs/funil/esteira-perpetuo.md`. Isso está FORA do escopo desta task.
+4. **Interação com `stage`:** mover `stage` (ex: para SALE_DONE ou LOST) é operação do pipeline comercial e **não** deve tentar "sincronizar" `launch_stage` na mão. Se a venda do principal fecha, é a esteira (via função viva) que reflete isso no `launch_stage` — não esta task.
+
+Ver regra permanente: `.claude/rules/funil-perpetuo-fonte-de-verdade.md`.
 
 ---
 

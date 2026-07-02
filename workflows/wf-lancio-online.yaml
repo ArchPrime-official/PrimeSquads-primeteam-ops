@@ -50,17 +50,22 @@ invariants:
       (8 artifacts simultâneos = misclick = cleanup tedioso).
 
   - id: INV-LO-04
-    name: event_id_linkage_mandatory
+    name: campaign_id_linkage_mandatory
     rule: >
-      Todos os 8 artifacts devem linkar event_id (rastreabilidade).
+      Um "evento/lançamento" É uma campaign (linha em `campaigns`, PK `id`) —
+      NÃO existe tabela `events`. Todos os 8 artifacts devem linkar
+      `campaign_id` (= `campaigns.id`): as LPs via `landing_pages.campaign_id`
+      (FK → campaigns.id), sequences/flow via metadados de setup. As vendas do
+      lançamento chegam como `opportunities.campaign_id = campaigns.id`.
       Quality-guardian audita em phase_6.
 
   - id: INV-LO-05
     name: products_must_exist_pre_setup
     rule: >
-      Event_id deve já ter products vinculados antes do workflow rodar.
-      Se ausente, phase_1 ESCALATE redirecionando para create-event ou
-      create-evento-products.
+      A campaign (campaign_id = campaigns.id) deve já ter products vinculados
+      antes do workflow rodar (`campaigns.product_id` ou array de `products`
+      passado). Se ausente, phase_1 ESCALATE redirecionando para create-event
+      ou create-evento-products.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASES
@@ -74,13 +79,13 @@ phases:
     duration: 2-5 min (server-side)
     description: >
       Atomic batch INSERT de TUDO em status='draft'. Single confirmation
-      tripla "CONFIRMA LANCIO" + linkagem event_id em todos os 8
-      artifacts.
+      tripla "CONFIRMA LANCIO" + linkagem campaign_id (= campaigns.id) em
+      todos os 8 artifacts.
     inputs_from_chief:
       - cycle_id (cyc-YYYY-MM-DD-NNN)
       - user_jwt
       - request_payload:
-          event_id: uuid
+          campaign_id: uuid   # = campaigns.id do evento/lançamento (create-event)
           lancio_name: string
           phases:
             pre_launch_start: ISO date
@@ -169,7 +174,7 @@ phases:
     duration: 30s
     description: >
       Audita TODA a orquestração:
-      - INV-LO-04: event_id propagado em 8 artifacts ✓
+      - INV-LO-04: campaign_id (= campaigns.id) propagado em 8 artifacts ✓
       - LPs final state (published vs archived)
       - Sequences final state (paused após cart_close)
       - Flow upsell (active se houve compras)

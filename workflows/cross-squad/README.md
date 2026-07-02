@@ -68,7 +68,7 @@ non_negoziabile: [rules]
 
 Cross-squad workflows são triggered pelo @ops-chief baseado em:
 
-1. User invoca demanda em `/PrimeteamOps:agents:ops-chief`
+1. User invoca demanda em `/pto:agents:ops-chief`
 2. ops-chief identifica que demanda atravessa múltiplos sub-squads
 3. ops-chief seleciona workflow apropriado (consulta `workflows/cross-squad/`)
 4. ops-chief executa fase 1 (triage + Cycle ID generation)

@@ -18,7 +18,7 @@ primeteam-ops (ROOT — @ops-chief)
 └── primeteam-improve     → @pt-chief          (design, frontend, data, integration, QA)
 ```
 
-Você invoca **sempre** `/PrimeteamOps:agents:ops-chief` no Claude Code.
+Você invoca **sempre** `/pto:agents:ops-chief` no Claude Code.
 Ele rotearrá automaticamente para o sub-chief apropriado se a demanda exigir
 expertise especializada (criar carosello, fazer board meeting, etc.).
 
@@ -70,7 +70,7 @@ claude         # abre o Claude Code
 Dentro do Claude Code:
 
 ```
-/PrimeteamOps:agents:ops-chief
+/pto:agents:ops-chief
 ```
 
 Depois disso, só descreva o que precisa. O chief te conecta com o especialista certo.
@@ -172,7 +172,7 @@ Ainda sem o comando global `pto`? Use `npm start`, `npm run login` etc. O wizard
 
 | Situação | Squad |
 |----------|-------|
-| **Executar** algo na plataforma | `/PrimeteamOps` (este) |
+| **Executar** algo na plataforma | `/pto` (este) |
 | **Pensar estratégia** Meta Ads | `/metaAds` |
 | **Pensar estratégia** de negócio | `/stratMgmt` |
 | **Melhorar** a plataforma | `/ptImprove` |
@@ -272,7 +272,7 @@ git push -u origin feat/minha-melhoria
 gh pr create --fill
 ```
 
-Estrutura `.claude/commands/PrimeteamOps/` contém symlinks para `agents/`, `tasks/`, `checklists/` do próprio repo. Edit direto nos arquivos originais — symlinks atualizam na hora.
+Estrutura `.claude/commands/pto/` contém symlinks para `agents/`, `tasks/`, `checklists/` do próprio repo. Edit direto nos arquivos originais — symlinks atualizam na hora.
 
 ## Roadmap
 

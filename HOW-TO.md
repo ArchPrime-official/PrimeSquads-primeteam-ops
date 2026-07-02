@@ -25,7 +25,7 @@ claude
 E ative o chief digitando:
 
 ```
-/PrimeteamOps:agents:ops-chief
+/pto:agents:ops-chief
 ```
 
 Pronto — agora você só conversa.
@@ -271,7 +271,7 @@ Copia o resultado, cola no Slack no canal `#tech`. Pablo lê e resolve.
 
 | Situação | Squad |
 |----------|-------|
-| **Executar** algo na plataforma (criar, listar, mover) | `/PrimeteamOps` (este) |
+| **Executar** algo na plataforma (criar, listar, mover) | `/pto` (este) |
 | **Pensar estratégia** Meta Ads | `/metaAds` |
 | **Pensar estratégia** de negócio | `/stratMgmt` |
 | **Melhorar** a plataforma (código, design) | `/ptImprove` |

@@ -22,7 +22,7 @@ pack:
     workflows ficam first-class em workflows/cross-squad/. Activity log unified
     via parent_squad + sub_squad metadata.
   icon: "⚙️"
-  slash_prefix: PrimeteamOps
+  slash_prefix: pto
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HIERARCHY (v1.4.0 — root squad declaration)

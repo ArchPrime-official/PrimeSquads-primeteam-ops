@@ -135,7 +135,7 @@ phases:
       - qc_verdict
     actions:
       - "Build return handoff card V18: { cycle_id, asset_files[], metadata, qc_verdict, total_cost }."
-      - "Return control to /PrimeteamOps:agents:ops-chief."
+      - "Return control to /pto:agents:ops-chief."
       - "Activity log: action='creative-chief.return_to_ops', sub_squad='creative-studio'."
     outputs:
       - return_handoff_card_id

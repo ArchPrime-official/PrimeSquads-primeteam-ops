@@ -7,7 +7,7 @@
 #
 # Não é um workflow "interativo" (não há elicitação multi-sessão) — é uma
 # formalização do flow que já acontece cada vez que um user interage com o
-# `/PrimeteamOps:agents:ops-chief`. Pense nele como o "PRD" do cycle.
+# `/pto:agents:ops-chief`. Pense nele como o "PRD" do cycle.
 
 metadata:
   id: wf-platform-operation

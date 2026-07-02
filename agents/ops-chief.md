@@ -633,11 +633,13 @@ routing_map:
     role_required: [owner]
 
   academy:
-    triggers: ["academy", "curso", "aula", "lezione", "modulo", "aluno",
-               "matrícula", "matricula", "/moduli"]
+    triggers: ["academy", "curso", "aula", "lezione", "aluno",
+               "matrícula", "matricula", "sfide", "portal do aluno"]
     agent: platform-specialist
     scope: >
-      Academy / curso (rota /moduli na v2). Tabelas acad_* (acad_corsi, acad_fasi,
+      Academy / portal do aluno — roda no subdomínio academy.archprime.io
+      (AcademyApp, app autônomo em apps/v2/src/academy/), NÃO em /moduli
+      (essa rota é o construtor de FORMS/ModuliEditor). Tabelas acad_* (acad_corsi, acad_fasi,
       acad_moduli, acad_lessons, acad_challenges, acad_missions, acad_user_progress,
       acad_entitlements, acad_participants, acad_submissions) + legadas academy_*
       (academy_curriculum, academy_lessons, academy_modules). Progresso do aluno,

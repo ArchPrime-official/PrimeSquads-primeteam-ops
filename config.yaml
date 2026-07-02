@@ -130,8 +130,9 @@ agents:
     description: >
       Hub único de orquestração. Recebe demandas, tria, roteia para specialists,
       valida output via handoff-quality-gate, decide próximo passo ou fecha ciclo.
-      Conhece toda a plataforma (18 módulos, 226 tabelas, 195 Edge Functions,
-      8 integrações). Todos specialists retornam para cá.
+      Conhece toda a plataforma — módulos, tabelas Supabase (fonte viva:
+      apps/v2/src/integrations/supabase/types.ts), Edge Functions (supabase/functions/)
+      e as integrações externas. Todos specialists retornam para cá.
 
   - id: auth-specialist
     file: agents/auth-specialist.md
@@ -898,6 +899,10 @@ checklists:
     file: checklists/handoff-quality-gate.md
     purpose: Gate blocker rodado pelo chief em cada retorno de specialist (V19)
 
+  - id: finance-triggers-hazard
+    file: checklists/finance-triggers-hazard.md
+    purpose: Triggers perigosos de finance_transactions — consultar antes de UPDATE em massa (converted_amount, auto-link fatura, previsão de entrada)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Templates registry (inline em tasks/workflows — padrão HO-TP-001)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -921,11 +926,11 @@ data:
 
   - id: platform-modules
     file: data/platform-modules.md
-    purpose: Inventário de 18 módulos da plataforma — IDs, tabelas principais, hooks
+    purpose: Inventário dos módulos da plataforma — IDs, tabelas principais, hooks (rotas vivas em apps/v2/src/App.tsx)
 
   - id: schema-reference
     file: data/schema-reference.md
-    purpose: Schema Supabase (226 tabelas) — FKs, índices, RLS policies resumidas
+    purpose: Schema Supabase (tabelas — fonte viva em apps/v2/src/integrations/supabase/types.ts) — FKs, índices, RLS policies resumidas
 
   - id: team-roles-reference
     file: data/team-roles-reference.md

@@ -15,7 +15,7 @@ visualizar exatamente os MESMOS dados. Um é espelho do outro:
 
 A fonte única são as tabelas `tasks` + `task_schedule_blocks`. Nenhuma lente inventa
 dados; todas expandem a mesma lista via `createCalendarItems()` / `createQuadrantItems()`
-(`src/types/calendarTypes.ts`).
+(`apps/v2/src/types/calendarTypes.ts`).
 
 ## Modelo de dados
 

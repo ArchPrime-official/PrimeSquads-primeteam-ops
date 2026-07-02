@@ -3,7 +3,9 @@
 > Casos de teste manuais a serem executados no primeiro uso de cada task crítica antes de operação livre. Foco em authorization, compliance, e mutations destrutivas.
 
 **Mantido por:** quality-guardian
-**Última atualização:** 2026-05-10 (Wave 10)
+**Última atualização:** 2026-07-02 (alinhado à regra de smoke test do dono, 2026-06-13)
+
+> ⛔ **Regra do dono (2026-06-13, vale para SEMPRE):** smoke test = **ver o resultado final REAL como o usuário vê/usa** — Playwright autenticado abrindo a tela/dado exato, OU query REST/RPC/SQL real confirmando o número/comportamento. Build/lint/tsc passar é pré-requisito, **não** é smoke test. **Após deploy, re-testar em PRODUÇÃO** (o usuário olha produção). Se não estiver 100% como pedido, **corrigir e re-testar em loop** até estar certo. Nenhuma task/mudança está isenta.
 
 ---
 
@@ -27,7 +29,7 @@ Tasks que devem ter smoke test executado antes do primeiro uso real:
 4. Cleanup: revert changes (se necessário)
 ```
 
-Cada test case deve ser executável em **dev/staging Supabase** (NUNCA prod até audit pass).
+Cada test case roda contra o **resultado real**: Playwright autenticado (login autônomo via magic-link, ver `smoke-test-obrigatorio-antes-de-dizer-pronto`) abrindo a tela/dado exato, ou query REST/RPC/SQL confirmando o efeito. Mutations destrutivas podem ser ensaiadas com dados marcados `__TEST__` para não sujar dados reais, mas o **caminho de leitura/validação é sempre o real** — e, após deploy, o smoke se repete em **produção**.
 
 ---
 
@@ -212,25 +214,20 @@ Após executar smoke test, registrar em:
 
 ## Notes operacionais
 
-- **Frequência:** smoke test rodado UMA vez por task antes de uso livre. Re-test após mudanças no schema ou edge functions.
+- **Frequência:** smoke test a CADA mudança que toca a task (ou o schema/edge function que ela usa), **em loop** (auditar → smoke → corrigir → re-smoke) até o resultado estar 100% como pedido. Não é "uma vez e liberado" — regride quando o que está embaixo muda.
+- **Produção obrigatória pós-deploy:** depois que a mudança sobe, re-rodar o smoke em **produção** (não só local/staging) — deploy verde ≠ código no ar; o usuário olha produção.
 - **Owner sign-off:** Pablo (owner) deve sign-off em smoke test de tasks Tier 1 antes de uso.
-- **Test environment:** preferencialmente Supabase staging com dados sintéticos. Se rodar em prod, usar accounts/leads marcados `__TEST__`.
+- **Dados de teste:** para ensaiar mutations destrutivas sem sujar dados reais, usar accounts/leads marcados `__TEST__`; a **validação do resultado** é sempre pelo caminho real (a tela/dado que o usuário vê).
 - **Rollback plan:** cada test case deve ter cleanup procedure (revert mutations, delete test rows).
 
 ---
 
-## Tasks NÃO incluídas (uso livre sem smoke test)
+## Profundidade por risco (NÃO há isenção de smoke test)
 
-Tasks read-only OR low-stakes que não precisam smoke test prévio:
-- list-* (todas read-only)
-- create-task, complete-task (já em produção desde Sprint 2)
-- create-finance-transaction (já em produção)
-- create-lead, move-opportunity-stage (já em produção)
-- send-message (low-stakes, falha não-destrutiva)
-- create-channel (low-stakes admin op)
-- create-schedule-block (low-stakes, conflict detection já mitiga)
-- create-cms-page, list-cms-pages, publish-cms-page (já em produção)
-- update-bank-account, update-credit-card (setup-once, low frequency)
-- view-activity-log (read-only owner)
+Toda task passa por smoke test do resultado real — não existe "uso livre sem smoke". O que muda é a **profundidade**, conforme o risco:
 
-Estas podem ser usadas livremente após PR merge — issues serão detectadas em uso normal.
+- **Alto risco (Tier 1-5 acima):** bateria completa de casos (auth, confirmations, side-effects externos, atomicidade, compliance) + owner sign-off nos Tier 1.
+- **Read-only (`list-*`, `view-activity-log`):** smoke = abrir a tela/rodar a query e **conferir que o dado retornado é o real e correto** (um termo-controle que você SABE que existe + um termo-impossível), não só "não deu erro".
+- **Baixo risco / mutations não-destrutivas** (`create-task`, `create-lead`, `move-opportunity-stage`, `send-message`, `create-channel`, `create-schedule-block`, `create-finance-transaction`, `create-cms-page`/`publish-cms-page`, `update-bank-account`/`update-credit-card`): smoke = executar e **ver o efeito real** (o card/linha/render aparece como esperado na tela do usuário, o número bate na query). "Já está em produção" **não** dispensa o smoke quando a task ou o schema/EF embaixo dela muda.
+
+**"Detectar em uso normal" não é smoke test.** Um PR não está pronto até alguém ter visto o resultado real funcionar — e, pós-deploy, funcionar em produção.

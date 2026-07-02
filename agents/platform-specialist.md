@@ -527,7 +527,7 @@ playbooks:
     scale: "1..10 (CHECK constraint do schema). Threshold ≥6 = alta (NAO 7)."
     # IMPORTANTE: a plataforma renomeou os eixos. NAO e a matriz urgencia x importancia
     # classica. priority = RESULTADO/IMPACTO, urgency = ESFORCO. Fonte de verdade:
-    # src/components/tasks/EisenhowerMatrix.tsx (THRESHOLD=6) + RPC count_tasks_by_quadrant.
+    # apps/v2/src/components/tasks/EisenhowerMatrix.tsx (THRESHOLD=6) + RPC count_tasks_by_quadrant.
     axes:
       priority: "RESULTADO / Impacto (1..10). >=6 = alto resultado."
       urgency:  "ESFORCO (1..10). >=6 = alto esforco. (o nome da coluna e 'urgency' por legado)"

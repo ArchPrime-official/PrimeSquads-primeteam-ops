@@ -71,7 +71,7 @@ Verifica conformidade com convenções da plataforma PrimeTeam. Checa especifica
 | # | Check | Regra | Pass? |
 |---|-------|-------|-------|
 | 3.1.1 | **Strings visíveis usam `t()`** | Nenhuma string JSX visível ao usuário hardcoded | [ ] |
-| 3.1.2 | **Chaves em IT + PT-BR** | Novas keys em `src/lib/i18n/it/` E `src/lib/i18n/pt-BR/` | [ ] |
+| 3.1.2 | **Chaves em IT + PT-BR** | Novas keys em `apps/v2/src/lib/i18n/it/` E `apps/v2/src/lib/i18n/pt-BR/` | [ ] |
 | 3.1.3 | **Namespace correto** | Keys agrupadas no namespace do módulo (`finance.`, `tasks.`, etc.) | [ ] |
 
 ### 3.2 Code style (HIGH — bloqueia)
@@ -202,7 +202,7 @@ Se:
 
 1. Corrigir announcement para: `Retornando ao @ops-chief. {seu trabalho} concluído.`
 2. Envolver string em `t('finance.newTransaction.amountLabel')`
-3. Adicionar chave em `src/lib/i18n/pt-BR/finance.ts`
+3. Adicionar chave em `apps/v2/src/lib/i18n/pt-BR/finance.ts`
 
 Após correção, retornar com novo handoff card.
 ```

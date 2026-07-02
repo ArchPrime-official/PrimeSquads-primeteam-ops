@@ -1,12 +1,12 @@
 # Platform Modules Inventory — PrimeTeam
 
-> Inventário resumido dos 18 módulos da plataforma. Para dados completos (rotas, hooks, Edge Functions), consultar a auditoria CLI feasibility no repo PrimeTeam.
+> Inventário resumido dos módulos da plataforma. Para a lista viva de rotas, consultar `apps/v2/src/App.tsx`; para hooks/Edge Functions, `apps/v2/src/hooks/` e `supabase/functions/`. Este arquivo é um snapshot que envelhece — não confiar na contagem fixa.
 
-**Source:** auditoria `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 3).
+**Source:** auditoria `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 3). Rotas reais atuais estão em italiano na v2 (`/chat`, `/lead`, `/vendite`, `/clienti`, `/finanze`, `/campagne`, `/pagine`, `/moduli`, etc.).
 
 ---
 
-## Lista dos 18 módulos
+## Lista dos módulos
 
 | # | Módulo | Rota principal | Guard | Agent primary | Status CLI (Go/No-Go) |
 |---|--------|----------------|-------|---------------|------------------------|
@@ -15,7 +15,7 @@
 | 3 | Marketing | `/marketing` | AuthGuard | content-builder (consolidado) | 🟡 |
 | 4 | Customer Success | `/cs-hub` | AuthGuard | cs-specialist | ✅ |
 | 5 | Agendamento | `/calendly` | AuthGuard | integration-specialist (consolidado) | 🟡 |
-| 6 | Comunicação | `/comunicacao` | AuthGuard | — | 🔴 (bloqueado Fase 0 até 2026-04-22: ok agora) |
+| 6 | Chat interno | `/chat` | AuthGuard | platform-specialist | ✅ (tabelas: `internal_channels`, `channel_messages`, `channel_members`; era `/comunicacao` na v1 morta) |
 | 7 | Telefonia | `/chiamate` | AuthGuard | integration-specialist (parcial) | 🟡 |
 | 8 | Tarefas | `/tarefas` | AuthGuard | platform-specialist (tasks part) | ✅ |
 | 9 | Automação | `/automation` | AuthGuard + Desktop | automation-specialist | 🟡 |
@@ -43,13 +43,13 @@
 ## Referência externa
 
 **Auditoria completa com tabelas de ações por módulo** (hooks, Edge Functions, tabelas):
-`docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` — Seção 3 (18 módulos com ~459 ações catalogadas).
+`docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` — Seção 3 (inventário de módulos e ações catalogadas; snapshot 2026-04-22 — verificar rotas atuais em `apps/v2/src/App.tsx`).
 
 **Atalhos úteis:**
-- Schemas das tabelas: `src/integrations/supabase/types.ts` (auto-gerado)
-- Componentes por módulo: `src/components/{domain}/`
-- Hooks por módulo: `src/hooks/{domain}/`
-- Páginas: `src/pages/`
+- Schemas das tabelas: `apps/v2/src/integrations/supabase/types.ts` (auto-gerado)
+- Componentes por módulo: `apps/v2/src/components/{domain}/`
+- Hooks por módulo: `apps/v2/src/hooks/{domain}/`
+- Páginas: `apps/v2/src/pages/`
 - Edge Functions: `supabase/functions/`
 
 ---

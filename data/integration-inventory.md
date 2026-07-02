@@ -4,7 +4,7 @@
 
 **Source:** auditoria CLI `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 2).
 
-**Total Edge Functions:** 308 (atualizado 2026-06-12 via `ls supabase/functions/`) — classificação completa no relatório acima.
+**Total Edge Functions:** fonte viva em `supabase/functions/` (contar com `ls supabase/functions/` — não confiar em número fixo; snapshot 2026-07-02 ≈373). Classificação completa no relatório acima.
 
 ---
 
@@ -15,7 +15,7 @@
 | Project ref | `xmqmuxwlecjbpubjdkoj` |
 | URL | `https://xmqmuxwlecjbpubjdkoj.supabase.co` |
 | Services | Auth, Database, Realtime, Storage, Edge Functions |
-| Edge Functions | 308 |
+| Edge Functions | ver `supabase/functions/` (fonte viva; snapshot ≈373) |
 | Status | ✅ Ativo, RLS 100%, pós-Fase 0 limpo |
 
 **Para squad:** referência primária. Auth + CRUD operam aqui.
@@ -142,6 +142,6 @@ Isso mantém o squad simples e respeita o contrato de "cada user tem sua sessão
 
 ## Reference
 
-- Auditoria completa das 195 Edge Functions: `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 2)
+- Auditoria completa das Edge Functions (snapshot 2026-04-22): `docs/platform-analysis/PRIMETEAM-CLI-FEASIBILITY-AUDIT-2026-04-22.md` (Seção 2). Contagem viva: `ls supabase/functions/`
 - Config: `supabase/config.toml` (verify_jwt por function)
 - Schema RLS: `data/schema-reference.md`

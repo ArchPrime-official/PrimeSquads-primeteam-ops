@@ -769,7 +769,7 @@ data_references:
     - tasks/create-lead.md
     - tasks/move-opportunity-stage.md
   enum_source: >
-    src/hooks/useAutomationOptions.ts in ByPabloRuanL/primeteam (source of
+    apps/v2/src/hooks/useAutomationOptions.ts in ByPabloRuanL/primeteam (source of
     truth for LEAD_STATUSES, OPPORTUNITY_STAGES, LEAD_SOURCES, PIPELINES).
 
 # ═══════════════════════════════════════════════════════════════════════════════

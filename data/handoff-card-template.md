@@ -29,9 +29,9 @@ Arquivos tocados nesta task, com ação explícita:
 
 | Path | Action | Lines changed |
 |------|--------|---------------|
-| `src/components/finance/NewTransactionForm.tsx` | created | +142 |
-| `src/hooks/finance/useFinanceTransactions.ts` | modified | +8 -3 |
-| `src/lib/i18n/finance.ts` | modified | +4 |
+| `apps/v2/src/components/finance/NewTransactionForm.tsx` | created | +142 |
+| `apps/v2/src/hooks/finance/useFinanceTransactions.ts` | modified | +8 -3 |
+| `apps/v2/src/lib/i18n/finance.ts` | modified | +4 |
 
 **Nenhum arquivo tocado?** Escrever "Nenhum arquivo criado ou modificado. Operação read-only."
 

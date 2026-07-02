@@ -19,6 +19,7 @@
 8. [Role-Based Access (RBAC)](#8-role-based-access-rbac)
 9. [Logging & Audit](#9-logging--audit)
 10. [Platform Conventions](#10-platform-conventions)
+11. [Heurísticas de Arquitetura (SSoT · AI cost · UAZAPI)](#11-heurísticas-de-arquitetura-ssot--ai-cost--uazapi)
 
 ---
 
@@ -304,7 +305,7 @@ const supabase = createClient(url, key);
 
 ### 4.4 TypeScript types
 
-Types do DB vêm de `src/integrations/supabase/types.ts` (auto-gerado):
+Types do DB vêm de `apps/v2/src/integrations/supabase/types.ts` (auto-gerado):
 
 ```typescript
 // ✅ Usar types auto-gerados
@@ -551,7 +552,7 @@ return <Button>Criar Transação</Button>;
 Toda chave existe em ambos:
 
 ```
-src/lib/i18n/
+apps/v2/src/lib/i18n/
 ├── it/
 │   ├── finance.ts       ← IT (primary — linguagem do usuário italiano)
 │   ├── tasks.ts
@@ -567,7 +568,7 @@ src/lib/i18n/
 Cada módulo tem seu namespace:
 
 ```typescript
-// src/lib/i18n/it/finance.ts
+// apps/v2/src/lib/i18n/it/finance.ts
 export default {
   newTransaction: {
     title: 'Nuova Transazione',
@@ -852,11 +853,48 @@ gh pr merge <N> --squash --auto
 
 ---
 
+## 11. Heurísticas de Arquitetura (SSoT · AI cost · UAZAPI)
+
+> Três regras transversais que valem para TODA construção nova e todo refactor no v2. Cada uma nasceu de um incidente real — violá-las é débito técnico detectável.
+
+### 11.1 Single Source of Truth (SSoT)
+
+Toda integração externa que sincroniza ou cacheia dados (Meta Ads, Stripe, Revolut, Google Calendar, WhatsApp/UAZAPI, VAPI, Ringover) segue 5 cláusulas:
+
+- **1 tabela canônica por tipo de dado.** Se duas tabelas guardam a mesma informação, uma é deprecated (vira VIEW ou é removida). Não existe "essa é mais detalhada".
+- **1 writer por tabela canônica.** Só 1 Edge Function escreve nela; as outras são read-only. Webhook + cron concorrendo pela mesma tabela = anti-pattern.
+- **1 cron por dado, com frequência única e explícita** (documentada em `supabase/config.toml`). Se precisar de fases (ex: campaigns antes de insights), use 1 orchestrator chamando workers em ordem — nunca crons múltiplos para o mesmo dado.
+- **Hooks SEMPRE leem da tabela canônica — NUNCA chamam API externa direto.** Frontend nunca fala com Meta/Stripe/Revolut. Se o cache está stale, o bug é do sync, não do hook.
+- **Cada tabela canônica tem `synced_at timestamptz NOT NULL` + `sync_source text NOT NULL`** (ex: `'meta-graph-api'`, `'stripe-webhook'`, `'revolut-cron'`). Sem isso, debug de "de onde veio esse número?" fica cego.
+
+Caso de referência completo: `docs/architecture/meta-ads-ssot.md`. Todo PR que mexe em sync/cache/hook de integração externa passa pela checklist `squads/primeteam-improve/checklists/ssot-checklist.md`.
+
+### 11.2 AI Cost Tracking
+
+Toda chamada de IA paga (LLM, VAPI, geração de LP/creative, HeyGen, ElevenLabs, fal.ai, OpenAI, Gemini, Anthropic, BytePlus, etc.) DEVE registrar o custo em `creative_api_usage` (visível em `/gestao` → Creative Studio):
+
+- **Passa pelo ai-gateway** (Edge Function `ai-gateway`). Edge Functions internas usam `logAiCall()` de `_shared/creative-usage-logger.ts` (sempre `await`, nunca fire-and-forget). Chamada não-proxeável (multipart/STT): faz direto + registra via `ai-gateway` com `operation: 'log'`.
+- **NUNCA hardcodar preço.** Preço sempre da tabela canônica `ai_pricing` (UNIQUE provider+model+variant). Modelo sem linha → loga como `pricing_missing` e aparece no dashboard; adicionar a linha via migration.
+- **Higgsfield** (créditos da conta, sem API key): após cada geração via MCP, registrar com `operation: 'log'`.
+- Sempre com fallback direto + aviso `CUSTO NAO TRACKEADO` no stderr quando o gateway falhar.
+
+### 11.3 Isolamento UAZAPI (WhatsApp)
+
+Toda Edge Function que fala com a UAZAPI (receber webhook, enviar mensagem, listar/registrar grupo, backfill de membros, status de instância) é **dedicada e completamente isolada**:
+
+- **Zero imports de `supabase/functions/_shared/`.** Qualquer utility (normalização de telefone, parsing de JID, lookup de instância) é DUPLICADA inline, com comentário explícito da duplicação.
+- **1 operação UAZAPI = 1 Edge Function.** Nunca criar função guarda-chuva que trata múltiplas operações, nem adicionar uma operação nova como branch dentro de uma função existente.
+- **Tabela própria** se a função persiste dados — não reusar tabela de outra função UAZAPI.
+- **Motivo:** deletar ou refatorar uma função nunca pode afetar outra (defesa contra regressão silenciosa). UAZAPI/Baileys mudam o shape do payload entre versões — função pequena e dedicada é trivial de adaptar; função genérica vira pesadelo. É o caso particular mais estrito da SSoT.
+
+---
+
 ## Versão e changelog deste documento
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
 | 1.0.0 | 2026-04-22 | Criação inicial (Fase 1 do squad) |
+| 1.1.0 | 2026-07-02 | Seção 11 — heurísticas de arquitetura (SSoT, AI cost tracking, isolamento UAZAPI) |
 
 Próximas revisões são esperadas conforme a plataforma evolui. Toda mudança desta documentação passa por PR + review.
 

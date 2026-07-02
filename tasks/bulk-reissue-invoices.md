@@ -1,159 +1,100 @@
 # Task: bulk-reissue-invoices
 
-> Reemitir batch de notas fiscais (correções, customer data refresh). Cada reemissão CANCELA a antiga + emite nova com snapshot atualizado. Admin/owner only. Implementa F-13.4.
+> Reemitir batch de notas fiscais (correções, refresh de dados do cliente). Cada reemissão faria void da antiga (`status='voided'`) + emissão de nova com snapshot atualizado. Admin/owner via `has_invoice_access()`. Implementa F-13.4.
 
 **Cumpre:** HO-TP-001
 
 ---
 
-## Task anatomy
+## ⛔ status: blocked_on_infra
+
+**Schema-verified 2026-07-02** contra `apps/v2/src/integrations/supabase/types.ts`.
+
+Esta task NÃO PODE ser executada em produção porque a **infraestrutura de reemissão em massa não existe no schema atual**. Confirmado por busca direta no `types.ts`:
+
+| Referência da task | Existe no schema? |
+|---|---|
+| tabela `invoice_reissue_batches` | ❌ NÃO existe em `types.ts` |
+| tabela `invoice_reissue_links` | ❌ NÃO existe em `types.ts` |
+| coluna `sales_invoices.status = 'cancelled'` | ❌ enum `sales_invoice_status` só tem `draft \| issued \| paid \| voided \| refunded` |
+| RPC de reemissão em batch | ❌ NÃO existe |
+| EF `regenerate-invoice-pdfs` | ❌ NÃO existe em `supabase/functions/` |
+
+Sem tabela de batch nem tabela de linkagem old↔new, **não há como rastrear a operação nem garantir atomicidade/rollback por invoice** exigidos por uma reemissão fiscal em massa. Marcar como `blocked_on_infra` até que as migrations abaixo sejam criadas. **NÃO ativar esta task nem inventar essas tabelas.**
+
+### Infra faltante (pré-requisito para desbloquear)
+
+1. **Migration `invoice_reissue_batches`** — rastrear o batch: `reason`, `requested_by`, `count`, `created_at`, `status` (com RLS habilitada na mesma migration — regra do projeto).
+2. **Migration `invoice_reissue_links`** — mapear `old_invoice_id` ↔ `new_invoice_id` por batch (FK ambos para `sales_invoices.id`, RLS habilitada).
+3. **(Opcional) RPC/EF de reemissão atômica** — encapsular void + reemissão + linkagem numa transação server-side, já que PostgREST não suporta BEGIN/SAVEPOINT raw multi-statement do lado do cliente.
+
+Enquanto (1) e (2) não existirem, o único rastreio disponível seria `invoice_audit_log` (colunas reais: `invoice_id`, `action`, `actor_user_id`, `before_state`, `after_state`, `notes`) — insuficiente para batch tracking com linkagem old↔new.
+
+---
+
+## Fluxo pretendido (referência — NÃO executar até desbloqueio)
+
+> As tabelas/colunas/RPCs abaixo que EXISTEM estão marcadas ✅; as que NÃO existem estão marcadas ❌. O desenho assume que a infra faltante já foi criada.
 
 ### task_name
 `Bulk Reissue Sales Invoices`
 
 ### responsible_executor
-`admin-specialist` (gate `has_invoice_access`)
+`admin-specialist` (gate `has_invoice_access()` ✅ — RPC boolean, sem args)
 
 ### execution_type
-`Agent` — DUPLA confirmation + dry-run preview obrigatório.
+`Agent` — DUPLA confirmation + dry-run preview obrigatório. **Bloqueada até infra existir.**
 
 ### input
 
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
-  - `invoice_ids` (array uuid, OR filter):
-  - `filter` (object opcional): `{period_from, period_to, customer_id, has_error_flag}`
-  - `reason` (string OBRIGATÓRIO — auditoria)
-  - `apply_changes` (object): `{customer_data_refresh, tax_rate_correction, line_items_correction}`
+  - `invoice_ids` (array uuid) OU `filter` (`{period_from, period_to, customer_id}`)
+  - `reason` (string OBRIGATÓRIO — audit trail)
+  - `apply_changes` (`{customer_snapshot_refresh, tax_rate_correction, items_correction}`)
 
-### output
+### output (quando desbloqueada)
 
-- **`reissue_batch_id`** (uuid — TODO: tabelas `invoice_reissue_batches` e `invoice_reissue_links` NÃO existem ainda — feature não implementada)
-- **`reissued_count`** + **`old_invoice_ids`** + **`new_invoice_ids`**
-- **`total_value_reissued`** (currency)
+- **`reissue_batch_id`** (uuid — ❌ depende de `invoice_reissue_batches`)
+- **`reissued_count`**, **`old_invoice_ids`**, **`new_invoice_ids`** (❌ linkagem depende de `invoice_reissue_links`)
+- **`total_value_reissued`** (soma de `sales_invoices.total` ✅)
 - **`verdict`** — `DONE | PARTIAL | BLOCKED`
 
-### action_items
+### action_items (pretendidos)
 
-1. **Auth:** has_invoice_access. Outros → BLOCKED.
-2. **Resolver invoice_ids** (lista direta OU filter query, max 100 por batch).
-3. **Pre-flight check:** todas invoices em status='issued' (não cancelled/draft). Filtrar.
-4. **Estimate impact:** soma de gross totals afetados.
-5. **Dry-run preview** (mostra TODAS as mudanças):
-   ```
-   Reissue batch — {N} notas fiscais
-
-   Razão: {reason}
-   Período afetado: {min_date} → {max_date}
-   Total value: {currency} {sum_gross}
-
-   Mudanças aplicadas:
-     - Customer data refresh: {true/false}
-     - Tax rate correction: {old_rate}% → {new_rate}%
-     - Line items: {N changes}
-
-   Notas afetadas:
-     [list 20 + count se > 20]
-
-   IMPACTO:
-     - Notas atuais: VOIDED (status='cancelled', voided_at=NOW)
-     - Notas novas: emitidas com novo invoice_number sequencial
-     - Audit trail: TODO (invoice_reissue_batches não existe — feature não implementada)
-
-   Confirma? (digite "CONFIRMO REISSUE BATCH" uppercase literal)
-   ```
+1. **Auth:** `has_invoice_access()` ✅. Outros → BLOCKED.
+2. **Resolver `invoice_ids`** (lista OU filter query em `sales_invoices` ✅, max 100 por batch).
+3. **Pre-flight:** todas em `status='issued'` (enum válido ✅; NÃO `draft/voided/paid/refunded`).
+4. **Estimate impact:** soma de `sales_invoices.total` ✅ das notas afetadas.
+5. **Dry-run preview** (mostra TODAS as mudanças + total afetado).
 6. **Aguardar "CONFIRMO REISSUE BATCH"** literal.
-7. **Atomic batch operation com SAVEPOINT por invoice:**
-   ```sql
-   -- TODO (tabelas de reissue não existem ainda — feature não implementada):
-   --   invoice_reissue_batches → rastrear batch com reason + requested_by + count
-   --   invoice_reissue_links   → mapear old_invoice_id ↔ new_invoice_id por batch
-   -- Implementar migrations dessas tabelas ANTES de ativar esta task em produção.
-   -- Por ora, audit trail fica apenas em activity_logs (action + details JSON).
-   BEGIN;
-   -- SKIPPED: INSERT INTO invoice_reissue_batches (...) — tabela não existe
-
-   FOR each invoice IN list:
-     SAVEPOINT sp_{i};
-     -- Void old
-     UPDATE sales_invoices
-     SET status='cancelled', voided_at=NOW(), voided_by=auth.uid(),
-         voided_reason='reissue: ' || {reason}
-     WHERE id={old_id};
-
-     -- Create new (uses lock for seq number)
-     INSERT INTO sales_invoices (...)
-     VALUES (apply_changes ON old data) RETURNING new_id;
-
-     -- SKIPPED: INSERT INTO invoice_reissue_links (...) — tabela não existe
-
-     -- If error: ROLLBACK TO sp_{i}, log warning, skip esta invoice
-   END LOOP;
-   COMMIT;
-   ```
-8. **Tratar partial failure:** se 47/50 succeeded, surface counts em handoff card. Não rollback total.
-9. **Trigger PDF regen** para todas new invoices.
-10. **Activity log STRICT:** action='admin-specialist.bulk_reissue_invoices', details com batch_id + old/new IDs + reason.
-11. **Echo:**
-    ```
-    ✓ Reissue batch completo
-    Batch ID: {batch_id}
-    Successful: {N_ok}/{N_total}
-    Failed: {N_failed} (ver warnings)
-    Total value: {currency} {sum}
-    PDFs: regenerando em background
-
-    Audit trail em activity_logs (invoice_reissue_batches/links não existem ainda — ver Notas).
-    ```
+7. **Batch operation (BLOQUEADO):** para cada invoice:
+   - Void da antiga: `UPDATE sales_invoices SET status='voided', voided_at=NOW(), voided_by=auth.uid(), voided_reason='reissue: '||{reason}` ✅ (colunas reais existem).
+   - Reemitir nova: mesmo fluxo de `create-sales-invoice` (`get_next_invoice_number` ✅ + INSERT `sales_invoices`/`sales_invoice_items` ✅ + HTML/PDF client-side ✅).
+   - Registrar linkagem old↔new: ❌ `invoice_reissue_links` não existe → **operação não rastreável → task bloqueada**.
+8. **Partial failure:** por-invoice (idealmente via RPC/EF transacional server-side ❌, já que PostgREST não faz SAVEPOINT raw).
+9. **Regenerar PDF** das novas: via render client-side ✅ (NÃO existe EF `regenerate-invoice-pdfs` ❌).
+10. **Audit:** `invoice_audit_log` ✅ por invoice (`action='reissued'`, `before_state`/`after_state`, `notes`).
 
 ### acceptance_criteria
 
-- **[A1] Auth has_invoice_access:** owner+admin only.
-- **[A2] Reason obrigatório:** sem reason = ESCALATE.
-- **[A3] Max 100 per batch:** evita storm.
-- **[A4] Dry-run preview obrigatório:** user vê mudanças exatas antes de confirmar.
-- **[A5] Tripla confirmation:** "CONFIRMO REISSUE BATCH" uppercase literal.
-- **[A6] Atomic per-invoice:** SAVEPOINT permite partial success.
-- **[A7] Voided not deleted:** old invoices ficam em DB com status='cancelled' (audit trail completo).
-- **[A8] Linkage table:** TODO — `invoice_reissue_links` não existe ainda. Implementar migration antes de ativar em produção. Por ora, rastreabilidade via activity_logs.details.
-
----
-
-## Exemplos
-
-### Exemplo 1 — Joyce reemite 23 notas com tax_rate corrigido
-
-**Input:** filter `{period_from='2026-04-01', period_to='2026-04-30', has_error_flag=true}`, `reason='Correção tax rate IT 22% (estava 21%)'`, apply `{tax_rate_correction: {old: 21, new: 22}}`
-
-**Specialist:** dry-run mostra 23 notas afetadas, total €87k → "CONFIRMO REISSUE BATCH" → 23/23 OK → PDFs regen → DONE.
-
-### Exemplo 2 — Sem reason → ESCALATE
-
-**Input:** invoice_ids passados sem `reason`
-
-**Specialist:** ESCALATE:
-```
-Reissue requer 'reason' explícito (audit trail HMRC).
-Exemplos válidos:
-  - "Correção tax rate IT 22% (estava 21%)"
-  - "Customer data atualizado (mudança endereço)"
-  - "Erro em line items (valor unitário)"
-```
-
-### Exemplo 3 — Partial success (3 falham)
-
-**Input:** 50 invoices, 3 falham por validação tax_id
-
-**Specialist:** verdict=PARTIAL, 47 OK + 3 warnings detalhados. User decide cleanup individual.
+- **[A1] Auth `has_invoice_access()`** ✅.
+- **[A2] Reason obrigatório** (audit trail).
+- **[A3] Max 100 por batch.**
+- **[A4] Dry-run preview obrigatório.**
+- **[A5] Void via `status='voided'`** ✅ (NUNCA `cancelled`).
+- **[A6] Rastreabilidade batch old↔new** ❌ — **BLOQUEADOR**: exige `invoice_reissue_batches` + `invoice_reissue_links`.
+- **[A7] Atomicidade por-invoice** ❌ — exige RPC/EF server-side transacional.
 
 ---
 
 ## Notas
 
-- **VOID semantics:** invoices canceladas mantêm row + status='cancelled'. Importante para audit + compliance HMRC.
-- **Sequencial new:** mesma logic do create-sales-invoice (advisory lock + seq number).
-- **PDF regen:** TODO — EF `regenerate-invoice-pdfs` NÃO existe (2026-06-12). Implementar junto com `generate-invoice-pdf` quando PDF generation for desenvolvida.
-- **Limit 100:** acima disso, dividir em batches sequenciais (operacional).
+- **Por que blocked_on_infra:** as duas tabelas centrais da feature (`invoice_reissue_batches`, `invoice_reissue_links`) NÃO existem no `types.ts` (2026-07-02). Sem elas, uma reemissão fiscal em massa não é auditável nem reversível com segurança — inaceitável para compliance. Não simular com `activity_logs`/`invoice_audit_log`.
+- **Alternativa manual (hoje):** para corrigir 1–poucas notas, usar `create-sales-invoice` (nova emissão) + void manual da antiga (`UPDATE sales_invoices SET status='voided', ...`), uma a uma, registrando em `invoice_audit_log`. Isso NÃO é batch — é operação individual.
+- **Void semantics reais:** `status='voided'` + `voided_at`/`voided_by`/`voided_reason` (colunas existem em `sales_invoices` ✅). A nota antiga permanece na tabela (audit/compliance).
+- **Numeração das novas:** RPC `get_next_invoice_number(p_company_id, p_year?)` ✅ (advisory lock interno).
+- **PDF:** gerado client-side (render HTML → PDF → upload storage) ✅. NÃO existe EF de regeneração em massa.
 
 ---
 

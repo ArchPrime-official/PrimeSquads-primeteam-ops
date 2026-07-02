@@ -2,7 +2,9 @@
 
 > Atualizar status de inscrito em evento (presença, no-show, conversão). CS usa durante e pós-evento. Implementa F-17.5 do PRD.
 
-**✅ SCHEMA ADAPTED (2026-06-12):** Tabela `event_registrations` NÃO existe no schema. A abordagem correta é via `opportunities` linkadas por `campaign_id` do evento.
+**✅ SCHEMA GROUNDED (2026-07-02):** NÃO existe tabela `events` nem `event_registrations` no schema. Um "evento/lançamento" **É uma `campaign`** e o inscrito/vendedor é uma `opportunity` ligada por `opportunities.campaign_id = campaigns.id` (o UUID PK — confirmado: `opportunities_campaign_id_fkey` → `campaigns.id`). O `event_id` de input é, portanto, o `campaigns.id` (uuid); alternativamente aceita-se o slug humano `campaigns.campaign_id` (text) para resolver o uuid.
+
+**⚠️ `launch_stage` é read-mostly:** a coluna `opportunities.launch_stage` (esteira do funil perpétuo) é gerida pela função viva `lancio_perp_advance_cohorts` (ver `.github/sql/funil-estado-real.sql`). Esta task **NÃO** faz UPDATE manual em `launch_stage` — mexe apenas em `opportunities.stage` (pipeline comercial). Mover pessoas de fase da esteira = função viva, não SQL manual.
 
 Enum real de `opportunity_stage` (25 valores em produção — ver move-opportunity-stage.md):
 `LEAD_OPPORTUNITY, PRE_CONTACT, PRE_CONTACT_PLUS, PRICED_CONTACT, SESSION_SCHEDULED, PRICE_SENT, PHONE_OR_WHATSAPP_CONTACT, PRE_SALES_CONTACT, PRE_SALE_CONTACT, PRE_SALES_SESSION, PRE_SALES_NO_SHOW, PRE_SALES_RECONTACT, SALES_SESSION, SALES_NO_SHOW, SALES_RECONTACT, RECONTACT_FUTURE, STRATEGIC_SESSION, NO_SHOW, NO_SHOW_RECONTACT, NEGOTIATION, NEGOTIATION_PLUS, CONTRACT_SENT, SALE_DONE, COMPLETED, LOST`
@@ -34,7 +36,7 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
-  - `event_id` (uuid)
+  - `campaign_id` (uuid — **`campaigns.id`** do evento/lançamento) OU `campaign_slug` (text `campaigns.campaign_id`, resolvido para o uuid)
   - `lead_id` (uuid OU `email` para resolver)
   - `new_status` (`'confirmed' | 'attended' | 'no_show' | 'converted'`)
   - `notes` (string opcional)
@@ -43,7 +45,7 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 
 ### output
 
-- **`registration_id`** (uuid)
+- **`opportunity_id`** (uuid — a `opportunities.id` atualizada; não há "registration")
 - **`old_status`** + **`new_status`**
 - **`verdict`** — `DONE | BLOCKED | ESCALATE`
 - **`convention_check`** — RLS ✓ / status_transition ✓ / audit ✓
@@ -51,20 +53,24 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 ### action_items
 
 1. **Role check:** cs/marketing/admin/owner. Outros → BLOCKED.
-2. **Resolver lead_id** (se passou email).
+2. **Resolver lead_id** (se passou email) e **resolver o campaign uuid**:
+   ```sql
+   -- se veio campaign_slug em vez do uuid, resolver para campaigns.id
+   SELECT id FROM campaigns WHERE campaign_id = {campaign_slug} LIMIT 1;
+   ```
 3. **Validar `new_status`** ∈ enum válido. Outros → ESCALATE.
-4. **Buscar opportunity ativa do lead no evento:**
+4. **Buscar opportunity ativa do lead no evento** (join por `campaigns.id`):
    ```sql
    SELECT o.id, o.stage AS old_stage, o.qualification_data,
           l.name, l.email
    FROM opportunities o
    JOIN leads l ON l.id = o.lead_id
    WHERE o.lead_id = {lead_id}
-     AND o.campaign_id = (SELECT id FROM campaigns WHERE event_slug = {event_slug} LIMIT 1)
+     AND o.campaign_id = {campaign_id_uuid}   -- = campaigns.id
      AND o.closed_at IS NULL
    LIMIT 1;
    ```
-   0 match → ESCALATE com `not_registered` — lead sem opportunity neste evento.
+   0 match → ESCALATE com `not_registered` — lead sem opportunity neste evento/campanha.
 5. **Mapear new_status → new_stage** (ver mapeamento no cabeçalho).
 6. **Validar transição** via enum real (25 stages). Estados terminais: SALE_DONE, COMPLETED, LOST → BLOCKED para volta.
 7. **Confirmation:**
@@ -113,7 +119,7 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 
 ### Exemplo 1 — Andrea marca presença
 
-**Input:** `event_id={x}`, `lead_id={y}`, `new_status='attended'`, `attended_at=2026-05-15T19:30:00Z`
+**Input:** `campaign_id={x}` (campaigns.id), `lead_id={y}`, `new_status='attended'`, `attended_at=2026-05-15T19:30:00Z`
 
 **Specialist:** valida transição confirmed→attended ✓, UPDATE, echo "Presença marcada".
 
@@ -141,9 +147,11 @@ admin para correção manual via SQL (raro — significa erro de classificação
 
 ## Notas
 
-- **Schema real:** `opportunities` linkadas por `campaign_id`. Não há tabela `event_registrations`.
-- **Coluna `attended_at`:** TODO (migration D4 pendente). Usar `qualification_data` JSONB como workaround.
-- **Bulk update:** task é single-row. Para batch (ex: marcar 50 attended de uma vez), usar `bulk-update-opportunities` com filter.
+- **Schema real:** um evento = `campaigns` (PK `id`); inscritos = `opportunities` linkadas por `opportunities.campaign_id = campaigns.id`. Não há tabela `events` nem `event_registrations`.
+- **Coluna `attended_at`:** TODO — não existe coluna `attended_at`/`no_show`/`metadata` em `opportunities`. Usar `qualification_data` JSONB como workaround (não emitir SQL contra colunas inexistentes).
+- **`launch_stage` (esteira perpétua) é read-mostly:** nunca UPDATE manual aqui — a função viva `lancio_perp_advance_cohorts` avança as coortes. Esta task só toca `opportunities.stage`.
+- **Bookings do evento:** agendamentos ficam em `bookings`, sem coluna `campaign_id` — para achar bookings de um evento, join `bookings.opportunity_id` → `opportunities.campaign_id`. (Cuidado: `bookings.event_id` FKs para `booking_events` = tipo de agendamento, NÃO é a campanha do lançamento.)
+- **Bulk update:** task é single-row. Para batch (ex: marcar 50 attended de uma vez), usar `bulk-update-opportunities` com filter por `campaign_id`.
 - **Stage enum:** sempre validar contra os 25 valores reais (ver move-opportunity-stage.md).
 
 ---

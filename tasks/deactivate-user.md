@@ -21,7 +21,7 @@
 - `reassign_to_user_id` (uuid — required se cascade=true)
 
 ### output
-- `user_id`, `deactivated_at`
+- `user_id`, `updated_at` (timestamp real de `profiles.updated_at`; NÃO existe coluna `deactivated_at` — o "quando/quem/por quê" da desativação fica no activity log)
 - `revoked_roles` (array)
 - `cascaded_count` (se cascade)
 - `verdict`: `DONE | BLOCKED | ESCALATE`
@@ -30,11 +30,17 @@
 
 1. **Owner-only gate** (admin-specialist primary).
 2. Resolver user + roles + assignments count:
+   > Colunas REAIS (types.ts): leads → `presales_user_id` (não existe `owner_id`); opportunities → `sales_user_id` / `presales_user_id` + `stage` (não existe `owner_id`/`status`; stages terminais = `SALE_DONE`, `LOST`); tasks → `owner_id` (scalar) + `assigned_to` (uuid[] ARRAY) + `status` (terminais = `done`, `cancelled`).
    ```sql
    SELECT
-     (SELECT COUNT(*) FROM leads WHERE owner_id={user_id} AND status NOT IN ('converted','rejected')) AS active_leads,
-     (SELECT COUNT(*) FROM opportunities WHERE owner_id={user_id} AND status NOT IN ('won','lost')) AS active_opps,
-     (SELECT COUNT(*) FROM tasks WHERE assigned_to={user_id} AND status='todo') AS active_tasks;
+     (SELECT COUNT(*) FROM leads
+        WHERE presales_user_id={user_id} AND opted_out=false) AS active_leads,
+     (SELECT COUNT(*) FROM opportunities
+        WHERE (sales_user_id={user_id} OR presales_user_id={user_id})
+          AND stage NOT IN ('SALE_DONE','LOST')) AS active_opps,
+     (SELECT COUNT(*) FROM tasks
+        WHERE (owner_id={user_id} OR {user_id} = ANY(assigned_to))
+          AND status NOT IN ('done','cancelled')) AS active_tasks;
    ```
 3. **Last-owner protection:** se user é único owner → BLOCKED.
 4. **Self-deactivate:** se user.id=auth.uid() → BLOCKED com mensagem (peça outro owner).
@@ -45,9 +51,9 @@
 
    Roles a remover: {list}
    Assignments ativos:
-     - Leads: {N} (status open)
-     - Opportunities: {M}
-     - Tasks: {P}
+     - Leads: {N} (presales_user_id, não opted_out)
+     - Opportunities: {M} (sales/presales, stage aberto)
+     - Tasks: {P} (owner_id ou assigned_to, não done/cancelled)
 
    {cascade ?
      'Reassign para: ' + reassign_name :
@@ -61,18 +67,30 @@
    Confirma? (digite "CONFIRMO DEACTIVATE USER" uppercase)
    ```
 7. **Atomic operations:**
+   > `profiles` só tem a coluna `is_active` (NÃO existe `deactivated_at`/`deactivated_by`/`deactivation_reason`) — o motivo/autor/quando ficam SÓ no activity log (passo 8). Reassignment usa as colunas reais confirmadas no passo 2.
    ```sql
    BEGIN;
-   UPDATE profiles SET is_active=false, deactivated_at=NOW(), deactivated_by=auth.uid(),
-     deactivation_reason={reason}
+   UPDATE profiles SET is_active=false, updated_at=NOW()
    WHERE id={user_id};
 
    DELETE FROM user_roles WHERE user_id={user_id};
 
    IF {cascade}:
-     UPDATE leads SET owner_id={reassign_to} WHERE owner_id={user_id} AND status NOT IN ('converted','rejected');
-     UPDATE opportunities SET owner_id={reassign_to} WHERE owner_id={user_id} AND status NOT IN ('won','lost');
-     UPDATE tasks SET assigned_to={reassign_to} WHERE assigned_to={user_id} AND status='todo';
+     -- leads: dono de pré-venda é presales_user_id (não há owner_id)
+     UPDATE leads SET presales_user_id={reassign_to}
+       WHERE presales_user_id={user_id} AND opted_out=false;
+
+     -- opportunities: reassigna papel de venda E de pré-venda; abertas = stage fora dos terminais
+     UPDATE opportunities SET sales_user_id={reassign_to}
+       WHERE sales_user_id={user_id} AND stage NOT IN ('SALE_DONE','LOST');
+     UPDATE opportunities SET presales_user_id={reassign_to}
+       WHERE presales_user_id={user_id} AND stage NOT IN ('SALE_DONE','LOST');
+
+     -- tasks: owner_id é scalar; assigned_to é uuid[] (troca o elemento no array)
+     UPDATE tasks SET owner_id={reassign_to}
+       WHERE owner_id={user_id} AND status NOT IN ('done','cancelled');
+     UPDATE tasks SET assigned_to=array_replace(assigned_to, {user_id}, {reassign_to})
+       WHERE {user_id} = ANY(assigned_to) AND status NOT IN ('done','cancelled');
    END IF;
    COMMIT;
    ```

@@ -598,10 +598,10 @@ smoke_tests:
       - message explains workaround (grant owner to other user first)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK REGISTRY (8 tasks owned por admin-specialist — owner/admin gates)
+# TASK REGISTRY (12 tasks owned por admin-specialist — owner/admin gates)
 # ═══════════════════════════════════════════════════════════════════════════════
 task_registry:
-  total: 8
+  total: 12
   wave_4:
     - id: approve-role-request
       file: tasks/approve-role-request.md
@@ -644,6 +644,22 @@ task_registry:
       auth: owner only
       confirmation: tripla "DEACTIVATE USER"
       cascade: assignments reassign opt-in
+    - id: grant-role
+      file: tasks/grant-role.md
+      auth: owner only
+      confirmation: dupla ("CONFIRMO OWNER" se role=owner)
+      note: task real do playbook grant_role (era fantasma — corrige drift created_by)
+    - id: reactivate-user
+      file: tasks/reactivate-user.md
+      auth: owner only
+      note: task real do playbook reactivate_user (era fantasma) — par de deactivate-user
+    - id: list-users
+      file: tasks/list-users.md
+      auth: owner only
+      kind: read-only (SQL corrigida — sem p.email/p.last_sign_in_at)
+    - id: create-user
+      file: tasks/create-user.md
+      auth: owner/admin (EF create-user — @archprime.io)
     - id: manage-monthly-goals
       file: tasks/manage-monthly-goals.md
       auth: owner only (FR12)

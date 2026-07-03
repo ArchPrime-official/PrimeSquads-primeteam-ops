@@ -38,6 +38,7 @@
 4. Validar updates (FK category/subcategory, status enum 'predicted/completed/cancelled').
 5. Dry-run preview com sample 10 + counts + total amount afetado.
 6. Tripla confirmation "CONFIRMO BULK UPDATE TX" uppercase.
+6.5. **HAZARD (obrigatório):** `ALTER TABLE finance_transactions DISABLE TRIGGER auto_link_transaction_to_invoice` ANTES do batch — qualquer UPDATE (mesmo só categoria/status) faz esse trigger sugar uma fatura órfã para a transação (incidentes 30/06 e 02/07). Reabilitar (`ENABLE TRIGGER`) logo após o batch. NUNCA `DISABLE TRIGGER USER` (cega a auditoria). Ver checklist `finance-triggers-hazard`. (Este bulk NÃO altera amount/card_amount/currency, então `trg_recompute_converted_on_update` não se aplica; se um dia permitir esses campos, desabilitar também.)
 7. Atomic batch SAVEPOINT per-tx.
 8. Activity log batch entry com IDs+reason.
 9. Echo: counts + cleanup info se PARTIAL.
@@ -51,6 +52,7 @@
 - A5 Atomic per-tx via SAVEPOINT
 - A6 Audit single batch entry
 - A7 Multi-currency check em filter (warn se mistura currencies)
+- A8 `auto_link_transaction_to_invoice` DISABLE pelo nome durante o batch + ENABLE após (não `DISABLE TRIGGER USER`)
 
 ---
 

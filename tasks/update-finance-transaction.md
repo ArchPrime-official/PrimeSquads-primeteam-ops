@@ -69,6 +69,13 @@
      Reason: {reason or '(sem reason — recomendado documentar)'}
    Confirma?
    ```
+6.5. **HAZARD — se `amount`/`card_amount`/`currency` nos updates (obrigatório):** desabilitar o recompute ANTES do UPDATE, senão o trigger `trg_recompute_converted_on_update` recalcula `converted_amount` pela taxa e **SOBRESCREVE o `converted_amount` manual exigido no passo 4** (corrupção — incidentes 30/06 e 02/07):
+   ```sql
+   ALTER TABLE finance_transactions DISABLE TRIGGER trg_recompute_converted_on_update;
+   -- ... o UPDATE do passo 7 (com converted_amount manual) ...
+   ALTER TABLE finance_transactions ENABLE TRIGGER trg_recompute_converted_on_update;
+   ```
+   NUNCA `DISABLE TRIGGER USER` (cega a auditoria). Ao reverter um erro, corrigir **`amount` E `converted_amount`**. Ver checklist `finance-triggers-hazard`.
 7. **UPDATE atomic:**
    ```sql
    UPDATE finance_transactions
@@ -95,6 +102,7 @@
 - **[A2] Status enum:** rejeita 'confirmed' legacy.
 - **[A3] Multi-currency:** converted_* mandatory se currency != native.
 - **[A4] Parent recurrence guard:** tx parent com children = BLOCKED em amount/currency/category.
+- **[A5] Hazard trigger:** se amount/card_amount/currency mudam, `trg_recompute_converted_on_update` DISABLE pelo nome antes do UPDATE + ENABLE após (protege o `converted_amount` manual). Nunca `DISABLE TRIGGER USER`.
 - **[A5] Confirmation OBRIGATÓRIO** com diff visível.
 - **[A6] Audit:** before/after diff em activity_logs.
 - **[A7] Reason recomendado** em mudanças de amount/status (warn se ausente).

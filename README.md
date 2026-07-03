@@ -207,9 +207,9 @@ primeteam-ops/
 │   ├── doctor.ts        # healthcheck
 │   ├── update.ts        # git fetch/pull + npm install condicional
 │   └── ...
-├── agents/              # 10 agents Claude Code (ops-chief + 9 specialists)
-├── tasks/               # 80 tasks HO-TP-001 (cobertura ~100% UI manual flows)
-├── workflows/           # 7 workflows multi-fase
+├── agents/              # ops-chief + specialists (Claude Code)
+├── tasks/               # tasks HO-TP-001 (cobertura ~100% UI manual flows)
+├── workflows/           # workflows multi-fase
 ├── checklists/          # handoff quality gate
 ├── data/                # rules centrais, schemas, activity-logging spec
 └── config.yaml          # handoff_protocol + tier_validation

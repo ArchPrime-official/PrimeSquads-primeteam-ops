@@ -1,0 +1,394 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# required-fields-registry.yaml — Fonte canônica de campos OBRIGATÓRIOS por operação
+# ═══════════════════════════════════════════════════════════════════════════════
+# Regra HO-TP-002 (ver data/primeteam-platform-rules.md). Toda task de ESCRITA declara
+# aqui os campos que o agente É OBRIGADO a ter antes de INSERT/UPDATE. O CI
+# scripts/validate-task-fields.py cruza este registry × a seção `input` de cada task
+# × os NOT NULL reais do types.ts. Task de escrita sem entrada aqui → WARN (F0/F1) → FAIL (F5).
+#
+# source:  schema   = NOT NULL real (types.ts, verificado 2026-07-03)
+#          business = regra de negócio (OBRIGA mesmo sendo nullable no schema)
+# forbidden_defaults = NUNCA defaultar/assumir silenciosamente — SEMPRE elicitar (ask)
+# hazards  = triggers a desabilitar pelo nome antes do write (checklist finance-triggers-hazard)
+# ═══════════════════════════════════════════════════════════════════════════════
+version: 1
+updated: 2026-07-03
+
+# ── FINANÇAS ────────────────────────────────────────────────────────────────
+create-finance-transaction:
+  table: finance_transactions
+  writes: insert
+  required:
+    - {field: amount, source: schema}
+    - {field: type, source: schema}
+    - {field: transaction_date, source: schema}
+    - {field: brand, source: "business: NOT NULL; empresa (ArchPrime/Lovarch/...) — cartão NÃO deriva por trigger", ask: "Qual empresa? (ArchPrime / Lovarch / ...)"}
+    - {field: payment_account, source: "business: constraint chk_payment_account_present — bank_account_id XOR credit_card_id", ask: "Qual conta bancária OU cartão?"}
+    - {field: category_id, source: "business: constraint chk_category_required_non_transfer (exceto transfer)", ask: "Qual categoria?"}
+    - {field: converted_amount, source: "business: se currency != nativa (multi-moeda híbrida)", ask: "Valor convertido + taxa?"}
+  forbidden_defaults: [brand, payment_account, category_id]
+
+update-finance-transaction:
+  table: finance_transactions
+  writes: update
+  required:
+    - {field: transaction_id, source: schema}
+    - {field: brand, source: "business: re-confirmar ao trocar conta (trigger não re-deriva em UPDATE)"}
+  hazards: [trg_recompute_converted_on_update, auto_link_transaction_to_invoice, handle_commercial_sale_pending_transactions]
+  forbidden_defaults: [brand]
+
+bulk-update-transactions:
+  table: finance_transactions
+  writes: update
+  required:
+    - {field: reason, source: business}
+  hazards: [auto_link_transaction_to_invoice, handle_commercial_sale_pending_transactions]
+
+delete-finance-transaction:
+  table: finance_transactions
+  writes: delete
+  required:
+    - {field: reason, source: business}
+
+create-sales-invoice:
+  table: sales_invoices
+  writes: insert
+  required:
+    - {field: company_id, source: "business: empresa emissora define issuer_*/prefixo/sequência/regime fiscal (ArchPrime UK-HMRC nunca-OSS vs Lovarch OSS)", ask: "Qual empresa emissora? (ArchPrime / Lovarch)"}
+    - {field: customer_snapshot, source: schema}
+    - {field: items, source: schema}
+    - {field: invoice_date, source: schema}
+    - {field: supply_date, source: schema}
+  forbidden_defaults: [company_id]
+  notes: "guard bloqueante: issuer=ArchPrime + oss_* preenchido → BLOCKED (incidente 163 notas)"
+
+update-bank-account:
+  table: finance_bank_accounts
+  writes: update
+  required: [{field: account_id, source: schema}]
+
+update-credit-card:
+  table: finance_credit_cards
+  writes: update
+  required: [{field: card_id, source: schema}]
+
+update-commission-level:
+  table: commission_levels
+  writes: update
+  required:
+    - {field: level_id, source: schema}
+    - {field: reason, source: "business: HMRC audit — grava no activity_log (não em coluna)"}
+
+sync-seller-commission:
+  table: commission_history
+  writes: insert
+  required:
+    - {field: user_id, source: schema}
+    - {field: month, source: schema}
+    - {field: year, source: schema}
+
+manage-monthly-goals:
+  table: company_goals
+  writes: insert
+  required:
+    - {field: month, source: schema}
+    - {field: year, source: schema}
+    - {field: category, source: schema}
+    - {field: metric_key, source: schema}
+    - {field: brand, source: "business: meta por empresa", ask: "Qual empresa?"}
+  forbidden_defaults: [brand]
+
+import-csv:
+  table: "por target_table"
+  writes: insert
+  required:
+    - {field: target_table, source: business}
+    - {field: dry_run, source: business}
+  notes: "gate por target: finance_transactions → has_finance_access (admin EXCLUÍDO); validar obrigatórios da tabela-alvo por linha"
+
+# ── TAREFAS / AGENDA ────────────────────────────────────────────────────────
+create-task:
+  table: tasks
+  writes: insert
+  required:
+    - {field: title, source: schema}
+    - {field: due_date, source: "business: prazo de entrega SEMPRE explícito (com hora)", ask: "Prazo de entrega? (data + hora, Europe/Rome)"}
+    - {field: scheduled_start_time, source: "business: REGRA PABLO 2026-07-03 — task DEVE ter data+HORA de EXECUÇÃO (quando será feita), não só entrega", ask: "Quando essa tarefa será EXECUTADA? (data + hora)"}
+    - {field: estimated_duration_minutes, source: "business: sem duração não há bloco/agenda", ask: "Duração estimada (min)?"}
+    - {field: assigned_to, source: "business: responsável explícito — nunca task órfã", ask: "Responsável? (nunca assumir quem criou)"}
+  forbidden_defaults: [scheduled_start_time, estimated_duration_minutes, assigned_to]
+  notes: "espelhar useCreateTask da UI: scheduled_start_time OU auto-scheduling que grava task_schedule_blocks"
+
+update-task:
+  table: tasks
+  writes: update
+  required: [{field: task_id, source: schema}]
+  notes: "sem coluna `tags`; autorização por task_project_members.permissions (change_dates/change_status/edit_tasks)"
+
+reschedule-task:
+  table: tasks
+  writes: update
+  required: [{field: task_id, source: schema}]
+
+complete-task:
+  table: tasks
+  writes: update
+  required: [{field: task_id, source: schema}]
+
+delete-task:
+  table: tasks
+  writes: delete
+  required: [{field: task_id, source: schema}]
+  notes: "autorização por permissions delete_tasks/manage_project (não 'PM'); pós-ação re-query"
+
+create-schedule-block:
+  table: calendar_blocks
+  writes: insert
+  required:
+    - {field: title, source: schema}
+    - {field: start_time, source: schema}
+    - {field: end_time, source: schema}
+    - {field: user_id, source: "business: NOT NULL — dona da agenda (a task grava só created_by hoje → 23502)", ask: "De quem é a agenda? (user_id)"}
+  forbidden_defaults: [user_id]
+
+create-session-note:
+  table: cs_session_notes
+  writes: insert
+  required:
+    - {field: customer_id, source: schema}
+    - {field: summary, source: schema}
+
+manage-radar-meetings:
+  table: radar_meetings
+  writes: insert
+  required:
+    - {field: meeting_date, source: schema}
+    - {field: meeting_type, source: schema}
+  notes: "radar_action_plans exige meeting_sector_id + title (NOT NULL); responsible_id (não assigned_to)"
+
+manage-task-projects:
+  table: task_projects
+  writes: insert
+  required:
+    - {field: name, source: schema}
+    - {field: owner_id, source: schema}
+  notes: "add_member exige task_project_members.permissions (senão membro sem acesso)"
+
+# ── CRM / VENDAS / EVENTOS ──────────────────────────────────────────────────
+create-lead:
+  table: leads
+  writes: insert
+  required:
+    - {field: full_name, source: schema}
+    - {field: source, source: "business: attribution — 'facebook' só com fbclid/fbc+referrer, nunca só _fbp", ask: "Origem do lead? (com lastro, não assumir 'manual')"}
+    - {field: campaign_id, source: "business: sem campanha a attribution quebra", ask: "Qual campanha?"}
+  forbidden_defaults: [source, campaign_id]
+
+update-lead:
+  table: leads
+  writes: update
+  required: [{field: lead_id, source: schema}]
+  notes: "colunas reais: full_name/primary_email/primary_phone, score/score_manual (não name/email/phone/lead_score)"
+
+bulk-delete-leads:
+  table: leads
+  writes: delete
+  required: [{field: reason, source: business}]
+  notes: "regra <7 dias: nada criado nos últimos 7 dias sem aprovação explícita; modo gdpr_erasure distinto do cleanup"
+
+create-campaign:
+  table: campaigns
+  writes: insert
+  required:
+    - {field: name, source: schema}
+    - {field: campaign_id, source: schema}
+    - {field: brand, source: "business: separa empresa nos dashboards", ask: "Qual empresa? (ArchPrime / Lovarch)"}
+  forbidden_defaults: [brand]
+
+move-opportunity-stage:
+  table: opportunities
+  writes: update
+  required: [{field: opportunity_id, source: schema}, {field: new_stage, source: business}]
+  notes: "guard SALE_DONE=produto principal (#4478); launch_stage read-mostly (função viva funil-estado-real.sql)"
+
+bulk-update-opportunities:
+  table: opportunities
+  writes: update
+  required: [{field: reason, source: business}]
+  notes: "colunas reais: sales_user_id (não owner_id/priority/tags); proibir stage terminal em bulk OU exigir campos terminais + guard #4478"
+
+delete-opportunity:
+  table: opportunities
+  writes: delete
+  required: [{field: reason, source: business}]
+  notes: "won+fatura protection: checar stripe_invoice_id/session/subscription/paid_at + fattura emitida (não só payment_intent)"
+
+create-event:
+  table: campaigns
+  writes: insert
+  required:
+    - {field: name, source: schema}
+    - {field: campaign_id, source: "business: normalizado A-Z0-9_ por trigger (não kebab-case)"}
+    - {field: brand, source: "business: evento ArchPrime vs Lovarch", ask: "Qual empresa?"}
+  forbidden_defaults: [brand]
+
+update-event-status:
+  table: opportunities
+  writes: update
+  required: [{field: opportunity_id, source: schema}]
+  notes: "role: comercial TEM acesso a opportunities; marketing NÃO (RLS bloqueia); não regredir stage mais avançado"
+
+create-evento-products:
+  table: products
+  writes: insert
+  required:
+    - {field: code, source: schema}
+    - {field: name, source: schema}
+    - {field: price, source: "business: com currency (não price_eur)"}
+    - {field: tax_category, source: "business: deriva empresa/regime (ArchPrime HMRC vs Lovarch OSS) — não default IT 22%", ask: "Qual empresa/regime fiscal?"}
+  forbidden_defaults: [tax_category]
+
+update-customer-avatar:
+  table: customers
+  writes: update
+  required: [{field: customer_id, source: schema}]
+  notes: "colunas reais: company_name/contact_name, cs_manager_id, onboarding_completed, last_contact_date, health_score ENUM (at_risk|needs_attention|healthy|excellent)"
+
+launch-vapi-call:
+  table: call_executions
+  writes: insert
+  required:
+    - {field: strategy_id, source: schema}
+  notes: "leads reais: full_name/primary_phone; cool-down via call_executions.started_at (não leads.last_contact_at)"
+
+# ── CONTEÚDO / LP / FORMS / EMAIL / CHAT ────────────────────────────────────
+create-cms-page:
+  table: landing_pages
+  writes: insert
+  required:
+    - {field: slug, source: schema}
+    - {field: title, source: schema}
+    - {field: target_domain, source: "business: NOT NULL na constraint de uniqueness"}
+    - {field: campaign_id, source: "business: sem ele attribution quebra — criar LP sem campaign é IMPOSSÍVEL", ask: "Qual campanha?"}
+    - {field: html_content, source: "business: LP oca não vai ao ar (proibir document.write; eventID Pixel determinístico)", ask: "HTML da página?"}
+    - {field: locale, source: "business: explícito, não default 'it'", ask: "Idioma? (it/en/pt/es)"}
+  forbidden_defaults: [campaign_id, locale, html_content]
+
+update-landing-page:
+  table: landing_pages
+  writes: update
+  required: [{field: page_id, source: schema}]
+  notes: "bloquear active=false SEM redirect_to configurado; re-check uniqueness ao mudar domain/locale"
+
+clone-landing-page:
+  table: landing_pages
+  writes: insert
+  required:
+    - {field: campaign_id, source: "business: clone sem campanha = attribution quebrada (ESCALATE se source tem NULL)"}
+  forbidden_defaults: [campaign_id]
+
+generate-landing-page-ai:
+  table: landing_pages
+  writes: insert
+  required:
+    - {field: title, source: schema}
+    - {field: campaign_id, source: "business: mesma regra da create-cms-page", ask: "Qual campanha?"}
+    - {field: html_content, source: "business: gerar html_content (não blocks)"}
+  forbidden_defaults: [campaign_id]
+  notes: "coluna ai_generated NÃO existe; AI cost via ai-gateway/ai_pricing (não hardcodar)"
+
+publish-cms-page:
+  table: landing_pages
+  writes: update
+  required: [{field: page_id, source: schema}]
+  notes: "gate Pixel/CAPI: LP com Lead testar no Events Manager (1 Processado + 1 Desduplicado) antes"
+
+create-onboarding-form:
+  table: evaluation_forms
+  writes: insert
+  required:
+    - {field: title, source: schema}
+    - {field: slug, source: schema}
+    - {field: brand_id, source: "business: multi-empresa", ask: "Qual empresa?"}
+  forbidden_defaults: [brand_id]
+  notes: "só tem active bool (sem status/questions); questions em tabela própria (form_fields.form_template_id, translations IT+PT)"
+
+manage-form-fields:
+  table: form_fields
+  writes: insert
+  required:
+    - {field: form_template_id, source: schema}
+    - {field: label, source: schema}
+    - {field: type, source: "business: enum form_field_type real (text|textarea|email|phone|select|radio|checkbox|file)"}
+    - {field: display_order, source: schema}
+    - {field: translations, source: "business: i18n IT+PT por label", ask: "Traduções IT e PT?"}
+
+create-editorial-post:
+  table: editorial_calendar_posts
+  writes: insert
+  required:
+    - {field: account_id, source: schema}
+    - {field: plan_id, source: schema}
+    - {field: theme, source: schema}
+    - {field: format, source: "business: enum (carousel|video|stories|influencer|meme|live|reels|qna_stories)"}
+    - {field: objective, source: "business: enum (viralita|consapevolezza|conversione)"}
+    - {field: scheduled_date, source: schema}
+
+manage-email-sequence:
+  table: email_sequences
+  writes: insert
+  required:
+    - {field: name, source: schema}
+    - {field: brand, source: "business: remetente por empresa (lovarch→info@lovarch.com; archprime→noreply; booking→info@archprime.io)", ask: "Qual empresa?"}
+  forbidden_defaults: [brand]
+  notes: "idioma-alvo NÃO é coluna (vive no subject/body_html dos steps) — validar coerência brand↔idioma do conteúdo (lovarch=IT, etc.), sem campo próprio"
+
+schedule-whatsapp-message:
+  table: scheduled_whatsapp_messages
+  writes: insert
+  required:
+    - {field: body, source: schema}
+    - {field: scheduled_for, source: "business: > now()+2min, Europe/Rome → UTC"}
+    - {field: uazapi_instance_id, source: schema}
+  notes: "adicionar anatomy formal (status/output/action_items/acceptance_criteria) + role gating igual send imediata"
+
+send-message:
+  table: channel_messages
+  writes: insert
+  required: [{field: content, source: schema}, {field: channel_id, source: business}]
+  notes: "colunas reais: user_id (não sender_id); anexos em message_attachments (não coluna); sem mentions/channel.last_message_at"
+
+edit-message:
+  table: channel_messages
+  writes: update
+  required: [{field: message_id, source: schema}]
+  notes: "user_id (não created_by); sem version"
+
+delete-message:
+  table: channel_messages
+  writes: update
+  required: [{field: message_id, source: schema}]
+  notes: "soft delete só via deleted_at (não is_deleted/deleted_by/deletion_reason); gravar content original no activity_log ANTES"
+
+create-channel:
+  table: internal_channels
+  writes: insert
+  required:
+    - {field: name, source: schema}
+    - {field: slug, source: "business: NOT NULL — a task omite hoje (23502)"}
+  forbidden_defaults: [slug]
+
+# ── ADMIN / GOVERNANÇA ──────────────────────────────────────────────────────
+request-role-change:
+  table: role_requests
+  writes: insert
+  required:
+    - {field: user_id, source: schema}
+    - {field: requested_role, source: schema}
+
+create-automation-flow:
+  table: automation_flows
+  writes: insert
+  required:
+    - {field: name, source: schema}
+    - {field: trigger_type, source: schema}

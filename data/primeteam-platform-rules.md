@@ -889,12 +889,45 @@ Toda Edge Function que fala com a UAZAPI (receber webhook, enviar mensagem, list
 
 ---
 
+## 12. HO-TP-002 — Required Fields Completeness (campos obrigatórios enforçados)
+
+> Severidade: **MUST**. Complementa a HO-TP-001 (anatomy). Origem: pedido do dono da plataforma
+> (Pablo, 2026-07-03) — "o pto deve OBRIGAR o usuário a preencher todos os campos de qualquer
+> operação, nunca vago". O schema do DB é permissivo demais para ser o guardião (ex.: `tasks`
+> só exige `title`; `landing_pages` nem `campaign_id`), então a obrigatoriedade é de NEGÓCIO e
+> vive em `data/required-fields-registry.yaml` (fonte canônica), validada no CI por
+> `scripts/validate-task-fields.py` (no repo PrimeTeam).
+
+**Toda task de ESCRITA (create/update/delete/bulk/publish/manage/send/schedule/…) DEVE:**
+
+1. **Ter entrada no registry** (`data/required-fields-registry.yaml`) com `table`, `writes` e
+   `required[]`. Task de escrita sem entrada → WARN (rampa) → **FAIL** no CI (fase strict).
+2. **Declarar em `input`** TODOS os campos `required` do registry (schema NOT NULL + regras de negócio).
+3. **ELICITAR (perguntar)** cada campo ausente — **PROIBIDO default silencioso** em campo de
+   negócio. Defaults só quando o registry NÃO listar o campo em `forbidden_defaults`. Em especial:
+   - **Empresa/`brand` SEMPRE perguntada** onde a tabela tem empresa (finance, campaigns, invoices,
+     products, goals, email, forms) — NUNCA assumir ArchPrime.
+   - **`campaign_id` obrigatório** em toda criação de lead/landing-page/form (sem ele attribution quebra).
+   - **Tarefa DEVE ter data+HORA de EXECUÇÃO** (`scheduled_start_time` + duração), não só `due_date`.
+   - **`source`/atribuição** com lastro (nunca 'manual' silencioso; 'facebook' só com fbclid/fbc+referrer).
+   - **`locale`/idioma** explícito; **remetente** por empresa em e-mail.
+4. **Desabilitar os `hazards`** do registry pelo NOME antes do write (ver `finance-triggers-hazard`),
+   nunca `DISABLE TRIGGER USER`.
+5. **Verificação PÓS-AÇÃO obrigatória** — re-query confirmando o efeito (smoke). Sem isso → HIGH.
+6. **Todo campo citado tem de existir no schema** (`types.ts`) — colunas/tabelas fantasma → CRITICAL.
+
+**Ao criar uma FUNÇÃO NOVA:** copiar `tasks/_TEMPLATE-write-task.md` → preencher → registrar no
+registry → o CI valida. É isto que obriga as próximas funções a nascerem completas.
+
+---
+
 ## Versão e changelog deste documento
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
 | 1.0.0 | 2026-04-22 | Criação inicial (Fase 1 do squad) |
 | 1.1.0 | 2026-07-02 | Seção 11 — heurísticas de arquitetura (SSoT, AI cost tracking, isolamento UAZAPI) |
+| 1.2.0 | 2026-07-03 | Seção 12 — HO-TP-002 Required Fields Completeness (registry + CI enforcement) |
 
 Próximas revisões são esperadas conforme a plataforma evolui. Toda mudança desta documentação passa por PR + review.
 

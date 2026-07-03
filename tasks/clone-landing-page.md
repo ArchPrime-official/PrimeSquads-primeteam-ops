@@ -1,8 +1,12 @@
 # Task: clone-landing-page
 
 > Clonar LP (deep copy blocks/html_content/seo) com novo slug. A/B testing ou variações. Status reset para draft.
+>
+> 🎨 **Cruzar domínio muda marca/DS/pixel (HO-TP-003):** se `new_target_domain` ≠ `source.target_domain` e as marcas diferem (ex.: `archprime.io`→`lovarch.com`), o `html_content` clonado carrega o DS/pixel da marca ERRADA. Avise e oriente re-tematizar via `update-landing-page`/`generate-landing-page-ai` para o DS da marca de destino — ver [`data/domain-brand-ds-registry.yaml`](../data/domain-brand-ds-registry.yaml). Destino = `lovarch.com` → vale o débito dual-renderer (PR companion `ByPabloRuanL/lovarch`).
+>
+> ⚠️ **campaign_id nunca NULL:** se a source não tem campanha e `new_campaign_id` não veio, **ESCALATE** — nunca clonar LP sem campanha (attribution quebra).
 
-**Cumpre:** HO-TP-001
+**Cumpre:** HO-TP-001 · HO-TP-003
 
 ---
 
@@ -19,7 +23,7 @@
 - `new_slug` (string, kebab-case)
 - `new_target_domain` (default = source.target_domain)
 - `new_locale` (default = source.locale)
-- `new_campaign_id` (uuid opcional)
+- `new_campaign_id` (uuid opcional — mas se `source.campaign_id` for NULL, torna-se **obrigatório**; sem nenhum dos dois → ESCALATE)
 - `clone_blocks` (bool default true)
 - `clone_html_content` (bool default true)
 - `clone_seo` (bool default true)
@@ -36,6 +40,8 @@
 2. Resolver source LP.
 3. Validar new_slug uniqueness em (target_domain, locale).
 4. Validar enums target_domain + locale.
+4b. **Resolver campanha (HO-TP-003) — nunca NULL:** `effective_campaign = new_campaign_id ?? source.campaign_id`. Se ambos forem NULL → **ESCALATE** listando campanhas ativas (`SELECT id, name FROM campaigns WHERE status='active' ORDER BY created_at DESC`). NÃO fazer o INSERT com `campaign_id` NULL (era o bug: o `COALESCE` propagava NULL silenciosamente).
+4c. **Cruzou de marca?** Se `domains[new_target_domain].brand` ≠ `domains[source.target_domain].brand` (via `domain-brand-ds-registry.yaml`), avisar no confirm que o DS/pixel clonados são da marca de ORIGEM e precisam ser re-tematizados para a marca de destino.
 5. Confirmation: source slug → new slug + clone flags.
 6. INSERT atomic com colunas reais de `landing_pages`:
    ```sql
@@ -46,7 +52,7 @@
           CASE WHEN {clone_blocks} THEN blocks ELSE NULL END,
           CASE WHEN {clone_html_content} THEN html_content ELSE NULL END,
           CASE WHEN {clone_seo} THEN seo ELSE NULL END,
-          COALESCE({new_campaign_id}, campaign_id),
+          COALESCE({new_campaign_id}, campaign_id),  -- garantido NÃO-NULL pelo passo 4b (senão ESCALATE)
           'draft', false, auth.uid(),
           {new_title or title || ' (copy)'},
           'private'
@@ -72,6 +78,8 @@
 - A4 Lineage via activity_logs (cloned_from_id NÃO existe — TODO migration)
 - A5 Granular clone flags
 - A6 Audit
+- A7 **campaign_id nunca NULL (HO-TP-003):** source e new ambos NULL → ESCALATE, nunca INSERT com attribution quebrada
+- A8 **Cruzar marca avisado:** clonar entre domínios de marcas diferentes ECHOA que DS/pixel precisam re-tematização
 
 ---
 

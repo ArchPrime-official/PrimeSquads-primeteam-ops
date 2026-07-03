@@ -8,7 +8,7 @@
 >
 > ⚠️ **HAZARD — inscrição em massa é irreversível na prática.** `manual-enroll-sequence` pode enfileirar 2600+ leads de uma vez. Sempre rodar com `dry_run: true` primeiro, mostrar a contagem ao user, e só então `dry_run: false` após confirmação explícita. Deletar itens de fila já enviados NÃO desfaz o e-mail já entregue.
 
-**Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
+**Cumpre:** HO-TP-001 (Task Anatomy — 8 campos) · HO-TP-003 (DS/remetente por marca)
 
 ---
 
@@ -96,7 +96,7 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
    -- edit: UPDATE ... SET ..., updated_at=now() WHERE id={step_id}
    ```
    - `send_type='immediate'` → sem delay; `'delay'` → usar `delay_minutes`; `'absolute'` → usar `send_at` (timestamptz). Validar coerência: `delay` sem `delay_minutes`, ou `absolute` sem `send_at`, é ESCALATE.
-   - `subject` e `body_html` devem respeitar o idioma do público-alvo (i18n do CONTEÚDO). Links em `body_html` recebem UTMs automaticamente no envio (`utm_content=step_id`) — não hardcodar utm_content.
+   - `subject` e `body_html` devem respeitar o idioma do público-alvo (i18n do CONTEÚDO) **e o DS de e-mail da marca** (HO-TP-003 — ver #9). Links em `body_html` recebem UTMs automaticamente no envio (`utm_content=step_id`) — não hardcodar utm_content.
 6. **`reorder_steps`** — reescrever `step_order` dos steps citados. Confirmar a nova ordem completa com o user (mostrar `step_order → subject`) antes do UPDATE, pois a fila (`rebuild-email-queue`) usa `step_order` para achar "o próximo step".
 7. **`enroll` — auto** (trigger-based) via EF `enroll-email-sequences`:
    - `POST /functions/v1/enroll-email-sequences` body `{ event, lead_id, lead_email?, lead_name?, stage?, force_campaign_code? }`.
@@ -111,6 +111,7 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
    - `brand='archprime'` (default) → remetente **`ArchPrime <noreply@archprime.io>`** para e-mails de sequência/**transacionais**.
    - E-mails de **booking/agendamento** (fora do escopo de sequência) saem de `info@archprime.io` — não confundir com o `noreply` das sequências.
    - Se o user pedir uma sequência para compradores Lovarch mas o `brand` vier `archprime`, ECHOAR a inconsistência e confirmar antes de gravar (remetente errado = quebra de deliverability e de marca).
+   - **DS de e-mail por marca (HO-TP-003):** o `body_html` do step deve seguir o Design System de e-mail da marca — `supabase/functions/_shared/email/tokens.ts` (`renderEmail({brand})`): ArchPrime dark/gold (`#0A0A0B`/`#C9995C`, Playfair+Inter) vs Lovarch creme/editorial (`#ECEAE3`/`#9A6A2C`). Marca ⇒ remetente ⇒ DS resolvem do mesmo eixo `brand` — fonte única em [`data/domain-brand-ds-registry.yaml`](../data/domain-brand-ds-registry.yaml). Não colar HTML "genérico"; usar o wrapper/template da marca.
 10. **`analytics`** — ler métricas via RPC (NUNCA contando `email_sends`/`email_sequence_queue`):
     ```
     supabase.rpc('get_email_analytics_by_sequence', { ... })   // por sequência
@@ -133,7 +134,7 @@ Retornado ao `ops-chief` via announcement V10 + handoff card V18:
 - **[A3] Step coerente com send_type:** `delay` exige `delay_minutes`; `absolute` exige `send_at`; `immediate` ignora ambos. Incoerência → ESCALATE.
 - **[A4] Status inicial correto:** `create_sequence` sempre grava `status='draft'`. Ativação (`'live'`) só via `edit_sequence` explícito, com aviso de que passa a inscrever automaticamente (se trigger ≠ manual).
 - **[A5] Mass enroll com dry_run antes:** toda inscrição via `manual-enroll-sequence` roda `dry_run: true` primeiro, a contagem é mostrada ao user, e o `dry_run: false` só ocorre após confirmação explícita. Sem confirmação = BLOCKED (nenhuma fila real populada).
-- **[A6] Remetente correto por brand:** o `brand` da sequência determina o remetente (`lovarch`→info@lovarch.com; `archprime`→noreply@archprime.io). Inconsistência público↔brand é ECHOada antes de gravar.
+- **[A6] Remetente + DS correto por brand:** o `brand` da sequência determina o remetente (`lovarch`→info@lovarch.com; `archprime`→noreply@archprime.io) **e o DS de e-mail** do `body_html` (HO-TP-003, `_shared/email/tokens.ts`). Inconsistência público↔brand é ECHOada antes de gravar.
 - **[A7] Métricas de `email_events`:** relatórios de open/click/conversão vêm do RPC `get_email_analytics_by_*` (fonte `email_events`), NUNCA de contagem em `email_sends` ou `email_sequence_queue`.
 - **[A8] Task nunca envia e-mail:** esta task só cria definição e popula fila. O disparo é do cron `process-email-sequence-queue`. O handoff card afirma `email_dispatched_by_task: false`.
 - **[A9] RLS + JWT scoping:** mutations em `email_sequences`/`email_sequence_steps` usam o JWT do user; se a RLS negar, verdict=BLOCKED com error 42501.

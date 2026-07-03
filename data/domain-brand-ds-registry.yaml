@@ -1,0 +1,168 @@
+# domain-brand-ds-registry.yaml
+# =============================================================================
+# FONTE ÚNICA do acoplamento  domínio ⇒ empresa/brand ⇒ Design System ⇒ pixel
+#                              ⇒ remetente de e-mail ⇒ renderer.
+#
+# Por que existe: as tasks de conteúdo (landing pages, forms, e-mails) acertavam
+# attribution/pixel/publish, mas eram CEGAS para Design System — nenhuma dizia
+# QUAL DS aplicar por domínio, e o gerador de LP por IA saía genérico. Este
+# arquivo é a fonte canônica que amarra cada domínio à empresa certa, ao DS
+# certo, ao pixel certo e ao remetente certo. Regra: HO-TP-003 em
+# `data/primeteam-platform-rules.md` §13. Enforçado no CI por
+# `scripts/validate-domain-coupling.py` (repo PrimeTeam).
+#
+# Como uma task usa: resolve `target_domain` → `domains[target_domain].brand`
+# → `brands[brand]` (DS + pixel + sender). NUNCA cruzar marca (pixel/DS de uma
+# marca em domínio de outra quebra atribuição e identidade visual).
+#
+# Version: 1.0.0  ·  Created: 2026-07-03
+# =============================================================================
+
+version: "1.0.0"
+updated: "2026-07-03"
+
+# -----------------------------------------------------------------------------
+# BRANDS — empresa, pixel, Design System e remetentes por marca
+# -----------------------------------------------------------------------------
+brands:
+
+  archprime:
+    company: "ArchPrime LTD"            # conta Meta act_2147699252408628 (GBP)
+    meta_pixel_id: "1588378018327556"   # pixel COMPARTILHADO — separar por Custom Conversion, nunca pelo pixel
+    design_system:
+      name: "ArchPrime DS"
+      tokens_rule: "data/primeteam-platform-rules.md §7 (Arch Black + Arch Gold)"
+      live_ui_source: "apps/v2/src/index.css (Design System v3 — tokens vivos do app interno)"
+      email_ds: "supabase/functions/_shared/email/tokens.ts → brand 'archprime' (dark/gold)"
+      colors:
+        bg: "#0F0F10"          # Arch Black
+        accent: "#C9995C"      # Arch Gold
+        accent_hover: "#D8B27A"
+        surface: "#141416"
+        card: "#1B1B1E"
+      fonts:
+        # NOTA DE RECONCILIAÇÃO (G5): a regra §7 declara Playfair Display para heading;
+        # o app v2 vivo (index.css) usa Newsreader. Para LP/e-mail públicos use Playfair
+        # Display + Inter (brand book + email DS). Para UI interna do app, siga o index.css.
+        heading_public: "Playfair Display"
+        heading_app_ui: "Newsreader"
+        body: "Inter"
+    email:
+      resend_key_env: "RESEND_API_KEY"
+      senders:
+        transactional: "ArchPrime <noreply@archprime.io>"     # welcome, upsell, sfida, recibo
+        booking: "ArchPrime <info@archprime.io>"              # calendly/lembretes
+        lead_notify: "Landing Pages <notifications@archprime.io>"  # notificação de novo lead
+
+  lovarch:
+    company: "Lovarch"
+    meta_pixel_id: "901383099010400"
+    design_system:
+      name: "Lovarch DS V8"
+      package: "@archprime/lovarch-ds"
+      source: "squads/lovarch-design-system/ (submodule; tokens src/tokens/tokens.css + fonts.css)"
+      email_ds: "supabase/functions/_shared/email/tokens.ts → brand 'lovarch' (creme/editorial)"
+      colors:
+        bg: "#09090B"
+        accent: "#A16207"      # gold Lovarch
+        accent_bright: "#D4A843"
+        paper: "#FAF9F7"       # warm white (light)
+        studio_paper: "#F4F1EC"  # "Studio Chiaro" editorial claro
+      fonts:
+        hero: "Playfair Display"
+        headers: "Outfit"
+        numbers: "DM Sans"
+        body: "Inter"
+        mono: "JetBrains Mono"
+      components: "BlockRenderer (13 blocks), ConstellationParticles, NumberTicker, ShimmerButton, AmbientGlow"
+      rule: "NO BLUE (paleta quente; azul é proibido na marca)"
+    email:
+      resend_key_env: "RESEND_API_KEY_LOVARCH"
+      senders:
+        all: "Lovarch <info@lovarch.com>"   # transacional, marketing, auth, renovação — tudo info@
+
+# -----------------------------------------------------------------------------
+# DOMAINS — onde cada artefato aparece e como é renderizado
+# -----------------------------------------------------------------------------
+domains:
+
+  "lp.archprime.io":
+    brand: archprime
+    kind: landing_page
+    table: landing_pages
+    renderer: "React SPA nativo (LovarchPageRenderer): dangerouslySetInnerHTML + re-hidratação manual de <script>. SEM iframe. NUNCA document.write()."
+    cache: "client-side (TanStack Query 60s) — NÃO chama cms-revalidate"
+    locale_default: "it"
+
+  "archprime.io":
+    brand: archprime
+    aliases: ["www.archprime.io"]
+    kind: landing_page          # + MarketingHome na raiz
+    table: landing_pages
+    renderer: "React nativo (entry lp.html branded ArchPrime); crawlers só veem o <head> estático → branding de OG vai no entry, não no html_content"
+    cache: "Vercel ISR — mutations publicadas exigem EF cms-revalidate"
+    locale_default: "it"
+    notes: "pode ter páginas team-gated (allowed_roles). /page/:slug (retrocompat) + /{slug} (canônico)."
+
+  "academy.archprime.io":
+    brand: archprime
+    kind: portal                 # portal do aluno — NÃO é landing page
+    not_a_landing_page: true
+    renderer: "AcademyApp (React, AuthProvider próprio)"
+    tables: ["acad_lessons", "acad_fasi", "acad_moduli", "acad_challenges"]
+
+  "forms.archprime.io":
+    brand: archprime
+    kind: form
+    table: forms                 # tabela pública `forms` (moduli) — NÃO evaluation_forms
+    renderer: "EF form-render (HTML server-side)"
+    locale_default: "it"
+
+  "onboarding.archprime.io":
+    brand: archprime
+    kind: onboarding_token
+    renderer: "PublicOnboardingForm (React) em /:token"
+    tables: ["form_templates", "form_fields", "form_access_tokens"]
+
+  "lovarch.com":
+    brand: lovarch
+    aliases: ["www.lovarch.com"]
+    kind: landing_page
+    table: landing_pages
+    renderer: "React nativo servido pelo PrimeTeam via rewrite por host (entry lovarch.html branded + middleware.ts na raiz). DS = Lovarch DS."
+    cache: "Vercel ISR — mutations publicadas exigem EF cms-revalidate"
+    locale_default: "it"
+    dual_renderer_debt: "lovarch.com/page/{slug} historicamente renderizado pelo repo SEPARADO ByPabloRuanL/lovarch (mirror de LovarchPageRenderer + useCmsTracking). Mexeu em renderer/schema/tracking → PR companion NO MESMO DIA, senão quebra silenciosa. Ver CLAUDE.md 'CMS Dual-Renderer Sync' + docs/tech-debt/cms-dual-renderer.md."
+
+  "lovarch.com/studio":
+    brand: lovarch
+    kind: native_react_lp        # componente React, NÃO html_content
+    component: "apps/v2/src/pages/lp/LovarchStudioLP.tsx (seções em src/components/lp-studio/, forcedTheme=light)"
+    checkout: "EF landing-page-checkout (mode=subscription) → ponte archprime-grant-access"
+    notes: "não é criada por INSERT de html_content — é código. Nenhuma task pto cobre isto hoje (débito conhecido)."
+
+  "app.lovarch.com":
+    brand: lovarch
+    kind: student_app
+    separate_vercel_project: "lovarch"
+    do_not_touch: true           # repo ByPabloRuanL/lovarch — intocado pela migração v2
+    notes: "app dos alunos Lovarch; fora do escopo do squad primeteam-ops."
+
+# -----------------------------------------------------------------------------
+# RESOLUTION — como uma task resolve o acoplamento
+# -----------------------------------------------------------------------------
+resolution:
+  steps:
+    - "1. A task exige target_domain (enum acima) — NUNCA assumir ArchPrime por default."
+    - "2. brand = domains[target_domain].brand."
+    - "3. Design System = brands[brand].design_system — aplicar ao html_content/copy/e-mail."
+    - "4. meta_pixel_id = brands[brand].meta_pixel_id (LP/form) — nunca o pixel da outra marca."
+    - "5. remetente de e-mail = brands[brand].email.senders[tipo]."
+    - "6. renderer/cache = domains[target_domain] — respeitar hidratação de <script> e cms-revalidate."
+
+forbidden:
+  - "Aplicar DS ArchPrime (gold #C9995C/Playfair) em domínio lovarch.com — usar Lovarch DS."
+  - "Usar meta_pixel_id 1588378018327556 (ArchPrime) em lovarch.com, ou 901383099010400 (Lovarch) em archprime.io — quebra separação de atribuição/audiences por marca."
+  - "Remetente noreply@archprime.io em e-mail Lovarch — Lovarch é sempre info@lovarch.com."
+  - "Assumir marca/DS por default sem checar target_domain."
+  - "Tocar app.lovarch.com ou o repo ByPabloRuanL/lovarch a partir do squad."

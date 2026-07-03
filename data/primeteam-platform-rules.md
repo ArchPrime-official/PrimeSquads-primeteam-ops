@@ -2,8 +2,8 @@
 
 > **ARQUIVO DE LEITURA OBRIGATÓRIA** antes de qualquer ação executada pelo squad `primeteam-ops`. Todos os specialists consultam este documento. Violações são detectadas pelo `handoff-quality-gate`.
 
-**Version:** 1.0.0
-**Last updated:** 2026-04-22
+**Version:** 1.3.0
+**Last updated:** 2026-07-03
 
 ---
 
@@ -20,6 +20,8 @@
 9. [Logging & Audit](#9-logging--audit)
 10. [Platform Conventions](#10-platform-conventions)
 11. [Heurísticas de Arquitetura (SSoT · AI cost · UAZAPI)](#11-heurísticas-de-arquitetura-ssot--ai-cost--uazapi)
+12. [HO-TP-002 — Required Fields Completeness](#12-ho-tp-002--required-fields-completeness-campos-obrigatórios-enforçados)
+13. [HO-TP-003 — Domain ⇒ Brand ⇒ Design System coupling](#13-ho-tp-003--domain--brand--design-system-coupling)
 
 ---
 
@@ -921,6 +923,39 @@ registry → o CI valida. É isto que obriga as próximas funções a nascerem c
 
 ---
 
+## 13. HO-TP-003 — Domain ⇒ Brand ⇒ Design System coupling
+
+> Severidade: **MUST**. Complementa a HO-TP-002. Origem: auditoria 2026-07-03 (5 agentes) —
+> as tasks de conteúdo acertavam attribution/pixel/publish mas eram **cegas para Design System**:
+> nenhuma dizia QUAL DS aplicar por domínio, e o gerador de LP por IA saía genérico. A plataforma
+> serve **duas empresas** (ArchPrime e Lovarch) em domínios distintos, cada uma com seu DS, seu
+> pixel e seu remetente. Confundir isso quebra identidade visual E atribuição.
+
+**Fonte canônica:** [`data/domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml) — mapeia
+cada domínio → `brand` → Design System → `meta_pixel_id` → remetente → renderer. Enforçado no CI por
+`scripts/validate-domain-coupling.py` (repo PrimeTeam).
+
+**Toda task que cria/edita CONTEÚDO PÚBLICO (landing page, form/moduli, e-mail, post editorial) DEVE:**
+
+1. **Exigir `target_domain`** entre os valores do registry — **NUNCA assumir ArchPrime por default**.
+2. **Resolver `brand = domains[target_domain].brand`** e aplicar, a partir de `brands[brand]`:
+   - **Design System correto**: ArchPrime (Arch Black `#0F0F10` + Arch Gold `#C9995C`, Playfair+Inter)
+     para `*.archprime.io`; **Lovarch DS V8** (`@archprime/lovarch-ds`, gold `#A16207`, "NO BLUE",
+     Outfit/DM Sans/Playfair) para `lovarch.com`. **Proibido cruzar** (DS de uma marca em domínio da outra).
+   - **`meta_pixel_id` da marca**: `1588378018327556` (ArchPrime) vs `901383099010400` (Lovarch) — nunca trocar.
+   - **Remetente de e-mail da marca**: Lovarch → `info@lovarch.com`; ArchPrime → `noreply@` (transacional),
+     `info@` (booking), `notifications@` (lead notify). E-mail renderiza pelo DS de marca em
+     `_shared/email/tokens.ts` (`renderEmail({brand})`).
+3. **Respeitar o renderer/cache do domínio**: React nativo + re-hidratação de `<script>` (nunca
+   `document.write()`); `cms-revalidate` para ISR (`archprime.io`/`lovarch.com`), skip em `lp.archprime.io`.
+4. **Dual-renderer Lovarch**: mexeu em renderer/schema/tracking → **PR companion em `ByPabloRuanL/lovarch`
+   no mesmo dia** (a task deve avisar isso quando `target_domain = lovarch.com`).
+
+O `content-builder` é o dono deste acoplamento (não há mais `design-guardian`). Toda task de conteúdo
+referencia `domain-brand-ds-registry.yaml` — o validador de CI reprova a task que não referenciar.
+
+---
+
 ## Versão e changelog deste documento
 
 | Versão | Data | Mudanças |
@@ -928,6 +963,7 @@ registry → o CI valida. É isto que obriga as próximas funções a nascerem c
 | 1.0.0 | 2026-04-22 | Criação inicial (Fase 1 do squad) |
 | 1.1.0 | 2026-07-02 | Seção 11 — heurísticas de arquitetura (SSoT, AI cost tracking, isolamento UAZAPI) |
 | 1.2.0 | 2026-07-03 | Seção 12 — HO-TP-002 Required Fields Completeness (registry + CI enforcement) |
+| 1.3.0 | 2026-07-03 | Seção 13 — HO-TP-003 Domain⇒Brand⇒Design System coupling (domain-brand-ds-registry.yaml + validate-domain-coupling.py) |
 
 Próximas revisões são esperadas conforme a plataforma evolui. Toda mudança desta documentação passa por PR + review.
 

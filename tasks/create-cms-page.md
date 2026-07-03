@@ -5,6 +5,8 @@
 > ⚠️ **DEBT TÉCNICO LOVARCH (CLAUDE.md):** se a página criada for em `target_domain='lovarch.com'`, o renderer público é o frontend Next.js no repo `ByPabloRuanL/lovarch` (mirror). LPs em `lovarch.com/page/{slug}` são renderizadas por código separado. Mexer no schema/renderer/tracking exige PR companion no repo Lovarch no mesmo dia OU LPs quebram silenciosamente. Para `archprime.io` mesmo flow (também ISR via Next). Para `lp.archprime.io` é SPA do próprio primeteam — sem dual-renderer. Ver `data/cms-vs-landing-pages.md`.
 >
 > 🎯 **LIÇÃO pixel `Lead` — 1× por pessoa, deduplicado (2026):** todo `fbq('track','Lead')` no HTML DEVE usar `eventID` **determinístico** derivado do `lead_id`/`opportunity_id` retornado pelo backend (`cms-form-submit` devolve `event_id` = `cms-lead-{leadId}`), para deduplicar com o CAPI server-side. **NUNCA** gerar `eventID` com `uuid()`/`Date.now()`/`Math.random()` — causa double-fire (cada pessoa conta 2-3× no Funnel do Meta). LP de THANK-YOU/GRAZIE/CONFERMATO **não** dispara `Lead` (já foi contado na LP do form) — usar `CompleteRegistration`/`ViewContent` se quiser sinalizar high-intent. `Purchase` (browser) usa `eventID = session_id + ':Purchase'` + guard one-shot em localStorage.
+>
+> 🎨 **DS/pixel/remetente por domínio (HO-TP-003):** resolva a MARCA pelo `target_domain` via [`data/domain-brand-ds-registry.yaml`](../data/domain-brand-ds-registry.yaml) e aplique ao `html_content` o Design System certo — **ArchPrime DS** (Arch Black `#0F0F10` + Arch Gold `#C9995C`, Playfair+Inter) para `*.archprime.io`; **Lovarch DS V8** (`@archprime/lovarch-ds`, gold `#A16207`, "NO BLUE", Outfit/DM Sans/Playfair) para `lovarch.com`. Pixel Meta: `1588378018327556` (ArchPrime) vs `901383099010400` (Lovarch) — **nunca cruzar** marca. Regra completa: §13 de `data/primeteam-platform-rules.md`.
 
 **Cumpre:** HO-TP-001 (Task Anatomy — 8 campos)
 
@@ -38,7 +40,7 @@ Entregue pelo `ops-chief`:
   - `html_content` (string, HTML raw — pode ser fornecido na criação OU adicionado depois via update)
   - `css_content` (string opcional)
   - `campaign_id` **(uuid, obrigatório)** — campanha existente em `campaigns`. Sem ele, `lead.campaign_id` e `opportunity.campaign_id` ficam NULL para visitantes sem UTM
-  - `meta_pixel_id`, `google_ads_id`, `tiktok_pixel_id`, `capi_enabled` (opcionais)
+  - `meta_pixel_id` (opcional — se ausente, usar o pixel **da marca** do `target_domain` via `domain-brand-ds-registry.yaml`: `1588378018327556` ArchPrime | `901383099010400` Lovarch), `google_ads_id`, `tiktok_pixel_id`, `capi_enabled` (opcionais)
   - `seo` (jsonb opcional — `{ title?, description?, og_image?, canonical?, robots? }`)
   - `form_fields` (jsonb array opcional — definição dos campos do form embutido no HTML)
 
@@ -60,6 +62,7 @@ Entregue pelo `ops-chief`:
 3. **Validar target_domain** ∈ `{'lp.archprime.io', 'lovarch.com', 'archprime.io'}`. Outros → BLOCKED.
 4. **Validar locale** ∈ `{'it', 'en', 'pt', 'es'}`. Default `'it'`.
 5. **Validar campaign_id obrigatório** — se ausente, ESCALATE com lista de campanhas ativas: `SELECT id, name FROM campaigns WHERE status='active' ORDER BY created_at DESC`. User escolhe uma OU cria nova via task `create-campaign`.
+5b. **Resolver acoplamento domínio⇒marca⇒DS (HO-TP-003)** — `brand = domains[target_domain].brand` do registry [`data/domain-brand-ds-registry.yaml`](../data/domain-brand-ds-registry.yaml). Consequências obrigatórias: (a) o `html_content` deve usar o **Design System da marca** (ArchPrime tokens vs Lovarch DS V8 — nunca cruzar); (b) se `meta_pixel_id` não veio no input, usar o pixel da marca (`1588…` ArchPrime | `901…` Lovarch); (c) se `target_domain='lovarch.com'`, avisar no confirm o **débito dual-renderer** (PR companion em `ByPabloRuanL/lovarch` no mesmo dia se mexer em schema/renderer/tracking).
 6. **Check uniqueness** — `SELECT id FROM landing_pages WHERE target_domain = ? AND slug = ? AND locale = ?`. Collision → ESCALATE com 3 options.
 7. **Validar html_content** — se fornecido, deve ser string (max 2MB). Pode ser vazio (`''`) e adicionado depois.
 8. **Validar campos opcionais** (pixel regex, seo objeto, form_fields array).
@@ -77,8 +80,9 @@ Entregue pelo `ops-chief`:
     idioma: {locale}
     título: {title}
     campanha: {campaign_name} ({campaign_id})
-    html_content: {len} chars (raw HTML)
-    pixel Meta: {meta_pixel_id or "default Mariana"}
+    marca/DS: {brand} → {DS da marca}  (resolvido do target_domain)
+    html_content: {len} chars (raw HTML, no DS da marca)
+    pixel Meta: {meta_pixel_id or pixel_da_marca}   (1588… ArchPrime | 901… Lovarch)
     status: DRAFT (use publish-cms-page para tornar pública)
     URL pública: https://{target_domain}/{slug}
     Confirma?
@@ -155,7 +159,7 @@ Entregue pelo `ops-chief`:
 ## Notas
 
 - **Conteúdo é raw HTML self-contained.** Pixel scripts, form handlers, estilos inline ou em `<style>` — tudo dentro de `html_content`. UI admin não edita HTML — apenas meta-config (slug, domínio, campanha, pixel/CAPI, redirect, SEO, toggle Attiva).
-- **Renderer público:** `/page/:slug` carrega via cms-pages-api EF e renderiza em iframe srcDoc sandbox.
+- **Renderer público (React NATIVO, desde PR #1233 — NÃO iframe):** `/{slug}` (canônico) ou `/page/:slug` (retrocompat) carrega via `cms-pages-api` EF e injeta `html_content` com `dangerouslySetInnerHTML` no `LovarchPageRenderer`. `<script>` inline **não executa** via innerHTML → cada um é **re-hidratado manualmente** (recriado num `useEffect`). **NUNCA `document.write()`** (quebra pós-hidratação); pixel/form handlers usam `addEventListener`/`fetch`. Descrição antiga "iframe srcDoc sandbox" está OBSOLETA.
 - **Form handlers no HTML:** o HTML deve fazer `fetch('https://xmqmuxwlecjbpubjdkoj.supabase.co/functions/v1/cms-form-submit', { method:'POST', body: JSON.stringify({ page_id, slug, target_domain, locale, form_data, tracking }) })`.
 - **Active toggle:** `active=false` faz o renderer redirecionar para `redirect_to` ou `/<redirect_to_slug>`. Admin precisa configurar destino antes de desativar.
 - **Optimistic locking:** `version` incrementa a cada update. Tasks de edit passam `version` esperada.

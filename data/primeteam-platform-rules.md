@@ -2,8 +2,8 @@
 
 > **ARQUIVO DE LEITURA OBRIGATÓRIA** antes de qualquer ação executada pelo squad `primeteam-ops`. Todos os specialists consultam este documento. Violações são detectadas pelo `handoff-quality-gate`.
 
-**Version:** 1.0.0
-**Last updated:** 2026-04-22
+**Version:** 1.4.0
+**Last updated:** 2026-07-03
 
 ---
 
@@ -20,6 +20,8 @@
 9. [Logging & Audit](#9-logging--audit)
 10. [Platform Conventions](#10-platform-conventions)
 11. [Heurísticas de Arquitetura (SSoT · AI cost · UAZAPI)](#11-heurísticas-de-arquitetura-ssot--ai-cost--uazapi)
+12. [HO-TP-002 — Required Fields Completeness](#12-ho-tp-002--required-fields-completeness-campos-obrigatórios-enforçados)
+13. [HO-TP-003 — Domain ⇒ Brand ⇒ Design System coupling](#13-ho-tp-003--domain--brand--design-system-coupling)
 
 ---
 
@@ -269,7 +271,7 @@ Quando o squad precisar ler/escrever código da plataforma PrimeTeam (ex: analis
 ### 4.1 Stack
 
 - **Frontend:** React 18 + TypeScript (strict) + Vite (SWC)
-- **Styling:** Tailwind CSS + shadcn/ui (Radix UI primitives)
+- **Styling:** Tailwind CSS + **primitivos próprios** em `apps/v2/src/components/ui/` (Modal, DataTable, EmptyState, Select…), Radix pontual. **A v2 NÃO usa shadcn/ui** (0 arquivos no padrão shadcn) — reutilizar os primitivos existentes, nunca gerar componentes shadcn
 - **Routing:** React Router v6
 - **Server state:** TanStack Query v5 (`staleTime: 60s`, `refetchOnWindowFocus: false`)
 - **Forms:** react-hook-form + zod
@@ -600,6 +602,8 @@ Teste automatizado: se CI detecta chave em um idioma e não no outro, PR falha.
 
 ## 7. ArchPrime Design System
 
+> **Fonte única de "qual DS por domínio":** [`data/domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml) (HO-TP-003, §13). Esta seção documenta os tokens **ArchPrime**; o **Lovarch DS V8** vive no submodule `squads/lovarch-design-system` (`@archprime/lovarch-ds`) — ver §7.7. **NUNCA cruzar DS entre marcas.**
+
 ### 7.1 Tokens principais
 
 ```css
@@ -673,9 +677,22 @@ Plataforma opera em dark mode por padrão. Light mode é opção. Tokens acima a
 
 - ❌ Cores hardcoded (`background: #000`) — SEMPRE tokens
 - ❌ Gradientes com cores fixas fora do DS
-- ❌ Google Fonts fora de Playfair + Inter
+- ❌ Google Fonts fora de Playfair + Inter **em conteúdo público ArchPrime** (LP/e-mail). A fonte segue a MARCA/superfície (§7.7), não é global: a UI do app v2 usa Newsreader; o Lovarch DS usa Outfit/DM Sans/Playfair.
 - ❌ Animações com `ease` diferente dos definidos
 - ❌ Border-radius fora de `--radius-md`, `--radius-lg`, `--radius-xl`
+
+### 7.7 DS por domínio/marca (HO-TP-003) + reconciliação de fontes
+
+A plataforma serve **duas marcas** — o DS certo depende do domínio (fonte única: [`data/domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml)):
+
+| Superfície | Marca | DS / onde vive |
+|---|---|---|
+| `*.archprime.io` (LP/form/e-mail públicos) | ArchPrime | tokens §7.1 (Arch Black/Gold, Playfair+Inter) |
+| App interno `primeteam.archprime.io` | ArchPrime | `apps/v2/src/index.css` (Design System v3 vivo) |
+| E-mail (ambas) | por `brand` | `supabase/functions/_shared/email/tokens.ts` (`renderEmail({brand})`) |
+| `lovarch.com` (LP/form/e-mail) | Lovarch | **Lovarch DS V8** — `squads/lovarch-design-system` (`@archprime/lovarch-ds`): gold `#A16207`, "NO BLUE", Playfair/Outfit/DM Sans/Inter, `BlockRenderer` + componentes |
+
+**Reconciliação de fontes ArchPrime (divergência real, resolvida aqui):** a §7.1 declara **Playfair Display** para heading — correto para **LP e e-mail públicos** (brand book). Mas a **UI interna do app v2** (`index.css`) usa **Newsreader** (display serif). Não é erro: a fonte segue a superfície. Regra: conteúdo público ArchPrime → Playfair+Inter; UI do app → o que está no `index.css` vivo; Lovarch → sempre o Lovarch DS. O kit estático legado em `squads/primeteam-improve/data/design-system/` (que cita system-stack + `css/*` inexistentes) está **desatualizado** — não é fonte; use o registry + o `index.css` vivo.
 
 ---
 
@@ -685,22 +702,26 @@ Plataforma opera em dark mode por padrão. Light mode é opção. Tokens acima a
 
 Quem pode usar cada agent do squad:
 
-| Agent | owner | financeiro | comercial | cs | marketing |
-|-------|:-----:|:----------:|:---------:|:--:|:---------:|
-| ops-chief | ✅ | ✅ | ✅ | ✅ | ✅ |
-| auth-specialist | ✅ | ✅ | ✅ | ✅ | ✅ |
-| platform-specialist | ✅ | parcial | parcial | parcial | parcial |
-| finance-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
-| sales-specialist | ✅ | ❌ | ✅ | ❌ | ❌ |
-| cs-specialist | ✅ | ❌ | ❌ | ✅ | ❌ |
-| content-builder | ✅ | ❌ | ❌ | ❌ | ✅ |
-| automation-specialist | ✅ | ❌ | ❌ | ❌ | ✅ |
-| integration-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
-| admin-specialist | ✅ | ❌ | ❌ | ❌ | ❌ |
-| quality-guardian | ✅ | ✅ | ✅ | ✅ | ✅ |
-| design-guardian | ✅ | ❌ | ❌ | ❌ | ✅ |
+Os agents REAIS do squad (12): `ops-chief`, `auth-specialist`, `platform-specialist`, `content-builder`, `automation-specialist`, `integration-specialist`, `admin-specialist`, `imports-specialist`, `lovarch-ops-specialist`, `sales-specialist`, `screen-motion-engineer`, `quality-guardian`. **A matriz canônica role×task (por RLS real) é GERADA por `scripts/gen-role-task-matrix.py` → [`data/role-permissions-map.md`](./role-permissions-map.md)** — não manter tabela hardcoded aqui (números fixos apodrecem; ver governança anti-drift no CLAUDE.md).
 
-**"parcial"** = agent funciona mas RLS do Supabase limita dados retornados. Ex: `platform-specialist` para CS só vê tabelas que CS tem permissão (students, tickets, tasks próprias, etc.).
+Gates de acesso mais usados (o enforcement real é o RLS do Supabase, §8.2):
+
+| Agent | Quem usa (típico) |
+|-------|-------------------|
+| ops-chief · auth-specialist · quality-guardian | todos os setores |
+| platform-specialist | todos (RLS limita os dados por role) |
+| content-builder | owner · admin · marketing (conteúdo/LP/forms) |
+| automation-specialist | owner · admin · marketing |
+| sales-specialist | owner · comercial |
+| integration-specialist | owner · financeiro |
+| admin-specialist | owner (gestão de user/role) |
+| imports-specialist | owner · admin |
+| lovarch-ops-specialist | owner · admin |
+| screen-motion-engineer | owner · admin (runbook técnico) |
+
+> **Removidos (fantasmas que não existem como agents):** `finance-specialist`, `cs-specialist`, `design-guardian`. Finanças são acessadas via `platform-specialist`/`integration-specialist` (RLS `has_finance_access` = owner+financeiro, admin EXCLUÍDO); a governança de **Design System** é do `content-builder` (HO-TP-003, §13), não de um "design-guardian".
+
+**"parcial"** = o agent funciona mas o RLS do Supabase limita os dados retornados (ex: `platform-specialist` para uma role de CS só vê o que a policy libera).
 
 ### 8.2 Como o enforcement acontece
 
@@ -921,6 +942,39 @@ registry → o CI valida. É isto que obriga as próximas funções a nascerem c
 
 ---
 
+## 13. HO-TP-003 — Domain ⇒ Brand ⇒ Design System coupling
+
+> Severidade: **MUST**. Complementa a HO-TP-002. Origem: auditoria 2026-07-03 (5 agentes) —
+> as tasks de conteúdo acertavam attribution/pixel/publish mas eram **cegas para Design System**:
+> nenhuma dizia QUAL DS aplicar por domínio, e o gerador de LP por IA saía genérico. A plataforma
+> serve **duas empresas** (ArchPrime e Lovarch) em domínios distintos, cada uma com seu DS, seu
+> pixel e seu remetente. Confundir isso quebra identidade visual E atribuição.
+
+**Fonte canônica:** [`data/domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml) — mapeia
+cada domínio → `brand` → Design System → `meta_pixel_id` → remetente → renderer. Enforçado no CI por
+`scripts/validate-domain-coupling.py` (repo PrimeTeam).
+
+**Toda task que cria/edita CONTEÚDO PÚBLICO (landing page, form/moduli, e-mail, post editorial) DEVE:**
+
+1. **Exigir `target_domain`** entre os valores do registry — **NUNCA assumir ArchPrime por default**.
+2. **Resolver `brand = domains[target_domain].brand`** e aplicar, a partir de `brands[brand]`:
+   - **Design System correto**: ArchPrime (Arch Black `#0F0F10` + Arch Gold `#C9995C`, Playfair+Inter)
+     para `*.archprime.io`; **Lovarch DS V8** (`@archprime/lovarch-ds`, gold `#A16207`, "NO BLUE",
+     Outfit/DM Sans/Playfair) para `lovarch.com`. **Proibido cruzar** (DS de uma marca em domínio da outra).
+   - **`meta_pixel_id` da marca**: `1588378018327556` (ArchPrime) vs `901383099010400` (Lovarch) — nunca trocar.
+   - **Remetente de e-mail da marca**: Lovarch → `info@lovarch.com`; ArchPrime → `noreply@` (transacional),
+     `info@` (booking), `notifications@` (lead notify). E-mail renderiza pelo DS de marca em
+     `_shared/email/tokens.ts` (`renderEmail({brand})`).
+3. **Respeitar o renderer/cache do domínio**: React nativo + re-hidratação de `<script>` (nunca
+   `document.write()`); `cms-revalidate` para ISR (`archprime.io`/`lovarch.com`), skip em `lp.archprime.io`.
+4. **Dual-renderer Lovarch**: mexeu em renderer/schema/tracking → **PR companion em `ByPabloRuanL/lovarch`
+   no mesmo dia** (a task deve avisar isso quando `target_domain = lovarch.com`).
+
+O `content-builder` é o dono deste acoplamento (não há mais `design-guardian`). Toda task de conteúdo
+referencia `domain-brand-ds-registry.yaml` — o validador de CI reprova a task que não referenciar.
+
+---
+
 ## Versão e changelog deste documento
 
 | Versão | Data | Mudanças |
@@ -928,6 +982,8 @@ registry → o CI valida. É isto que obriga as próximas funções a nascerem c
 | 1.0.0 | 2026-04-22 | Criação inicial (Fase 1 do squad) |
 | 1.1.0 | 2026-07-02 | Seção 11 — heurísticas de arquitetura (SSoT, AI cost tracking, isolamento UAZAPI) |
 | 1.2.0 | 2026-07-03 | Seção 12 — HO-TP-002 Required Fields Completeness (registry + CI enforcement) |
+| 1.3.0 | 2026-07-03 | Seção 13 — HO-TP-003 Domain⇒Brand⇒Design System coupling (domain-brand-ds-registry.yaml + validate-domain-coupling.py) |
+| 1.4.0 | 2026-07-03 | Consolidação DS (G5): §7.7 DS por domínio + reconciliação Playfair/Newsreader; §4.1 corrigido (v2 NÃO usa shadcn); §8.1 remove agents fantasma (finance/cs-specialist, design-guardian) e aponta matriz gerada |
 
 Próximas revisões são esperadas conforme a plataforma evolui. Toda mudança desta documentação passa por PR + review.
 

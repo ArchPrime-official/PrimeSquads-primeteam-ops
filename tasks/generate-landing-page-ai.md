@@ -1,8 +1,10 @@
 # Task: generate-landing-page-ai
 
 > Disparar geração de LP via AI (LLM-driven `html_content`). Sandra usa para acelerar criação. Implementa F-09.2.
+>
+> 🎨 **DS por domínio é OBRIGATÓRIO no brief (HO-TP-003) — este era o pior gap:** o gerador AI NÃO pode sair genérico. Resolva a marca pelo `target_domain` via [`data/domain-brand-ds-registry.yaml`](../data/domain-brand-ds-registry.yaml) e **injete os tokens do Design System da marca no payload** enviado ao LLM (cores, fontes, componentes) — **ArchPrime DS** (Arch Black `#0F0F10`/Arch Gold `#C9995C`, Playfair+Inter) para `*.archprime.io`; **Lovarch DS V8** (`@archprime/lovarch-ds`, gold `#A16207`, "NO BLUE", Playfair/Outfit/DM Sans/Inter) para `lovarch.com`. Pixel: `1588…` ArchPrime | `901…` Lovarch. Sem isso a LP nasce fora da identidade da empresa.
 
-**Cumpre:** HO-TP-001
+**Cumpre:** HO-TP-001 · HO-TP-003
 
 ---
 
@@ -47,6 +49,7 @@
 2. **Validar brief:** `title` + demais campos obrigatórios + `key_points` min 1.
 3. **`campaign_id` obrigatório:** se ausente → **ESCALATE** (nunca criar LP sem campanha — attribution quebra). Nunca defaultar.
 4. **Validar slug uniqueness** + `target_domain` + `locale` (derivado de `language`).
+4b. **Resolver DS da marca (HO-TP-003)** — `brand = domains[target_domain].brand` do registry [`data/domain-brand-ds-registry.yaml`](../data/domain-brand-ds-registry.yaml). Montar o objeto `design_system` com os tokens da marca (paleta, fontes, componentes; regra "NO BLUE" no Lovarch) para **injetar no payload do LLM** (passo 8). ArchPrime: Arch Black `#0F0F10`/Arch Gold `#C9995C`, Playfair+Inter. Lovarch: gold `#A16207`/bg `#09090B`, Playfair/Outfit/DM Sans/Inter + componentes `@archprime/lovarch-ds`. **Este passo é o que impede a LP de sair genérica.**
 5. **Resolver custo via `ai-gateway`:** a chamada ao LLM passa pela Edge Function `ai-gateway` (`POST /functions/v1/ai-gateway`, JWT de sessão), que resolve o preço pela tabela canônica `ai_pricing` (`provider`+`model`+`variant`) e grava o uso em `creative_api_usage`. **NUNCA hardcodar um custo estimado no código da task** — se for necessário mostrar uma estimativa antes de confirmar, ela deve vir de uma consulta prévia a `ai_pricing` pelo `model` escolhido, não de um número fixo tipo "~$0.03-0.20".
 6. **Confirmation:**
    ```
@@ -57,6 +60,7 @@
      Audience: {target_audience}
      Tone: {tone}
      Language: {language} → locale: {locale}
+     Marca/DS: {brand} → {DS da marca}  (injetado no prompt do LLM)
      Key points: {N}
      CTA: «{cta_text}»
      Template base: {template_base or 'Genérico'}
@@ -73,7 +77,7 @@
      body: {
        provider: 'anthropic', // ou o provider do `model` escolhido
        model,
-       payload: { brief, template_base, locale },
+       payload: { brief, template_base, locale, design_system }, // design_system resolvido no passo 4b (tokens da marca) — SEM ele a LP sai genérica
        mode: 'landing-page-generation',
      },
      headers: { Authorization: `Bearer ${jwt}` }
@@ -118,6 +122,7 @@
 - **[A7] Sem coluna `ai_generated`:** tracking de origem AI vive em `creative_api_usage` (via `ai-gateway`), não em `landing_pages`.
 - **[A8] Audit:** activity_log com tokens/cost/lp_id.
 - **[A9] Idempotency:** retry interno 1x; ESCALATE depois.
+- **[A10] DS da marca injetado (HO-TP-003):** o payload ao LLM inclui `design_system` resolvido do `target_domain` — LP nunca sai genérica/fora de marca. `lovarch.com` → Lovarch DS; `*.archprime.io` → ArchPrime DS.
 
 ---
 
@@ -153,6 +158,8 @@
 - **AI cost tracking:** toda chamada ao LLM passa por `ai-gateway`/`logAiCall()`, preço vem de `ai_pricing` (nunca hardcoded). **Não existe** a tabela `landing_page_ai_generations` — uso e custo ficam em `creative_api_usage`, visível em `/gestao` → Creative Studio.
 - **Locale mapping:** `landing_pages.locale` usa códigos curtos (`it`, `en`, `pt`, `es`), não `pt-BR`/`it-IT` — sempre mapear o `language` de negócio para o `locale` real antes do INSERT.
 - **Pixel/eventID:** se o `html_content` gerado dispara `fbq('track', ...)`, seguir a regra de `eventID` determinístico (nunca `uuid()`/`Date.now()`/`Math.random()`) e nunca usar `document.write()`.
+- **Design System por marca (HO-TP-003):** o prompt do LLM DEVE conter os tokens da marca resolvida do `target_domain` (`domain-brand-ds-registry.yaml`). Nunca gerar HTML "genérico bonito" — tem de ser ArchPrime ou Lovarch conforme o domínio.
+- **Débito dual-renderer Lovarch (G2):** se `target_domain='lovarch.com'`, a LP é renderizada também pelo repo separado `ByPabloRuanL/lovarch` (mirror de `LovarchPageRenderer`) — mudanças de schema/renderer exigem PR companion no mesmo dia. O renderer é React nativo (hidratação de `<script>`), nunca `document.write()`.
 - **Refinement:** task gera draft inicial. Refinamentos sucessivos = `update-landing-page` manual ou nova geração.
 
 ---

@@ -274,6 +274,19 @@ create-cms-page:
     - {field: locale, source: "business: explícito, não default 'it'", ask: "Idioma? (it/en/pt/es)"}
   forbidden_defaults: [campaign_id, locale, html_content]
 
+create-form:
+  table: forms
+  writes: insert
+  required:
+    - {field: slug, source: schema}
+    - {field: title, source: schema}
+    - {field: campaign_id, source: schema}
+    - {field: target_domain, source: "business: define marca/DS/pixel/remetente (HO-TP-003) — nunca assumir ArchPrime", ask: "Em qual domínio? (forms.archprime.io/lp.archprime.io/lovarch.com/archprime.io)"}
+    - {field: questions, source: "business: form sem perguntas é inútil", ask: "Quais perguntas? (label/type/required)"}
+    - {field: locale, source: "business: idioma explícito, não default 'it'", ask: "Idioma? (it/en/pt/es)"}
+  forbidden_defaults: [campaign_id, target_domain, questions, locale]
+  notes: "tabela `forms` (moduli público), NÃO evaluation_forms nem form_templates; DS/pixel por marca via domain-brand-ds-registry (HO-TP-003)"
+
 update-landing-page:
   table: landing_pages
   writes: update

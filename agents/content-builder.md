@@ -834,6 +834,9 @@ task_registry:
       superseded_by: create-cms-page
     - id: create-cms-page
       file: tasks/create-cms-page.md
+    - id: create-form
+      file: tasks/create-form.md
+      auth: owner/admin/marketing
     - id: list-cms-pages
       file: tasks/list-cms-pages.md
       kind: read-only

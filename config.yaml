@@ -323,6 +323,14 @@ tasks:
       consolidada em landing_pages, tabela única para 3 domínios)
     agent: content-builder
 
+  - id: create-form
+    file: tasks/create-form.md
+    purpose: >
+      Criar form/moduli público na tabela `forms` (4 domínios), com marca/DS/
+      pixel/remetente resolvidos pelo target_domain (HO-TP-003). Paridade da
+      create-cms-page para forms — NÃO evaluation_forms nem form_templates.
+    agent: content-builder
+
   - id: list-cms-pages
     file: tasks/list-cms-pages.md
     purpose: >

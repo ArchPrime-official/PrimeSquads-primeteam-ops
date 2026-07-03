@@ -16,9 +16,11 @@ Isso gerava duplicação de schema, EFs separadas (`landing-pages-api` vs `cms-p
 
 | target_domain | Renderer | Cache |
 |---|---|---|
-| `lp.archprime.io` | React SPA dentro do PrimeTeam | client-side TanStack Query (60s staleTime) |
-| `lovarch.com` | Next.js no repo `ByPabloRuanL/lovarch` (mirror) | Vercel ISR (60s s-maxage) |
-| `archprime.io` | Mesmo Next.js | Vercel ISR (60s s-maxage) |
+| `lp.archprime.io` | React SPA nativo no PrimeTeam (`LovarchPageRenderer`, hidratação de `<script>`) | client-side TanStack Query (60s staleTime) |
+| `lovarch.com` | React nativo servido pelo PrimeTeam via rewrite (entry `lovarch.html`). Débito: `lovarch.com/page/{slug}` ainda espelhado no repo `ByPabloRuanL/lovarch` (PR companion) | Vercel ISR (`cms-revalidate`) |
+| `archprime.io` | React nativo no PrimeTeam (entry `lp.html`) | Vercel ISR (`cms-revalidate`) |
+
+> ⚠️ Renderer é **React nativo desde PR #1233** (NÃO iframe, NÃO Next.js/SSR próprio): `dangerouslySetInnerHTML` + re-hidratação manual de `<script>`, nunca `document.write()`. `lovarch.com` teve a raiz movida para o PrimeTeam (rewrite por host, memória 2026-06-22). DS/pixel/remetente por domínio: ver [`domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml) (HO-TP-003).
 
 Após o PR, `cms_pages` foi dropada. EF `cms-pages-api` continua existindo (renomeada de fato, mesmo nome) e serve as 3 origens via `target_domain` filter.
 
@@ -45,7 +47,7 @@ Tasks duplicadas por intenção do user, não por tabela diferente:
 1. **Não criar nova tabela** — usar sempre `landing_pages`.
 2. **Sempre passar `target_domain`** no INSERT/UPDATE — campo obrigatório que define onde a página vai aparecer.
 3. **Cache:** mutations em pages publicadas em `lovarch.com` ou `archprime.io` exigem chamada à EF `cms-revalidate` (Vercel ISR). Para `lp.archprime.io` o cache é client-side, não precisa webhook.
-4. **html_content é raw HTML self-contained** (depois do PR #1226). Nada de `blocks` JSONB legado.
+4. **html_content é raw HTML self-contained** (padrão desde o PR #1226) — no **DS da marca do domínio** (HO-TP-003, `domain-brand-ds-registry.yaml`). O caminho `blocks` JSONB (Lovarch DS `BlockRenderer`) ainda existe no renderer, mas o fluxo default do squad é `html_content`.
 5. **Lovarch dual-renderer obligation:** se o squad mexer em renderer/schema/tracking, deve abrir PR companion no repo `ByPabloRuanL/lovarch` (frontend Lovarch tem cópia espelhada de `LovarchPageRenderer.tsx` e `useCmsTracking.ts`). Ver CLAUDE.md do primeteam seção "CMS Dual-Renderer Sync".
 
 ## Domain matrix (RLS + active behavior)
@@ -69,4 +71,4 @@ Tasks duplicadas por intenção do user, não por tabela diferente:
 ---
 
 **Mantido por:** content-builder (self-reference)
-**Última atualização:** 2026-05-10 (audit pto-squad-audit-2026-05-10)
+**Última atualização:** 2026-07-03 (G2/G5 — renderer React nativo + HO-TP-003 domínio→marca→DS)

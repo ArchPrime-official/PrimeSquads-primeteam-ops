@@ -2,7 +2,7 @@
 
 > **ARQUIVO DE LEITURA OBRIGATÓRIA** antes de qualquer ação executada pelo squad `primeteam-ops`. Todos os specialists consultam este documento. Violações são detectadas pelo `handoff-quality-gate`.
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Last updated:** 2026-07-03
 
 ---
@@ -271,7 +271,7 @@ Quando o squad precisar ler/escrever código da plataforma PrimeTeam (ex: analis
 ### 4.1 Stack
 
 - **Frontend:** React 18 + TypeScript (strict) + Vite (SWC)
-- **Styling:** Tailwind CSS + shadcn/ui (Radix UI primitives)
+- **Styling:** Tailwind CSS + **primitivos próprios** em `apps/v2/src/components/ui/` (Modal, DataTable, EmptyState, Select…), Radix pontual. **A v2 NÃO usa shadcn/ui** (0 arquivos no padrão shadcn) — reutilizar os primitivos existentes, nunca gerar componentes shadcn
 - **Routing:** React Router v6
 - **Server state:** TanStack Query v5 (`staleTime: 60s`, `refetchOnWindowFocus: false`)
 - **Forms:** react-hook-form + zod
@@ -602,6 +602,8 @@ Teste automatizado: se CI detecta chave em um idioma e não no outro, PR falha.
 
 ## 7. ArchPrime Design System
 
+> **Fonte única de "qual DS por domínio":** [`data/domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml) (HO-TP-003, §13). Esta seção documenta os tokens **ArchPrime**; o **Lovarch DS V8** vive no submodule `squads/lovarch-design-system` (`@archprime/lovarch-ds`) — ver §7.7. **NUNCA cruzar DS entre marcas.**
+
 ### 7.1 Tokens principais
 
 ```css
@@ -675,9 +677,22 @@ Plataforma opera em dark mode por padrão. Light mode é opção. Tokens acima a
 
 - ❌ Cores hardcoded (`background: #000`) — SEMPRE tokens
 - ❌ Gradientes com cores fixas fora do DS
-- ❌ Google Fonts fora de Playfair + Inter
+- ❌ Google Fonts fora de Playfair + Inter **em conteúdo público ArchPrime** (LP/e-mail). A fonte segue a MARCA/superfície (§7.7), não é global: a UI do app v2 usa Newsreader; o Lovarch DS usa Outfit/DM Sans/Playfair.
 - ❌ Animações com `ease` diferente dos definidos
 - ❌ Border-radius fora de `--radius-md`, `--radius-lg`, `--radius-xl`
+
+### 7.7 DS por domínio/marca (HO-TP-003) + reconciliação de fontes
+
+A plataforma serve **duas marcas** — o DS certo depende do domínio (fonte única: [`data/domain-brand-ds-registry.yaml`](./domain-brand-ds-registry.yaml)):
+
+| Superfície | Marca | DS / onde vive |
+|---|---|---|
+| `*.archprime.io` (LP/form/e-mail públicos) | ArchPrime | tokens §7.1 (Arch Black/Gold, Playfair+Inter) |
+| App interno `primeteam.archprime.io` | ArchPrime | `apps/v2/src/index.css` (Design System v3 vivo) |
+| E-mail (ambas) | por `brand` | `supabase/functions/_shared/email/tokens.ts` (`renderEmail({brand})`) |
+| `lovarch.com` (LP/form/e-mail) | Lovarch | **Lovarch DS V8** — `squads/lovarch-design-system` (`@archprime/lovarch-ds`): gold `#A16207`, "NO BLUE", Playfair/Outfit/DM Sans/Inter, `BlockRenderer` + componentes |
+
+**Reconciliação de fontes ArchPrime (divergência real, resolvida aqui):** a §7.1 declara **Playfair Display** para heading — correto para **LP e e-mail públicos** (brand book). Mas a **UI interna do app v2** (`index.css`) usa **Newsreader** (display serif). Não é erro: a fonte segue a superfície. Regra: conteúdo público ArchPrime → Playfair+Inter; UI do app → o que está no `index.css` vivo; Lovarch → sempre o Lovarch DS. O kit estático legado em `squads/primeteam-improve/data/design-system/` (que cita system-stack + `css/*` inexistentes) está **desatualizado** — não é fonte; use o registry + o `index.css` vivo.
 
 ---
 
@@ -687,22 +702,26 @@ Plataforma opera em dark mode por padrão. Light mode é opção. Tokens acima a
 
 Quem pode usar cada agent do squad:
 
-| Agent | owner | financeiro | comercial | cs | marketing |
-|-------|:-----:|:----------:|:---------:|:--:|:---------:|
-| ops-chief | ✅ | ✅ | ✅ | ✅ | ✅ |
-| auth-specialist | ✅ | ✅ | ✅ | ✅ | ✅ |
-| platform-specialist | ✅ | parcial | parcial | parcial | parcial |
-| finance-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
-| sales-specialist | ✅ | ❌ | ✅ | ❌ | ❌ |
-| cs-specialist | ✅ | ❌ | ❌ | ✅ | ❌ |
-| content-builder | ✅ | ❌ | ❌ | ❌ | ✅ |
-| automation-specialist | ✅ | ❌ | ❌ | ❌ | ✅ |
-| integration-specialist | ✅ | ✅ | ❌ | ❌ | ❌ |
-| admin-specialist | ✅ | ❌ | ❌ | ❌ | ❌ |
-| quality-guardian | ✅ | ✅ | ✅ | ✅ | ✅ |
-| design-guardian | ✅ | ❌ | ❌ | ❌ | ✅ |
+Os agents REAIS do squad (12): `ops-chief`, `auth-specialist`, `platform-specialist`, `content-builder`, `automation-specialist`, `integration-specialist`, `admin-specialist`, `imports-specialist`, `lovarch-ops-specialist`, `sales-specialist`, `screen-motion-engineer`, `quality-guardian`. **A matriz canônica role×task (por RLS real) é GERADA por `scripts/gen-role-task-matrix.py` → [`data/role-permissions-map.md`](./role-permissions-map.md)** — não manter tabela hardcoded aqui (números fixos apodrecem; ver governança anti-drift no CLAUDE.md).
 
-**"parcial"** = agent funciona mas RLS do Supabase limita dados retornados. Ex: `platform-specialist` para CS só vê tabelas que CS tem permissão (students, tickets, tasks próprias, etc.).
+Gates de acesso mais usados (o enforcement real é o RLS do Supabase, §8.2):
+
+| Agent | Quem usa (típico) |
+|-------|-------------------|
+| ops-chief · auth-specialist · quality-guardian | todos os setores |
+| platform-specialist | todos (RLS limita os dados por role) |
+| content-builder | owner · admin · marketing (conteúdo/LP/forms) |
+| automation-specialist | owner · admin · marketing |
+| sales-specialist | owner · comercial |
+| integration-specialist | owner · financeiro |
+| admin-specialist | owner (gestão de user/role) |
+| imports-specialist | owner · admin |
+| lovarch-ops-specialist | owner · admin |
+| screen-motion-engineer | owner · admin (runbook técnico) |
+
+> **Removidos (fantasmas que não existem como agents):** `finance-specialist`, `cs-specialist`, `design-guardian`. Finanças são acessadas via `platform-specialist`/`integration-specialist` (RLS `has_finance_access` = owner+financeiro, admin EXCLUÍDO); a governança de **Design System** é do `content-builder` (HO-TP-003, §13), não de um "design-guardian".
+
+**"parcial"** = o agent funciona mas o RLS do Supabase limita os dados retornados (ex: `platform-specialist` para uma role de CS só vê o que a policy libera).
 
 ### 8.2 Como o enforcement acontece
 
@@ -964,6 +983,7 @@ referencia `domain-brand-ds-registry.yaml` — o validador de CI reprova a task 
 | 1.1.0 | 2026-07-02 | Seção 11 — heurísticas de arquitetura (SSoT, AI cost tracking, isolamento UAZAPI) |
 | 1.2.0 | 2026-07-03 | Seção 12 — HO-TP-002 Required Fields Completeness (registry + CI enforcement) |
 | 1.3.0 | 2026-07-03 | Seção 13 — HO-TP-003 Domain⇒Brand⇒Design System coupling (domain-brand-ds-registry.yaml + validate-domain-coupling.py) |
+| 1.4.0 | 2026-07-03 | Consolidação DS (G5): §7.7 DS por domínio + reconciliação Playfair/Newsreader; §4.1 corrigido (v2 NÃO usa shadcn); §8.1 remove agents fantasma (finance/cs-specialist, design-guardian) e aponta matriz gerada |
 
 Próximas revisões são esperadas conforme a plataforma evolui. Toda mudança desta documentação passa por PR + review.
 

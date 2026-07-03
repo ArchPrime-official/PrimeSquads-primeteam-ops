@@ -392,3 +392,125 @@ create-automation-flow:
   required:
     - {field: name, source: schema}
     - {field: trigger_type, source: schema}
+
+# ── COMPLEMENTO F2 (cobertura total das tasks de escrita) ─────────────────────
+activate-automation-flow:
+  table: automation_flows
+  writes: update
+  required: [{field: flow_id, source: schema}]
+
+deactivate-automation-flow:
+  table: automation_flows
+  writes: update
+  required: [{field: flow_id, source: schema}]
+
+clone-automation-flow:
+  table: automation_flows
+  writes: insert
+  required:
+    - {field: name, source: "business: nome do clone (herda trigger_type do source)"}
+
+adjust-schedule-block:
+  table: task_schedule_blocks
+  writes: update
+  required: [{field: block_id, source: schema}]
+
+approve-role-request:
+  table: role_requests
+  writes: update
+  required: [{field: request_id, source: schema}]
+  notes: "promoção a owner exige literal 'CONFIRMO OWNER'; BLOCKED = zero writes"
+
+approve-task-date-change:
+  table: task_date_change_requests
+  writes: update
+  required: [{field: request_id, source: schema}]
+
+request-task-date-change:
+  table: task_date_change_requests
+  writes: insert
+  required:
+    - {field: task_id, source: schema}
+    - {field: suggested_due_date, source: schema}
+  notes: "current_due_date NOT NULL — se a task não tem due_date, pedir prazo antes (não 23502)"
+
+deactivate-user:
+  table: profiles
+  writes: update
+  required:
+    - {field: user_id, source: schema}
+    - {field: reason, source: business}
+  notes: "owner-only; NEVER_REMOVE_LAST_OWNER; preserva dados (is_active=false, não DELETE auth.users)"
+
+revoke-role:
+  table: user_roles
+  writes: delete
+  required:
+    - {field: user_id, source: schema}
+    - {field: role, source: schema}
+  notes: "owner-only; last-owner protection (COUNT owner antes do DELETE)"
+
+update-meta-sync-config:
+  table: meta_ads_config
+  writes: update
+  required: [{field: reason, source: business}]
+  notes: "admin+owner; token nunca logado/retido; verificar existência de meta_ads_config/meta_ad_accounts (check-meta-sync-health)"
+
+bulk-reissue-invoices:
+  table: sales_invoices
+  writes: update
+  required: [{field: reason, source: business}]
+  notes: "BLOQUEADA — infra de reemissão em massa não existe no schema (invoice_reissue_batches/links = 0)"
+
+publish-onboarding-form:
+  table: evaluation_forms
+  writes: update
+  required: [{field: form_id, source: schema}]
+  notes: "só tem active bool (publish = active=true); sem status/version"
+
+update-onboarding-form:
+  table: evaluation_forms
+  writes: update
+  required: [{field: form_id, source: schema}]
+
+manage-channel-members:
+  table: channel_members
+  writes: insert
+  required:
+    - {field: channel_id, source: business}
+    - {field: member_ids, source: business}
+  notes: "last-admin protection; DM (is_dm) = BLOCKED"
+
+toggle-campaign-status:
+  table: campaigns
+  writes: update
+  required:
+    - {field: campaign_id, source: schema}
+    - {field: status, source: business}
+
+send-whatsapp-message:
+  table: whatsapp_messages
+  writes: insert
+  required:
+    - {field: to_number, source: schema}
+    - {field: text, source: "business: conteúdo da mensagem (payload {number,text})"}
+  notes: "role gating (bloqueia financeiro); quota 10/60s; opt-out check; EF whatsapp-send"
+
+reconcile-bank-transactions:
+  table: finance_transactions
+  writes: update
+  required: [{field: dry_run, source: business}]
+  hazards: [trg_recompute_converted_on_update, auto_link_transaction_to_invoice, handle_commercial_sale_pending_transactions]
+
+launch-lancio-online:
+  table: campaigns
+  writes: update
+  required:
+    - {field: campaign_id, source: "business: lançamento é uma campaign existente (não entidade 'lancio')"}
+  notes: "orquestra LPs/sequences/flow por campaign_id; confirmação literal CONFIRMO LANCIO"
+
+publish-academy-lessons-youtube:
+  table: acad_lessons
+  writes: update
+  required: [{field: codes, source: "business: lote de códigos de aula (runbook local)"}]
+  notes: "runbook Playwright no perfil dedicado; smoke visual obrigatório"

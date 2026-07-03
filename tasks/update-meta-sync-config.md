@@ -41,6 +41,8 @@
 
 ### action_items
 
+0. **`reason` OBRIGATÓRIO** (config sensível — token/frequência de sync Meta): elicitar o motivo da mudança e gravá-lo no `activity_log` (HO-TP-002). Sem `reason` → perguntar antes de mutar.
+
 1. **ADMIN-OR-OWNER GATE** — primário:
    ```sql
    SELECT (is_owner(auth.uid()) OR is_admin(auth.uid())) AS authorized;

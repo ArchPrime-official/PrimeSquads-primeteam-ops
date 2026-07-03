@@ -1369,7 +1369,17 @@ smoke_tests:
 # TASK REGISTRY (22 tasks owned por platform-specialist — module Tasks/Finance/CS)
 # ═══════════════════════════════════════════════════════════════════════════════
 task_registry:
-  total: 22
+  total: 25
+  academy_2026_07:
+    - id: manage-academy-access
+      file: tasks/manage-academy-access.md
+      auth: owner/admin (acad_entitlements)
+    - id: list-academy-students
+      file: tasks/list-academy-students.md
+      kind: read-only (RPC acad_admin_overview)
+    - id: review-academy-sfida
+      file: tasks/review-academy-sfida.md
+      auth: owner/admin/cs (challenge-admin-bridge)
   pre_wave_4:
     - id: create-task
       file: tasks/create-task.md

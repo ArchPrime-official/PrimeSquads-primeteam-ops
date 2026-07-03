@@ -823,6 +823,63 @@ tasks:
       deactivate. Tripla "DEACTIVATE USER". Reversível via reactivate-user.
     agent: admin-specialist
 
+  # ── Gestão de usuário/acesso (2026-07-03 — preenche fantasmas + academy/lovarch) ──
+  - id: grant-role
+    file: tasks/grant-role.md
+    purpose: >
+      INSERT user_roles (promove user). Owner-only, dupla confirmação
+      (CONFIRMO OWNER se role=owner). Corrige playbook fantasma + drift
+      (created_by, não assigned_by). Audit STRICT.
+    agent: admin-specialist
+  - id: reactivate-user
+    file: tasks/reactivate-user.md
+    purpose: >
+      UPDATE profiles.is_active=true + INSERT user_roles baseline. Owner-only.
+      Par de deactivate-user. baseline_role sempre elicitado.
+    agent: admin-specialist
+  - id: list-users
+    file: tasks/list-users.md
+    purpose: >
+      Read-only: profiles + roles com filtros. Corrige SQL fantasma
+      (p.email/p.last_sign_in_at inexistentes). Owner-only.
+    agent: admin-specialist
+  - id: create-user
+    file: tasks/create-user.md
+    purpose: >
+      Criar usuário de EQUIPE via EF create-user (@archprime.io). Owner/admin.
+      Aluno NÃO é criado aqui (usar manage-academy-access/manage-lovarch-access).
+    agent: admin-specialist
+  - id: manage-academy-access
+    file: tasks/manage-academy-access.md
+    purpose: >
+      Grant/extend/revoke/list acad_entitlements (acesso do aluno à Academy).
+      Owner/admin. Acesso MANUAL (o automático é do stripe-webhook).
+    agent: platform-specialist
+  - id: list-academy-students
+    file: tasks/list-academy-students.md
+    purpose: >
+      Read-only: alunos + progresso + feedback via RPC acad_admin_overview.
+      Owner/admin/cs (staff academy).
+    agent: platform-specialist
+  - id: review-academy-sfida
+    file: tasks/review-academy-sfida.md
+    purpose: >
+      Listar/avaliar consegne das sfide via EF challenge-admin-bridge
+      (evaluate_submission). Owner/admin/cs.
+    agent: platform-specialist
+  - id: update-academy-lesson
+    file: tasks/update-academy-lesson.md
+    purpose: >
+      UPDATE acad_lessons SÓ video_url/is_active (metadados = autoria Lovarch,
+      sync one-way). Owner/admin.
+    agent: screen-motion-engineer
+  - id: manage-lovarch-access
+    file: tasks/manage-lovarch-access.md
+    purpose: >
+      Grant/extend/revoke acesso do aluno Lovarch via ops-gateway (Fase 2).
+      Owner/admin. BLOCKED com contrato se a Fase 2 (write) não existir no gateway.
+    agent: lovarch-ops-specialist
+
   # Tasks Tier 3
   - id: manage-task-projects
     file: tasks/manage-task-projects.md

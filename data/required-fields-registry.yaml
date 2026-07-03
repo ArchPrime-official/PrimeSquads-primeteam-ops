@@ -463,6 +463,34 @@ revoke-role:
     - {field: role, source: schema}
   notes: "owner-only; last-owner protection (COUNT owner antes do DELETE)"
 
+grant-role:
+  table: user_roles
+  writes: insert
+  required:
+    - {field: user_id, source: schema}
+    - {field: role, source: schema}
+  forbidden_defaults: [role, user_id]
+  notes: "owner-only; dupla confirmação (CONFIRMO OWNER se role=owner). Colunas: user_id/role/created_by (NÃO assigned_by — corrige drift do playbook)"
+
+reactivate-user:
+  table: "profiles + user_roles"
+  writes: update
+  required:
+    - {field: user_id, source: schema}
+    - {field: baseline_role, source: "business: role inicial ao reativar — sempre elicitar"}
+  forbidden_defaults: [baseline_role]
+  notes: "owner-only; UPDATE profiles.is_active=true + INSERT user_roles baseline"
+
+create-user:
+  table: "profiles + user_roles (via create-user EF)"
+  writes: insert
+  required:
+    - {field: email, source: "business: EF create-user — DEVE ser @archprime.io (equipe)"}
+    - {field: full_name, source: schema}
+    - {field: role, source: "business: role inicial do usuário novo — nunca defaultar"}
+  forbidden_defaults: [role]
+  notes: "owner/admin; só EQUIPE @archprime.io. Aluno = manage-academy-access/manage-lovarch-access"
+
 update-meta-sync-config:
   table: meta_ads_config
   writes: update
@@ -527,3 +555,37 @@ publish-academy-lessons-youtube:
   writes: update
   required: [{field: codes, source: "business: lote de códigos de aula (runbook local)"}]
   notes: "runbook Playwright no perfil dedicado; smoke visual obrigatório"
+
+manage-academy-access:
+  table: acad_entitlements
+  writes: insert
+  required:
+    - {field: user_id, source: schema}
+    - {field: product, source: schema}
+  forbidden_defaults: [product, user_id]
+  notes: "owner/admin; grant/extend/revoke acesso do aluno (access_until em grant/extend). Acesso manual — o automático é do stripe-webhook"
+
+update-academy-lesson:
+  table: acad_lessons
+  writes: update
+  required: [{field: lesson_id, source: schema}]
+  notes: "owner/admin; SÓ video_url/is_active (metadados = autoria Lovarch, sync one-way sobrescreve)"
+
+review-academy-sfida:
+  table: "acad_submissions (via challenge-admin-bridge EF)"
+  writes: update
+  required:
+    - {field: submission_id, source: "business: consegna a avaliar (EF evaluate_submission)"}
+    - {field: verdict, source: "business: approved|changes_requested — nunca defaultar"}
+  forbidden_defaults: [verdict]
+  notes: "owner/admin/cs; via challenge-admin-bridge (não escreve acad_submissions direto)"
+
+manage-lovarch-access:
+  table: "Lovarch (via ops-gateway Fase 2)"
+  writes: update
+  required:
+    - {field: email, source: "business: aluno Lovarch alvo (ou user_id)"}
+    - {field: product, source: "business: produto/plano — nunca defaultar"}
+    - {field: access_until, source: "business: até quando o acesso vale (grant/extend)"}
+  forbidden_defaults: [product]
+  notes: "owner/admin; via ops-gateway do projeto Lovarch. BLOCKED com contrato se a Fase 2 (write) não existir no gateway"

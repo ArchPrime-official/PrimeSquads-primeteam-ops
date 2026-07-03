@@ -58,9 +58,28 @@ Se o token estiver expirado (`401 invalid_token`), rode `pto refresh` (ou `pto l
 ## Limites / próximas fases
 
 - **Fase 1 (esta):** somente leitura. Não altera nada na Lovarch.
-- **Fase 2 (planejada):** operações de escrita controladas — ex.: **criar/editar aulas** da
-  Central de Aulas (Tutorial & Guide) quando o catálogo estiver no banco. Serão adicionadas
-  como novas `operation`s no mesmo gateway, gated por papel e auditadas.
+- **Fase 2 (contrato definido, gateway PENDENTE):** operações de escrita controladas. A camada de
+  tasks do pto já existe (`manage-lovarch-access`), mas **as `operation`s de escrita ainda NÃO
+  estão implementadas no `ops-gateway` do projeto Lovarch** (`cuxbydmyahjaplzkthkr`). Até lá, a task
+  retorna **BLOCKED** com este contrato. Construir do lado Lovarch (@devops/Pablo) é a dependência.
+
+### Contrato Fase 2 — `operation`s de escrita a implementar no `ops-gateway`
+
+Mesmo envelope (`{ operation, params }`, token do operador, gated por papel, auditado em
+`ops_audit_log`). Sugestão de gate: owner/admin (acesso/crédito), owner/admin/cs (ticket).
+
+| operation | params | efeito no projeto Lovarch | gate |
+|---|---|---|---|
+| `grant_access` | `{ email\|user_id, product, access_until }` | concede/estende entitlement do aluno | owner/admin |
+| `revoke_access` | `{ email\|user_id, product }` | revoga entitlement | owner/admin |
+| `respond_ticket` | `{ ticket_id, message, status? }` | responde/atualiza feedback in-app | owner/admin/cs |
+| `adjust_credits` | `{ email\|user_id, delta, reason }` | ajusta saldo de créditos (auditado) | owner/admin |
+| `upsert_lesson` | `{ lesson: {...} }` | cria/edita aula da Central de Aulas **se o catálogo estiver em tabela** (hoje pode ser código no repo — confirmar antes) | owner/admin |
+
+Regras invioláveis da Fase 2: (1) o gateway usa o service role da Lovarch **só no servidor**; o pto
+nunca toca o banco `cuxbydmyahjaplzkthkr` direto. (2) Toda escrita é auditada em `ops_audit_log`.
+(3) `upsert_lesson` só é viável se as aulas forem DB-driven — se forem hard-coded no repo
+`ByPabloRuanL/lovarch`, criar/editar aula exige PR de código, não passa pelo gateway.
 
 ## Dependências de infra (uma vez, lado Lovarch — feito pelo @devops/Pablo)
 

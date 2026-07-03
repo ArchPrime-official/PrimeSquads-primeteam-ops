@@ -28,7 +28,7 @@ Verifica se a topologia hub-and-spoke está sendo respeitada. **Qualquer falha a
 
 | # | Check | Regra | Pass? |
 |---|-------|-------|-------|
-| 1.1 | **Announcement regex** | Texto começa com `Retornando ao @ops-chief. {3-80 chars} concluíd[oa].` | [ ] |
+| 1.1 | **Announcement regex** | Formato canônico `[<specialist> → ops-chief] Cycle <id> — (DONE\|BLOCKED\|ESCALATE).` (unificado 2026-07-03; bate com o config e com os output_examples dos 12 agents) | [ ] |
 | 1.2 | **No direct chain** | Specialist não fez `*handoff @outro-specialist` direto; retornou para chief | [ ] |
 | 1.3 | **Cycle ID match** | Cycle ID no card bate com o ciclo ativo rastreado pelo chief | [ ] |
 | 1.4 | **Specialist identity** | Agent que retornou é o mesmo que o chief roteou (não outro) | [ ] |

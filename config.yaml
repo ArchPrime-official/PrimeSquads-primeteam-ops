@@ -1057,7 +1057,10 @@ handoff_protocol:
     - "skip handoff-quality-gate after receive"
 
   # Cerimônia obrigatória de retorno (V10)
-  return_announcement_regex: "^Retornando ao @ops-chief\\. .{3,80} concluíd[oa]\\.$"
+  # Formato CANÔNICO (unificado 2026-07-03, F1): o que os 12 agents já implementam nos
+  # output_examples — carrega specialist + Cycle ID + verdict. Substitui o formato antigo
+  # "Retornando ao @ops-chief. X concluído." (que só o config/checklist exigiam e nenhum agent usava).
+  return_announcement_regex: "^\\[[a-z-]+ → ops-chief\\] Cycle \\S+ — (DONE|BLOCKED|ESCALATE)\\.?$"
 
   # Pacote de output padronizado (V11)
   output_package_required:

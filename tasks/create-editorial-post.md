@@ -1,6 +1,6 @@
 # Task: create-editorial-post
 
-> Criar editorial post (Instagram, blog, LP, evento) em editorial_calendar. Sandra planeja conteúdo mensal. F-04.6.
+> Criar editorial post em `editorial_calendar_posts`. Sandra planeja conteúdo mensal por conta/plano editorial. F-04.6.
 
 **Cumpre:** HO-TP-001
 
@@ -15,13 +15,16 @@
 ### execution_type `Agent` — confirmation simples.
 
 ### input
-- `title`, `content_brief` (string)
-- `channel` (`'instagram' | 'tiktok' | 'blog' | 'lp' | 'evento' | 'email'`)
-- `scheduled_for` (ISO date)
-- `assigned_to` (uuid, default auth.uid())
-- `tags` (array)
-- `status` (`'idea' | 'draft' | 'in_review' | 'scheduled' | 'published'`, default 'idea')
-- `linked_campaign_id` (uuid opcional)
+- `account_id` (uuid, **obrigatório** — FK `editorial_accounts`)
+- `plan_id` (uuid, **obrigatório**)
+- `theme` (string, **obrigatório**)
+- `format` (enum `content_format`, **obrigatório**: `'carousel' | 'video' | 'stories' | 'influencer' | 'meme' | 'live' | 'reels' | 'qna_stories'`)
+- `objective` (enum `content_objective`, **obrigatório**: `'viralita' | 'consapevolezza' | 'conversione'`)
+- `scheduled_date` (date, **obrigatório**)
+- `scheduled_time` (time, opcional)
+- `status` (enum `content_status`, opcional — default de negócio `'planned'`: `'planned' | 'created' | 'scheduled' | 'published' | 'cancelled'`)
+- `title`, `description`, `caption`, `question`, `narrative_structure`, `material_description`, `drive_link` (string, opcionais)
+- `avatar_id`, `line_id`, `theme_id`, `source_pain_id` (uuid, opcionais)
 
 ### output
 - `post_id` (uuid)
@@ -31,20 +34,40 @@
 
 1. **Role:** marketing/admin/owner.
 2. Validar:
-   - `scheduled_for` futuro (warn se passado — backdated post = explanation needed)
-   - `channel` enum
-   - `assigned_to` existe + role marketing/cs
-3. Confirmation: title + channel + scheduled date + assigned name.
-4. INSERT em `editorial_calendar_posts`.
-5. Activity log + side-effect notification para assigned_to.
-6. Echo: "✓ Post criado. Scheduled {date}. Assigned: {name}."
+   - `account_id` existe em `editorial_accounts`
+   - `plan_id` existe
+   - `format` ∈ enum `content_format`
+   - `objective` ∈ enum `content_objective`
+   - `scheduled_date` presente (warn se no passado — backdated post = explicação necessária)
+   - `status` (se passado) ∈ enum `content_status`
+3. Confirmation: theme + account + format + objective + scheduled_date/time.
+4. INSERT em `editorial_calendar_posts` com `created_by=auth.uid()`:
+   ```sql
+   INSERT INTO editorial_calendar_posts
+     (account_id, plan_id, theme, format, objective, scheduled_date, scheduled_time,
+      status, title, description, caption, question, narrative_structure,
+      material_description, drive_link, avatar_id, line_id, theme_id, source_pain_id,
+      created_by)
+   VALUES (..., COALESCE({status}, 'planned'), ..., auth.uid())
+   RETURNING id;
+   ```
+5. Activity log: action='content-builder.create_editorial_post', details com post_id + account_id + format + objective.
+6. Echo: "✓ Post criado. Scheduled {scheduled_date} {scheduled_time}. Format: {format}. Objective: {objective}."
 
 ### acceptance_criteria
 - A1 marketing/admin/owner
-- A2 Channel enum
-- A3 Assignee role check
-- A4 Future date default
-- A5 Audit + notification side-effect
+- A2 `account_id`/`plan_id` existem (FK válida)
+- A3 `format`/`objective` ∈ enums reais (`content_format`/`content_objective`)
+- A4 `scheduled_date` NOT NULL, warn se passado
+- A5 Audit em activity_log
+
+---
+
+## Notas
+
+- **Sem `channel`/`content_brief`/`assigned_to`/`tags`/`scheduled_for`/`linked_campaign_id`:** essas colunas não existem em `editorial_calendar_posts`. O canal/plataforma vive implícito em `plan_id`/`account_id`; atribuição de responsável e tags não são suportadas nesta tabela hoje.
+- **`status` real é o enum `content_status`:** `planned | created | scheduled | published | cancelled`. Não existem os valores `idea`, `draft`, `in_review` usados na versão anterior desta task — mapear para `planned` (ideia/rascunho) ou `created` conforme o estágio mais próximo.
+- **NOT NULL reais (schema):** `account_id`, `format`, `objective`, `plan_id`, `scheduled_date`, `theme`.
 
 ---
 

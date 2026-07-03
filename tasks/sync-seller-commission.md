@@ -28,15 +28,15 @@
 
 ### output
 
-- **`commission_records`** (array): `{seller_id, seller_name, period, sales_count, gross_revenue, commission_amount, status}`
-- **`total_commissions_eur`** (sum)
-- **`status`** (`'preview' | 'persisted'`)
+- **`commission_records`** (array — colunas REAIS de `commission_history`): `{user_id, seller_name, month, year, level_id, total_entries, fixed_bonus, variable_commission, total_commission, status}`
+- **`total_commissions_eur`** (sum de `total_commission`)
+- **`run_status`** (`'preview' | 'persisted'`)
 - **`verdict`** — `DONE | BLOCKED | ESCALATE`
 
 ### action_items
 
 1. **Auth gate:** has_invoice_access (owner+admin). Outros → BLOCKED.
-2. **Validar period** formato `YYYY-MM`, não no futuro, não > 12 meses atrás (sanity).
+2. **Validar period** formato `YYYY-MM`, não no futuro, não > 12 meses atrás (sanity). **Decompor em `month` (int 1-12) + `year` (int)** — `commission_history` NÃO tem coluna `period`; a chave é `user_id` + `month` + `year`.
 3. **Resolver sellers ativos** (tabela `sellers` NÃO existe — usar `profiles` JOIN `seller_commission_levels`):
    ```sql
    -- TODO: confirmar campo de role/active em profiles (is_active=true + role em user_roles)
@@ -48,22 +48,22 @@
    WHERE p.is_active = true
      AND ({seller_id} IS NULL OR p.id = {seller_id});
    ```
-4. **Pre-check duplicate run:**
+4. **Pre-check duplicate run** (colunas REAIS — `commission_history` só tem `created_at`/`updated_at`, NÃO `calculated_at`/`persisted_at`):
    ```sql
-   SELECT id, calculated_at, persisted_at
+   SELECT id, user_id, status, updated_at
    FROM commission_history
-   WHERE period={period} AND seller_id IN ({seller_ids})
+   WHERE month={month} AND year={year} AND user_id IN ({user_ids})
      AND status='persisted';
    ```
    Se já persistido AND não dry_run → ESCALATE com `already_persisted`.
-5. **Compute commissions** via EF cron `sync-seller-commission` (EF `calculate-seller-commission` NÃO existe):
+5. **Compute commissions.** A EF `calculate-seller-commission` NÃO existe; a EF real é `sync-seller-commission` (cron que **calcula E persiste** em `commission_history`).
+   ⚠️ **SEGURANÇA do dry_run:** se a EF `sync-seller-commission` **não** aceitar um parâmetro `dry_run`/`preview` no body, invocá-la **PERSISTE de verdade** — o "preview" não seria preview. Portanto:
+   - **Passo A — confirmar suporte a dry_run.** Inspecionar o contrato da EF (body aceito). Se aceitar `dry_run` → invocar com `dry_run=true` para o preview.
+   - **Passo B — se a EF NÃO aceitar dry_run:** NÃO invocar a EF para preview. Calcular o preview **inline read-only** (SELECT sobre as vendas do período × `commission_levels`/`seller_commission_levels`, sem escrever), e só invocar a EF (ou fazer o UPSERT do passo 7) na chamada `dry_run=false` já confirmada. Nunca chamar uma EF que persiste achando que é preview.
    ```typescript
-   // TODO: EF 'calculate-seller-commission' não existe.
-   // A EF real de cálculo + persistência é 'sync-seller-commission' (cron edge).
-   // Para disparo manual com dry_run, verificar se sync-seller-commission aceita
-   // parâmetro dry_run no body — senão cálculo deve ser feito inline via SQL/RPC.
+   // Preferir dry_run nativo da EF quando existir; senão preview inline read-only.
    const { data, error } = await supabase.functions.invoke('sync-seller-commission', {
-     body: { period, seller_ids, dry_run, commission_rules_override },
+     body: { period, seller_ids, dry_run, commission_rules_override }, // dry_run só se a EF suportar
      headers: { Authorization: `Bearer ${jwt}` }
    });
    ```
@@ -74,36 +74,45 @@
    {N} sellers calculados
    Total comissões: €{total}
 
-   Breakdown:
-     [seller_name] {sales_count} vendas, gross €{rev}, comissão €{comm}
+   Breakdown (por vendedor — colunas reais de commission_history):
+     [seller_name] level {level_id} · {total_entries} entries · fisso €{fixed_bonus} + variabile €{variable_commission} = €{total_commission}
      ...
 
    Status: PREVIEW (dry_run=true)
    Para persistir: re-run com dry_run=false após review.
    ```
-7. **Se `dry_run=false`:** confirmation literal "PERSISTE COMISSÃO" uppercase + INSERT em `commission_history` + `commission_payments` (status='pending'):
+7. **Se `dry_run=false`:** confirmation literal "PERSISTE COMISSÃO" uppercase. Persistir SÓ em `commission_history` (colunas REAIS). **NÃO existe tabela `commission_payments`** — não INSERIR nela.
    ```sql
+   -- Preferir deixar a EF sync-seller-commission fazer o UPSERT (é a WRITE canônica);
+   -- se persistir por SQL, usar apenas as colunas reais:
    INSERT INTO commission_history
-     (seller_id, period, sales_count, gross_revenue, commission_amount,
-      calculated_at, calculated_by, persisted_at, status)
-   VALUES (..., NOW(), auth.uid(), NOW(), 'persisted')
-   ON CONFLICT (seller_id, period) DO UPDATE
-     SET ... (com warning + audit);
+     (user_id, month, year, level_id,
+      total_entries, fixed_bonus, variable_commission, total_commission, status)
+   VALUES ({user_id}, {month}, {year}, {level_id},
+      {total_entries}, {fixed_bonus}, {variable_commission}, {total_commission}, 'persisted')
+   ON CONFLICT (user_id, month, year) DO UPDATE   -- confirmar a UNIQUE real antes de assumir a chave
+     SET total_entries=EXCLUDED.total_entries,
+         fixed_bonus=EXCLUDED.fixed_bonus,
+         variable_commission=EXCLUDED.variable_commission,
+         total_commission=EXCLUDED.total_commission,
+         status=EXCLUDED.status,
+         updated_at=NOW();   -- com warning + audit
    ```
-8. **Activity log STRICT:** action='platform-specialist.sync_seller_commission', details com period + total + count.
+   O vocabulário de `status` (ex: `persisted`/`pending`) é da EF/UI, não um enum de schema — não inventar valores; espelhar o que a EF grava.
+8. **Activity log STRICT:** action='platform-specialist.sync_seller_commission', details com month + year + total + count.
 9. **Echo final:**
    - dry_run=true: preview shown, sugere re-run com `dry_run=false`
-   - dry_run=false: "✓ {N} comissões persistidas, total €{total}. Pagamento pendente — admin processa via UI ou pause/process."
+   - dry_run=false: "✓ {N} comissões persistidas em commission_history, total €{total}. Pagamento é fluxo separado (não há tabela commission_payments)."
 
 ### acceptance_criteria
 
 - **[A1] Auth gate:** has_invoice_access.
-- **[A2] Period validation:** YYYY-MM, não-futuro, max 12 meses atrás.
-- **[A3] Dry_run default true:** primeira invocação SEMPRE preview. Persist requer second call explícita.
+- **[A2] Period validation:** YYYY-MM decomposto em `month`+`year` (chave real de `commission_history`), não-futuro, max 12 meses atrás.
+- **[A3] Dry_run default true + SEGURO:** primeira invocação SEMPRE preview. Se a EF não aceitar `dry_run`, preview é inline read-only (nunca invocar a EF que persiste como se fosse preview). Persist requer second call explícita.
 - **[A4] Persist confirmation:** "PERSISTE COMISSÃO" uppercase literal.
-- **[A5] Duplicate detection:** já persisted = ESCALATE (não re-calcula sem reason).
+- **[A5] Duplicate detection:** já persisted (month+year+user_id) = ESCALATE (não re-calcula sem reason).
 - **[A6] Audit STRICT:** activity_log obrigatório.
-- **[A7] No payment trigger:** task SÓ calcula/persiste records. Pagamento real é separate flow.
+- **[A7] Colunas reais + sem `commission_payments`:** persiste SÓ em `commission_history` com `user_id/month/year/level_id/fixed_bonus/variable_commission/total_commission/total_entries/status` (NUNCA seller_id/period/gross_revenue/commission_amount/calculated_at/persisted_at). A tabela `commission_payments` NÃO existe — nunca INSERIR nela. Pagamento é fluxo separado.
 
 ---
 

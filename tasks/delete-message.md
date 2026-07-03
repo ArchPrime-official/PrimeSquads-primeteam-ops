@@ -1,6 +1,8 @@
 # Task: delete-message
 
-> Soft delete mensagem em canal (`is_deleted=true`, content limpo). Creator OR channel admin OR owner.
+> Soft delete mensagem em canal (`deleted_at` preenchido). Creator OR channel admin OR owner.
+
+**⚠️ SCHEMA REAL (types.ts, 2026-07-03):** `channel_messages` tem apenas `deleted_at timestamptz` para soft delete — **não existem** `is_deleted`, `deleted_by`, `deletion_reason`. Autoria via `user_id` (não `created_by`).
 
 **Cumpre:** HO-TP-001
 
@@ -25,10 +27,10 @@
 ### action_items
 
 1. **Authority:**
-   - User é `created_by` (pode deletar próprias)
-   - User é `channel_admin` (pode deletar qualquer no canal)
+   - User é `user_id` da mensagem (pode deletar próprias)
+   - User é `channel_admin` (`channel_members.role='admin'` no canal — pode deletar qualquer msg do canal)
    - User é `owner` (override)
-2. Resolver msg + verificar autoria.
+2. Resolver msg + verificar autoria (`user_id`).
 3. Confirmation:
    ```
    Delete mensagem:
@@ -39,23 +41,28 @@
      {reason ? 'Reason: ' + reason : ''}
    Confirma?
    ```
-4. **Soft delete:**
+4. **Gravar o content original no activity_log ANTES de sobrescrever** (é a única cópia de auditoria disponível — não existe `deletion_reason`/`deleted_by` na própria tabela):
+   ```sql
+   -- 1) capturar content original para o log ANTES do UPDATE
+   SELECT content, user_id FROM channel_messages WHERE id = {message_id};
+   -- 2) activity_log com o content capturado (ver passo 7)
+   ```
+5. **Soft delete (colunas reais — sem `is_deleted`/`deleted_by`/`deletion_reason`):**
    ```sql
    UPDATE channel_messages
-   SET is_deleted=true, content='[deleted]', deleted_at=NOW(),
-       deleted_by=auth.uid(), deletion_reason={reason}
-   WHERE id={message_id};
+   SET content = '[deleted]', deleted_at = NOW()
+   WHERE id = {message_id};
    ```
-5. **Cascade:** se mensagem é parent thread, threads filhas continuam visíveis (não deletam recursivo).
-6. Activity log: action='platform-specialist.delete_message', details com sender_id + deleted_by + reason.
-7. Echo: "✓ Mensagem soft-deletada. UI mostra '[deleted]'. Audit preserva content original em deletion logs."
+6. **Cascade:** se mensagem é parent thread, threads filhas continuam visíveis (não deletam recursivo).
+7. Activity log: action='platform-specialist.delete_message', details com `sender_user_id` + `deleted_by=auth.uid()` + `reason` + **content original capturado no passo 4** (a coluna da tabela é sobrescrita, então o audit trail vive só no activity_log).
+8. Echo: "✓ Mensagem soft-deletada (deleted_at preenchido). UI mostra '[deleted]'. Content original preservado no activity_log."
 
 ### acceptance_criteria
-- A1 Authority creator/channel_admin/owner
-- A2 Soft delete preserva audit
+- A1 Authority: `user_id`/channel_admin (`channel_members.role='admin'`)/owner
+- A2 Soft delete via `deleted_at` (sem `is_deleted`/`deleted_by`/`deletion_reason` — não existem na tabela); content original só sobrevive no activity_log
 - A3 Reason recomendado se non-creator
 - A4 Thread integrity (filhas preservadas)
-- A5 Audit log
+- A5 Audit log com content capturado ANTES do UPDATE
 
 ---
 

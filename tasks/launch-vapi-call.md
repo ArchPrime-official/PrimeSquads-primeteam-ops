@@ -2,7 +2,7 @@
 
 > Disparar chamada AI via Vapi para lead (qualificação inicial, follow-up). Comercial usa para automatizar prospecção. Implementa F-11.2 do PRD.
 
-**✅ SCHEMA ADAPTED (2026-06-12):** Tabela canonical de registros Vapi = `call_executions` (colunas reais: `id, vapi_call_id, strategy_id, lead_id, opportunity_id, status, outcome, started_at, ended_at, duration_seconds, transcript, recording_url, error_message, closer_id`). `telephony_calls` é para chamadas Ringover/PABX (sem colunas Vapi). Edge canonical = `vapi-start-call`.
+**✅ SCHEMA ADAPTED (2026-06-12) + GROUNDED (2026-07-03):** Tabela canonical de registros Vapi = `call_executions` (colunas reais: `id, vapi_call_id, strategy_id (NOT NULL), lead_id, opportunity_id, status, outcome, started_at, ended_at, duration_seconds, transcript, recording_url, error_message, closer_id`). `telephony_calls` é para chamadas Ringover/PABX (sem colunas Vapi). Edge canonical = `vapi-start-call`. **`call_executions.strategy_id` é NOT NULL** — a task original não passava esse campo no payload da EF, o que quebraria o insert. **Tabela `vapi_assistants` NÃO existe** — o assistant é configurado em `call_strategies.vapi_assistant_id` (a estratégia é que aponta pro assistant, não o inverso); resolver `strategy_id` a partir de uma `call_strategies` ativa em vez de aceitar um `assistant_id` solto. Colunas reais de `leads` usadas aqui: `full_name`, `primary_phone` (não `name`/`phone`); `leads.opted_out` **já existe** no schema (não é mais um TODO/migration pendente).
 
 **Cumpre:** HO-TP-001
 
@@ -24,7 +24,7 @@
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
   - `lead_id` (uuid, obrigatório — resolve phone)
-  - `assistant_id` (string Vapi, obrigatório — qual assistant usar)
+  - `strategy_id` (uuid `call_strategies.id`, obrigatório — `call_executions.strategy_id` é NOT NULL; a estratégia já traz `vapi_assistant_id` embutido, então não se passa `assistant_id` solto)
   - `purpose` (`'qualification' | 'followup' | 'recovery'`)
   - `context_overrides` (object opcional — variables para o assistant: `{lead_name, product_interest, etc.}`)
   - `schedule_at` (ISO timestamp opcional — se null, dispara já)
@@ -46,17 +46,24 @@
    ```
 2. **Resolver lead:**
    ```sql
-   SELECT id, name, phone, status, last_contact_at, opted_out
+   SELECT id, full_name, primary_phone, status, opted_out
    FROM leads WHERE id={lead_id};
    ```
-   - Sem phone → ESCALATE
+   - Sem `primary_phone` → ESCALATE
    - `opted_out=true` → BLOCKED com explicação
-   - `status='converted'` ou `'rejected'` → ESCALATE com warning (lead provavelmente não deveria receber call)
-3. **Validar assistant_id existe** em `vapi_assistants` cache local (sync via cron).
-4. **Cool-down check:** se `last_contact_at < 24h atrás` AND tipo prévio era também `vapi_call` → ESCALATE:
+   - `status` (texto livre, ver `update-lead.md`) parecendo "fechado"/"perdido" → ESCALATE com warning (lead provavelmente não deveria receber call)
+3. **Validar `strategy_id` existe e está ativa** em `call_strategies` (`status`, `vapi_assistant_id` não nulo). Não existe tabela `vapi_assistants` — o assistant vem embutido na strategy.
+4. **Cool-down check (via `call_executions`, não `leads`):** `leads` não tem coluna de último contato — o histórico de chamadas Vapi vive em `call_executions`. Checar:
+   ```sql
+   SELECT started_at FROM call_executions
+   WHERE lead_id = {lead_id}
+   ORDER BY started_at DESC
+   LIMIT 1;
    ```
-   Lead recebeu Vapi call há {hours}h. Cool-down 24h recomendado para
-   evitar fadiga. Use send-whatsapp-message ou agendar via schedule_at.
+   Se `started_at < 24h atrás` → ESCALATE:
+   ```
+   Lead recebeu Vapi call há {hours}h (call_executions.started_at). Cool-down 24h
+   recomendado para evitar fadiga. Use send-whatsapp-message ou agendar via schedule_at.
    ```
 5. **Estimate cost:** Vapi ~$0.05-0.30/min. Estimar 5min default = $0.30 worst case.
 6. **Confirmation:**

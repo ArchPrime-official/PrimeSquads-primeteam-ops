@@ -25,7 +25,7 @@
 - **Request payload (`draft`):**
   - `opportunity_id` (uuid, obrigatório)
   - `customer_id` (uuid — resolve via `opportunities.customers`)
-  - `company_id` (uuid ou null — empresa emissora; null = ArchPrime default, controla prefixo + sequência)
+  - `company_id` (uuid, **OBRIGATÓRIO** — empresa emissora; **NUNCA null/default**). Define `issuer_*`, prefixo, sequência e **regime fiscal** (ArchPrime UK-HMRC nunca-OSS × Lovarch OSS). Registry `forbidden_defaults: [company_id]` — se ausente, **perguntar** "Qual empresa emissora? (ArchPrime / Lovarch)"; nunca assumir ArchPrime.
   - `finance_transaction_id` (uuid opcional — quando emitido a partir de uma parcela em `/finance/transactions`)
   - `customer_snapshot` (jsonb — snapshot congelado do cliente no momento da emissão; campos: `company_name`, `contact_name`, `contact_email`, `billing_address_line1/2`, `billing_city`, `billing_postcode`, `billing_country`, `vat_number`, `tax_id`, e campos fiscais IT `codice_fiscale`, `sdi_code`, `pec_email`, `invoice_legal_name`)
   - `items` (jsonb array — `description`, `qty`, `unit_price`, `amount`, opcional `product_id`, `description_sub`)
@@ -52,6 +52,22 @@
    Emitir nota fiscal requer acesso fiscal (has_invoice_access = false para você).
    Peça a um admin/owner com acesso fiscal (Joyce/Larissa/Pablo).
    ```
+1.5. **Empresa emissora OBRIGATÓRIA + resolver `issuer_*` de `companies`:** `company_id` é obrigatório (ver input). Se ausente → **perguntar** a empresa; nunca defaultar ArchPrime. Com `company_id`, resolver da tabela `companies` os campos NOT NULL do emissor ANTES do INSERT (o INSERT não pode montar `issuer_*` no ar):
+   ```sql
+   SELECT name, legal_name, company_number, registered_address, issuer_email,
+          country, vat_number, vat_registered, vat_regime, oss_msi_country, invoice_prefix
+   FROM companies WHERE id = {company_id};
+   ```
+   Mapear (todos NOT NULL em `sales_invoices` exceto onde indicado):
+   - `issuer_company_name` ← `legal_name` (fallback `name`)
+   - `issuer_company_number` ← `company_number`
+   - `issuer_address` ← `registered_address`
+   - `issuer_email` ← `issuer_email`
+   - `issuer_country` ← `country` (tem default no schema, mas resolver explicitamente)
+   - `issuer_vat_number` ← `vat_number` · `issuer_vat_registered` ← `vat_registered`
+   - prefixo/sequência da numeração ← `invoice_prefix` (via RPC, passo 10)
+
+   Se algum NOT NULL (`company_number`/`registered_address`/`issuer_email`) vier NULL em `companies` → ESCALATE (companies incompleta; corrigir cadastro antes de emitir). NÃO inventar valores.
 2. **Resolver opportunity + customer** (join real — customer NÃO é coluna direta):
    ```sql
    SELECT o.id, o.closed_at, o.sales_proposal_value, o.sales_proposal_currency,
@@ -77,7 +93,14 @@
    Apri la fattura esistente invece di emetterne una nuova.
    ```
    (O DB reforça via UNIQUE em `finance_transactions.sales_invoice_id`.)
-6. **Classificação fiscal (tax classifier):** resolve `tax_treatment`, `vat_rate`, `vat_amount`, `net_amount`, `tax_note_en`, `tax_note_local`, `customer_language`, `issuer_vat_number`, `issuer_vat_registered`. Suporta OSS (colunas `oss_country_of_consumption`, `oss_declaration_id`, `oss_declaration_period`) para B2C intra-UE. Falha do classifier é NÃO-fatal → fallback legado sem IVA.
+6. **Classificação fiscal (tax classifier):** resolve `tax_treatment`, `vat_rate`, `vat_amount`, `net_amount`, `tax_note_en`, `tax_note_local`, `customer_language`, `issuer_vat_number`, `issuer_vat_registered`. Suporta OSS (colunas `oss_country_of_consumption`, `oss_declaration_id`, `oss_declaration_period`) para B2C intra-UE.
+   ⚠️ **Falha do classifier = ESCALATE, NÃO fallback silencioso.** Uma nota fiscal é documento fiscal — emitir sem IVA/tratamento porque o classifier caiu produz nota fiscalmente errada. Se o classifier falhar/indisponível → ESCALATE ("classificação fiscal indisponível; não emito nota sem IVA/tratamento resolvido"). NÃO cair para "fallback legado sem IVA".
+6.5. **GUARD BLOQUEANTE — issuer não-OSS + campos OSS = BLOCKED:** ArchPrime (UK-HMRC) **NUNCA** emite em regime OSS. Se a empresa emissora é não-OSS (`companies.oss_msi_country IS NULL` / `vat_regime` não-OSS / país `GB` — caso ArchPrime) **E** o resultado do classifier traria qualquer `oss_*` preenchido (`oss_country_of_consumption`/`oss_declaration_id`/`oss_declaration_period`) ou `tax_treatment` OSS → **BLOCKED**:
+   ```
+   Empresa emissora {issuer} é UK-HMRC (não-OSS) — não pode emitir nota em regime OSS.
+   Revise: cliente B2C intra-UE deve ser emitido pela empresa OSS (Lovarch), não por {issuer}.
+   ```
+   (Incidente real 30/06: 163 notas ArchPrime marcadas OSS por engano.) OSS só é válido quando a emissora tem `oss_msi_country` (ex: Lovarch).
 7. **Reconciliação IVA-inclusive:** o valor Stripe é BRUTO. Decompor em `net_amount` + `vat_amount` a partir de `subtotal`/`discount`/`total` e do `vat_rate` do classifier. Sanity: `net_amount + vat_amount ≈ total`.
 8. **Confirmation message:**
    ```
@@ -104,7 +127,7 @@
     //   (p_year?)                → default ArchPrime
     // Retorna [{ next_number, next_sequence }]
     const { data: seq } = await supabase.rpc('get_next_invoice_number', {
-      p_company_id: draft.company_id ?? null,
+      p_company_id: draft.company_id,   // OBRIGATÓRIO — nunca null (numeração/prefixo por empresa)
       p_year: new Date(draft.invoice_date).getFullYear(),
     });
     const { next_number, next_sequence } = seq[0]; // ex: 'AP-2026-0042', 42
@@ -119,15 +142,16 @@
       invoice_number: next_number,
       invoice_year: year,
       invoice_sequence: next_sequence,
-      company_id: draft.company_id ?? null,
+      company_id: draft.company_id,     // OBRIGATÓRIO
       opportunity_id: draft.opportunity_id,
       customer_id: draft.customer_id,
       customer_snapshot: draft.customer_snapshot,
-      issuer_company_name: draft.issuer.company_name,
-      issuer_company_number: draft.issuer.company_number,
-      issuer_address: draft.issuer.address,
-      issuer_email: draft.issuer.email,
-      issuer_country: draft.issuer.country,
+      // issuer_* resolvidos de `companies` no passo 1.5 (todos NOT NULL):
+      issuer_company_name: issuer.company_name,   // companies.legal_name || name
+      issuer_company_number: issuer.company_number, // companies.company_number
+      issuer_address: issuer.address,             // companies.registered_address
+      issuer_email: issuer.email,                 // companies.issuer_email
+      issuer_country: issuer.country,             // companies.country
       items: netItems,                 // jsonb (fonte de exibição)
       subtotal, discount, total,
       net_amount, vat_amount, vat_rate, tax_treatment,
@@ -165,7 +189,7 @@
 14. **Vincular transação financeira** (via RPC canônica OU update direto):
     - Preferir RPC `link_existing_transaction_to_invoice(p_invoice_id, p_transaction_id)` (retorna Json) quando há `finance_transaction_id`.
     - O fluxo v1/v2 também faz update direto de `finance_transactions.sales_invoice_id` + `sales_invoices.finance_transaction_id`. RPC `move_transactions_to_invoice(p_target_invoice_id, p_transaction_ids[])` existe para mover várias transações para uma nota.
-15. **(Opcional) Verificar total persistido** via RPC `calculate_invoice_total(p_invoice_id)` (retorna number recomputado a partir dos items) — sanity-check pós-insert contra `total`.
+15. **Verificação pós-ação OBRIGATÓRIA (documento fiscal):** RPC `calculate_invoice_total(p_invoice_id)` (recomputa a partir dos items) DEVE bater com `total` persistido (tolerância de arredondamento). Também re-SELECT confirmando `net_amount + vat_amount ≈ total` e que `issuer_*`/`company_id`/`status` gravaram. Divergência → ESCALATE + void (não deixar nota fiscal com total inconsistente). NÃO é opcional em documento fiscal.
 16. **Audit log:** INSERT em `invoice_audit_log` (`invoice_id`, `action` = `'classified'|'created'`, `actor_user_id`, `after_state` jsonb, `notes`). Não-fatal, mas registrar sempre.
 17. **Echo:**
     ```
@@ -188,6 +212,11 @@
 - **[A7] PDF real:** HTML+PDF gerados client-side + upload (`pdf_storage_path`/`html_storage_path`) — NÃO depende de EF inexistente.
 - **[A8] Campos fiscais IT + OSS:** `codice_fiscale/sdi_code/pec_email/invoice_legal_name` no `customer_snapshot`; OSS via `oss_*` quando B2C intra-UE.
 - **[A9] Audit:** entrada em `invoice_audit_log` por emissão.
+- **[A10] Empresa emissora OBRIGATÓRIA:** `company_id` sempre presente (perguntar se ausente) — SEM default silencioso "null = ArchPrime".
+- **[A11] issuer_* resolvidos de `companies`:** `issuer_company_name/company_number/address/email/country` (NOT NULL) resolvidos via `company_id` ANTES do INSERT; `companies` incompleta → ESCALATE.
+- **[A12] Guard OSS bloqueante:** emissora não-OSS (ArchPrime UK-HMRC) + `oss_*`/tratamento OSS → BLOCKED (incidente 163 notas 30/06).
+- **[A13] Classifier fail = ESCALATE:** NUNCA emitir nota sem IVA/tratamento por fallback silencioso.
+- **[A14] Verificação pós-ação OBRIGATÓRIA:** `calculate_invoice_total` bate com `total` persistido (documento fiscal — não opcional).
 
 ---
 

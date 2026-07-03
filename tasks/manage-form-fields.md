@@ -1,6 +1,8 @@
 # Task: manage-form-fields
 
 > CRUD granular de campos de formulário (`form_fields`, FK → `form_templates`). Inclui add/update/delete/reorder + i18n. Implementa F-05.3.
+>
+> ⛔ **DÉBITO DE SCHEMA CONHECIDO — esta task opera em `form_templates`, NÃO em `evaluation_forms`.** `form_fields.form_template_id` → `form_templates.id`. Um form criado por `create-onboarding-form` (que grava em `evaluation_forms`) NÃO tem ligação direta com estes `form_fields` — a cadeia "criar onboarding-form → adicionar campos" não fecha ponta a ponta. **Solução proposta (decisão @data-engineer):** coluna-ponte `evaluation_forms.form_template_id`. Até lá, exija `form_template_id` explícito e AVISE que não há resolução automática a partir de um `evaluation_forms.id`. Ver `create-onboarding-form.md` (mesmo débito).
 
 **Cumpre:** HO-TP-001
 

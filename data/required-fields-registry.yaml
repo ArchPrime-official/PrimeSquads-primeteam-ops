@@ -569,7 +569,36 @@ update-academy-lesson:
   table: acad_lessons
   writes: update
   required: [{field: lesson_id, source: schema}]
-  notes: "owner/admin; SÓ video_url/is_active (metadados = autoria Lovarch, sync one-way sobrescreve)"
+  notes: "owner/admin; QUALQUER campo editável (Academy autônoma 2026-07-04; sync de aula desligado)"
+
+create-academy-lesson:
+  table: acad_lessons
+  writes: insert
+  required:
+    - {field: module_id, source: "business: a qual módulo a aula pertence (FK acad_moduli)"}
+    - {field: title_it, source: "business: título em italiano (idioma primário do portal)"}
+    - {field: order_index, source: "business: posição no módulo"}
+  forbidden_defaults: [module_id, title_it, order_index]
+  notes: "owner/admin (is_admin_or_owner); vídeo YouTube; smoke visual no portal. Academy SSoT PT"
+
+manage-academy-module:
+  table: "acad_moduli / acad_fasi / acad_corsi"
+  writes: insert
+  required:
+    - {field: titolo, source: "business: título do módulo/curso (nome na fase) — sempre elicitar"}
+    - {field: position, source: "business: ordem entre irmãos"}
+  forbidden_defaults: [titolo, position]
+  notes: "owner/admin; entity=module|fase|corso; RLS de escrita em migration 20270704120000"
+
+publish-academy-incontro:
+  table: "acad_collection_items (+acad_lessons)"
+  writes: insert
+  required:
+    - {field: collection_id, source: "business: qual coleção de incontri"}
+    - {field: title_it, source: "business: título da gravação"}
+    - {field: video_url, source: "business: a gravação (YouTube)"}
+  forbidden_defaults: [collection_id]
+  notes: "owner/admin; mentoria de grupo (Prime Pro/Elite); cria lesson + collection_item"
 
 review-academy-sfida:
   table: "acad_submissions (via challenge-admin-bridge EF)"
@@ -581,11 +610,10 @@ review-academy-sfida:
   notes: "owner/admin/cs; via challenge-admin-bridge (não escreve acad_submissions direto)"
 
 manage-lovarch-access:
-  table: "Lovarch (via ops-gateway Fase 2)"
+  table: "Lovarch (via archprime-access-proxy EF)"
   writes: update
   required:
-    - {field: email, source: "business: aluno Lovarch alvo (ou user_id)"}
-    - {field: product, source: "business: produto/plano — nunca defaultar"}
-    - {field: access_until, source: "business: até quando o acesso vale (grant/extend)"}
-  forbidden_defaults: [product]
-  notes: "owner/admin; via ops-gateway do projeto Lovarch. BLOCKED com contrato se a Fase 2 (write) não existir no gateway"
+    - {field: email, source: "business: usuário Lovarch alvo"}
+    - {field: products, source: "business: produto/plano (key) — nunca defaultar (grant/extend)"}
+  forbidden_defaults: [products]
+  notes: "owner/admin/cs; via archprime-access-proxy (EF PT em produção). Religada 2026-07-04 (era ops-gateway Fase 2 inexistente). Smoke live OK (list HTTP 200)"

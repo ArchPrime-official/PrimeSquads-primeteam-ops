@@ -6,6 +6,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.6.0] — 2026-07-03 — Enforcement de campos obrigatórios (plano pto-100, F0–F4)
+- **F0** — `data/required-fields-registry.yaml` (fonte canônica dos campos obrigatórios por operação) + regra **HO-TP-002** (Required Fields Completeness) + `scripts/validate-task-fields.py` no CI + `tasks/_TEMPLATE-write-task.md`. Registradas 5 tasks órfãs.
+- **F1** — 31 tasks inexecutáveis reparadas contra o schema real (13 CRITICAL): hazard de 3 triggers no `update-finance-transaction`; OSS guard + empresa emissora obrigatória no `create-sales-invoice`; **`create-task` passa a exigir data+HORA de execução + responsável**; `create-schedule-block` com `user_id`; família onboarding-forms/editorial/chat reescritas; handoff unificado no formato `[specialist → ops-chief] Cycle X — DONE`.
+- **F2** — registry cobre 100% das tasks de escrita (67/67); `validate-task-fields` verde.
+- **F3** — `role-permissions-map` reescrito (fantasmas removidos, 5 agents ausentes adicionados) + matriz role×task (91) **gerada** por `scripts/gen-role-task-matrix.py`.
+- **F4** — CLI `cycle_id` no formato canônico `cyc-YYYY-MM-DD-NNN` (era UUID v4 — quebrava correlação); CHANGELOG retomado; workflows/registries alinhados.
+
+## [1.5.0] — 2026-05-14 — Hierarchy refactor (root squad + ops-chief master orchestrator)
+## [1.4.0] — 2026-05-10 — Waves 4-8 (cobertura ~100% dos fluxos manuais da plataforma)
+## [1.3.0] — 2026-05-10 — Spec pipeline + workflows formais de aprovação (F-08.3, FR5)
+
 ## [1.2.1] — 2026-04-23 — Quality correction (Sprint 27)
 
 ### Fixed — 4 issues P0/P1 encontrados em auditoria cruzada vs squads de referência

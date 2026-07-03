@@ -209,7 +209,7 @@ examples:
     trace:
       - phase_1-2: artifacts criados, edição parcial
       - user: "cancela lancio, archiva tudo"
-      - chief: deleta drafts via delete-task (LPs/sequences/flow) ou archive
+      - chief: despublica/arquiva os drafts — landing_pages e forms via toggle active=false (publish-cms-page/update), automation_flows via deactivate-automation-flow, email_sequences via kill switch. NÃO existe delete-task para LP/flow (delete-task é só do módulo Tasks).
       - workflow ESCALATE com cleanup_completed
     note: "Drafts cleanup é seguro — nada público foi exposto"
 

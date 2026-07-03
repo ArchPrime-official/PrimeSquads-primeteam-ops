@@ -892,6 +892,28 @@ tasks:
     purpose: Erros recentes da Lovarch (globais ou por usuário)
     agent: lovarch-ops-specialist
 
+  # ── tasks registradas em 2026-07-03 (F0 — eram órfãs de registro) ──
+  - id: create-campaign
+    file: tasks/create-campaign.md
+    purpose: Criar campaign/lançamento (id normalizado A-Z0-9_, brand obrigatório, SSoT campaigns-api)
+    agent: sales-specialist
+  - id: manage-email-sequence
+    file: tasks/manage-email-sequence.md
+    purpose: CRUD de sequências de e-mail (remetente por empresa, UTMs auto, métricas via email_events)
+    agent: automation-specialist
+  - id: publish-academy-lessons-youtube
+    file: tasks/publish-academy-lessons-youtube.md
+    purpose: Publicar aulas no YouTube (unlisted) + wire acad_lessons + smoke visual (runbook local)
+    agent: screen-motion-engineer
+  - id: reconcile-bank-transactions
+    file: tasks/reconcile-bank-transactions.md
+    purpose: Conciliação bancária (Stripe/Revolut/inter-contas) com hazard triggers pelo nome
+    agent: platform-specialist
+  - id: schedule-whatsapp-message
+    file: tasks/schedule-whatsapp-message.md
+    purpose: Agendar mensagem WhatsApp (timezone Roma→UTC, EF dedicada isolada)
+    agent: integration-specialist
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Workflows registry (7 workflows multi-fase)
 # ─────────────────────────────────────────────────────────────────────────────

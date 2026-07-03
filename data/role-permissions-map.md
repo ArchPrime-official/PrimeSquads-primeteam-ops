@@ -1,235 +1,130 @@
-# Role × Agent Permissions Map
+# Role × Permissions Map — primeteam-ops
+
+> Reescrito 2026-07-03 (F3). Duas dimensões: **role × agent** (quem invoca cada specialist)
+> e **role × task** (gerada por script a partir dos gates reais — nunca manual).
+>
+> **Hierarquia da plataforma** (roleHierarchy): `owner(1)` > `admin(2)` = `financeiro(2)` >
+> `comercial(3)` = `cs(3)` = `marketing(3)`. owner vê tudo; admin vê tudo EXCETO finanças
+> (`has_finance_access` = owner + financeiro, **admin EXCLUÍDO** desde 2026-03-04);
+> `has_invoice_access` = owner + admin.
+
+## 1. Role × Agent (12 agents reais)
+
+| Agent | Tier | Roles que invocam | Domínio |
+|-------|:----:|-------------------|---------|
+| `ops-chief` | 0 | **todas** (owner/admin/financeiro/comercial/cs/marketing) | orquestrador — roteia p/ sub-chiefs e specialists |
+| `auth-specialist` | 1 | todas | login/logout/whoami/refresh |
+| `platform-specialist` | 1 | owner, admin, financeiro (finance) + comercial/cs/marketing conforme task | CRUD geral, conciliação, reconcile |
+| `sales-specialist` | 2 | owner, admin, comercial | CRM/vendas/campanhas/eventos |
+| `content-builder` | 2 | owner, admin, marketing | landing pages, forms, conteúdo (consolidado — substitui `marketing-specialist`) |
+| `automation-specialist` | 2 | owner, admin, marketing | automation flows, email sequences |
+| `integration-specialist` | 3 | varia por API (calendar/meta/whatsapp/vapi) — ver matriz task | boundaries externas |
+| `admin-specialist` | 3 | **owner-only** (role/user mgmt); tasks fiscais mal-alocadas → migrar (mismatch F3) | user/role management |
+| `imports-specialist` | 2 | owner, admin (+ financeiro p/ import finance) | import CSV |
+| `lovarch-ops-specialist` | 1 | todas (read-only) | suporte/lookup Lovarch |
+| `screen-motion-engineer` | 2 | owner, admin | motion graphics + runbook academy/youtube |
+| `quality-guardian` | 3 | sistema (cross-cutting) | audit de handoff/gate |
+
+> Agents REMOVIDOS deste mapa em 2026-07-03 por não existirem em `agents/`: ~~cs-specialist~~,
+> ~~design-guardian~~ (eram fantasmas). `content-builder` estava duplicado — consolidado.
+
+## 2. Role × Task (GERADA — `python3 scripts/gen-role-task-matrix.py --repo .`)
+
+> ⚠️ Gerada dos gates declarados em cada task. Regenere após mudar gates. Fonte por linha na
+> coluna `gate`. Curadoria explícita (tasks sem gate detectável na prosa) em `CURATED_GATES`
+> do gerador. `·` = bloqueado; ✅ = permitido.
+
+| Task | owner | admin | financeiro | comercial | cs | marketing | gate |
+|------|:-:|:-:|:-:|:-:|:-:|:-:|------|
+| `activate-automation-flow` | ✅ | ✅ | · | ✅ | · | · | roles nominais |
+| `adjust-schedule-block` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `approve-role-request` | ✅ | · | · | · | · | · | owner-only (role/user mgmt) |
+| `approve-task-date-change` | ✅ | · | · | · | · | · | roles nominais |
+| `backfill-vapi-calls` _(read)_ | ✅ | ✅ | · | · | · | · | roles nominais |
+| `bulk-delete-leads` | ✅ | ✅ | · | ✅ | ✅ | · | roles nominais |
+| `bulk-reissue-invoices` | ✅ | ✅ | · | · | · | · | has_invoice_access |
+| `bulk-update-opportunities` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `bulk-update-transactions` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `check-meta-sync-health` _(read)_ | ✅ | ✅ | · | ✅ | · | ✅ | roles nominais |
+| `clone-automation-flow` | ✅ | ✅ | · | ✅ | · | ✅ | roles nominais |
+| `clone-landing-page` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `complete-task` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | curado: pessoal — dono/atribuído |
+| `create-automation-flow` | ✅ | ✅ | · | ✅ | · | ✅ | roles nominais |
+| `create-campaign` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `create-channel` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `create-cms-page` | ✅ | ✅ | · | · | · | ✅ | curado: conteúdo/LP |
+| `create-editorial-post` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `create-event` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `create-evento-products` | ✅ | ✅ | · | · | · | · | has_invoice_access |
+| `create-finance-transaction` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `create-landing-page` | ✅ | ✅ | · | · | · | ✅ | curado: conteúdo/LP (deprecated) |
+| `create-lead` | ✅ | ✅ | · | ✅ | · | ✅ | curado: CRM/captação |
+| `create-onboarding-form` | ✅ | ✅ | · | ✅ | ✅ | ✅ | roles nominais |
+| `create-sales-invoice` | ✅ | ✅ | · | · | · | · | has_invoice_access |
+| `create-schedule-block` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | todos autenticados |
+| `create-session-note` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `create-task` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | curado: pessoal — qualquer autenticado cria/agenda própria task |
+| `deactivate-automation-flow` | ✅ | · | · | · | · | · | owner-only |
+| `deactivate-user` | ✅ | · | · | · | · | · | owner-only (role/user mgmt) |
+| `delete-finance-transaction` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `delete-message` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `delete-opportunity` | ✅ | ✅ | · | ✅ | · | · | roles nominais |
+| `delete-task` | ✅ | · | · | · | · | · | roles nominais |
+| `diagnose-database` _(read)_ | ✅ | ✅ | · | · | · | · | roles nominais |
+| `edit-message` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | curado: chat — autor da mensagem |
+| `export-opportunities-csv` _(read)_ | ✅ | ✅ | · | ✅ | · | · | roles nominais |
+| `generate-landing-page-ai` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `import-csv` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `launch-lancio-online` | ✅ | · | · | · | · | · | owner-only |
+| `launch-vapi-call` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `list-automation-flows` _(read)_ | · | · | · | · | · | · | roles nominais |
+| `list-calendar-events` _(read)_ | · | · | · | · | · | · | roles nominais |
+| `list-cms-pages` _(read)_ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `list-customers` _(read)_ | ✅ | ✅ | · | · | ✅ | · | roles nominais |
+| `list-event-registrants` _(read)_ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `list-landing-page-analytics` _(read)_ | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `list-meta-campaigns` _(read)_ | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `list-revolut-balances` _(read)_ | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `list-tasks` _(read)_ | ✅ | · | · | · | · | · | roles nominais |
+| `list-vapi-calls` _(read)_ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `lovarch-lookup-user` _(read)_ | · | · | · | · | · | · | roles nominais |
+| `lovarch-recent-errors` _(read)_ | ✅ | ✅ | · | · | ✅ | · | roles nominais |
+| `lovarch-user-tickets` _(read)_ | · | · | ✅ | · | · | · | roles nominais |
+| `lovarch-whoami` _(read)_ | · | · | · | · | · | · | roles nominais |
+| `manage-channel-members` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `manage-email-sequence` | ✅ | ✅ | · | · | · | ✅ | curado: automation/marketing |
+| `manage-form-fields` | ✅ | ✅ | · | · | ✅ | ✅ | roles nominais |
+| `manage-monthly-goals` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `manage-radar-meetings` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `manage-task-projects` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `move-opportunity-stage` | ✅ | ✅ | · | ✅ | · | · | roles nominais |
+| `publish-academy-lessons-youtube` | ✅ | ✅ | · | · | · | · | curado: runbook (screen-motion) |
+| `publish-cms-page` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `publish-onboarding-form` | ✅ | ✅ | · | · | ✅ | ✅ | roles nominais |
+| `reconcile-bank-transactions` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `request-role-change` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `request-task-date-change` | ✅ | · | · | · | · | · | roles nominais |
+| `reschedule-task` | ✅ | · | · | · | · | · | roles nominais |
+| `revoke-role` | ✅ | · | · | · | · | · | owner-only (role/user mgmt) |
+| `run-meta-sync` _(read)_ | ✅ | ✅ | · | ✅ | · | ✅ | roles nominais |
+| `schedule-whatsapp-message` | ✅ | ✅ | · | ✅ | ✅ | ✅ | curado: integration — bloqueia financeiro |
+| `search-creative-studio` _(read)_ | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `send-message` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | todos autenticados |
+| `send-whatsapp-message` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `sync-seller-commission` | ✅ | ✅ | · | · | · | · | has_invoice_access |
+| `test-handoff-flow` _(read)_ | ✅ | · | · | · | · | · | roles nominais |
+| `toggle-campaign-status` | ✅ | ✅ | · | · | · | ✅ | roles nominais |
+| `update-bank-account` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `update-commission-level` | ✅ | ✅ | · | · | · | · | has_invoice_access |
+| `update-credit-card` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `update-customer-avatar` | ✅ | ✅ | · | · | ✅ | ✅ | roles nominais |
+| `update-event-status` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `update-finance-transaction` | ✅ | · | ✅ | · | · | · | has_finance_access (admin EXCLUÍDO) |
+| `update-landing-page` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | roles nominais |
+| `update-lead` | ✅ | ✅ | · | ✅ | ✅ | · | roles nominais |
+| `update-meta-sync-config` | ✅ | ✅ | · | · | · | · | roles nominais |
+| `update-onboarding-form` | ✅ | ✅ | · | · | ✅ | ✅ | roles nominais |
+| `update-task` | ✅ | · | · | · | · | · | roles nominais |
+| `verify-opportunity` _(read)_ | · | ✅ | · | · | · | · | roles nominais |
+| `view-activity-log` _(read)_ | ✅ | · | · | · | · | · | owner-only |
 
-> Matriz detalhada de quais agents cada role pode usar, com scope concreto do que cada combinação permite.
-
-**Princípio:** o squad mostra o que o usuário PODE fazer; o Supabase RLS decide o que ele VAI VER.
-
----
-
-## Matriz por agent (8 agents da v1.0)
-
-### `ops-chief` (Tier 0 — Orchestrator)
-
-| Role | Acesso | Notas |
-|------|--------|-------|
-| owner | ✅ completo | Pode invocar qualquer specialist |
-| financeiro | ✅ | Só roteia para specialists compatíveis |
-| comercial | ✅ | Só roteia para specialists compatíveis |
-| cs | ✅ | Só roteia para specialists compatíveis |
-| marketing | ✅ | Só roteia para specialists compatíveis |
-
-**Todos podem invocar o chief.** Chief decide o que fazer.
-
----
-
-### `auth-specialist` (Tier 1)
-
-| Role | Acesso | Comandos |
-|------|--------|----------|
-| Todas | ✅ | `*login`, `*logout`, `*whoami`, `*refresh` |
-
-Todo usuário precisa autenticar. Sem distinção de role aqui.
-
----
-
-### `platform-specialist` (Tier 1 — operações CRUD gerais)
-
-Cobre: tasks, finance (via `has_finance_access`), CS (via `has_role('cs')`), admin (via `is_admin`), import CSV, profile.
-
-| Role | Escopo do que platform-specialist entrega |
-|------|----------------------------------------|
-| owner | Tudo |
-| financeiro | Finance completo, tasks pessoais, profile, imports |
-| comercial | Tasks pessoais, profile, perfis próprios (sem finance, sem CS) |
-| cs | Tasks pessoais, profile, students/tickets via `has_role('cs')` |
-| marketing | Tasks pessoais, profile (sem finance, sem CS) |
-
----
-
-### `sales-specialist` (Tier 2 — CRM/Vendas)
-
-Cobre: leads, opportunities (pipeline kanban via comando), qualificação, bulk ops.
-
-| Role | Acesso | Scope |
-|------|--------|-------|
-| owner | ✅ | Todas oportunidades + leads |
-| comercial | ✅ | Oportunidades/leads via role `comercial` (RLS filtra por owner) |
-| admin | ✅ | Todas oportunidades + leads (confirmado na plataforma) |
-| cs | ✅ | Oportunidades de campanhas CS (confirmado na plataforma) |
-| financeiro/marketing | ❌ RLS bloqueia | Sem acesso a oportunidades |
-
-**Após Fase 0 (PR #951):** as 3 policies permissivas foram removidas. `comercial`, `admin` e `cs` acessam opportunities. Apenas `financeiro` e `marketing` ficaram sem acesso.
-
----
-
-### `content-builder` — Marketing (consolidado, substitui `marketing-specialist` extinto)
-
-Cobre: landing pages, campaigns, editorial calendar, Meta sync, leads (marketing view), content metrics.
-
-| Role | Acesso | Scope |
-|------|--------|-------|
-| owner | ✅ | Tudo |
-| marketing | ✅ | Campanhas, editorial, Meta via role `marketing` |
-| Outros | ❌ | RLS bloqueia |
-
----
-
-### `cs-specialist` (Tier 2)
-
-Cobre: students, tickets, atividades, onboarding forms, avatars.
-
-| Role | Acesso |
-|------|--------|
-| owner | ✅ |
-| cs | ✅ via role `cs` |
-| Outros | ❌ |
-
----
-
-### `content-builder` (Tier 2 — editor-replacement CLI)
-
-Cobre: LP blocks (17 types), forms, quiz, automation flows (via JSON).
-
-| Role | Acesso | Scope |
-|------|--------|-------|
-| owner | ✅ | Tudo |
-| admin | ✅ | LPs, campaigns, forms full CRUD |
-| marketing | ✅ | LPs, campaigns, forms full CRUD |
-| comercial | ✅ | LPs, campaigns, forms full CRUD (desde 2026-05-09) |
-| cs | ✅ | LPs, campaigns, forms full CRUD (desde 2026-05-09) |
-| financeiro | ✅ | LPs, campaigns, forms full CRUD (desde 2026-05-09) |
-| Sem role atribuída | ❌ (RLS em `landing_pages`) | Exceto ver LPs públicas publicadas |
-
-**Histórico:** PrimeTeam PR #1411 (2026-05-09) abriu policies de `landing_pages`,
-`campaigns` e `forms` para todos os setores. Antes era restrito a
-`owner/admin/marketing` — CS/comercial/financeiro recebiam erro 42501.
-
----
-
-### `quality-guardian` (Tier 3 — cross-cutting)
-
-Valida i18n, RLS, lint, mobile-first em output de outros agents.
-
-| Role | Acesso |
-|------|--------|
-| Todas | ✅ | Validação é read-only, não depende de role |
-
----
-
-### `design-guardian` (Tier 3 — cross-cutting)
-
-Valida ArchPrime DS compliance em output de `content-builder`.
-
-| Role | Acesso |
-|------|--------|
-| owner | ✅ |
-| marketing | ✅ |
-| Outros | ❌ (só valida se trigger veio de content-builder em role compatível) |
-
----
-
-### `integration-specialist` (Tier 3 — APIs externas)
-
-Cobre: Google Calendar (wrapper OAuth), Meta Ads sync, Revolut sync, Stripe.
-
-| Role | Acesso | Scope |
-|------|--------|-------|
-| owner | ✅ | Todas integrações |
-| financeiro | ✅ Revolut, Stripe | RLS em finance_* |
-| marketing | ✅ Meta Ads | RLS em meta_* |
-| comercial | ✅ Google Calendar | Por closer_id no user_oauth_tokens |
-| cs | ❌ | Sem integrações específicas |
-
----
-
-## Cenários práticos
-
-### Sandra (marketing) tenta usar platform-specialist para finance
-
-```
-Sandra: /ptOps:platform "listar transações de março"
-  → platform-specialist executa: SELECT * FROM finance_transactions WHERE ...
-  → RLS: has_finance_access() para user_id=sandra = false
-  → Retorna: []
-  → Agent responde: "Nenhuma transação encontrada ou você não tem permissão financeira."
-```
-
-Comportamento correto: squad não "esconde" acesso, deixa RLS responder. Specialist explica contextualmente.
-
-### Jessica (admin + cs) usa sales-specialist para oportunidades de CS
-
-```
-Jessica: /ptOps:sales "mostrar oportunidades das minhas campanhas CS"
-  → ops-chief: role admin+cs ∈ [owner, comercial, admin, cs] → roteia
-  → sales-specialist executa queries em opportunities
-  → RLS: Jessica tem role 'admin'+'cs' — acesso confirmado na plataforma
-  → Retorna: oportunidades visíveis para a sessão de Jessica
-  → Agent responde com lista filtrada por RLS
-```
-
-> **Nota (2026-06-03):** Acesso de `cs` a opportunities confirmado por Jessica (acessa manualmente na plataforma). A documentação anterior estava desatualizada.
-
-### Yuri (comercial, leader) usa radar-specialist
-
-Quando radar-specialist for criado (Fase 4):
-
-```
-Yuri: /ptOps:radar "preparar comitê desta semana"
-  → radar-specialist executa queries em radar_meetings
-  → RLS: admin/owner, OR leader de setor (comercial)
-  → Yuri é leader comercial, passa
-  → Agent edita meeting + action plans
-```
-
----
-
-## Quando squad deve recusar (antes de executar)
-
-Há casos onde o squad **pode recusar antes** de executar, para economizar round-trip com RLS:
-
-### 1. Agent claramente incompatível
-
-```
-Jessica: /ptOps:finance "criar transação"
-  → ops-chief: "Role 'cs' não tem acesso financeiro. Recomendo não tentar.
-               Se acredita que deveria ter, fale com o owner."
-```
-
-Não tenta rotear — evita erro desnecessário.
-
-### 2. Comando bloqueado por policy
-
-```
-Sandra: /ptOps:admin "deletar usuário X"
-  → ops-chief: "Role 'marketing' não pode deletar usuários. Apenas 'owner'."
-```
-
-### 3. Quando há dúvida
-
-```
-Yuri: /ptOps:radar "editar metas"
-  → ops-chief: "Para edição de radar, você precisa ser leader de setor.
-               Verificando... você é leader comercial, pode prosseguir."
-```
-
-Chief resolve sozinho (não precisa ESCALATE nem rodar RLS).
-
----
-
-## Expansão futura (v2.0)
-
-Se a plataforma adicionar roles novas (ex: `operations`, `partner`), atualizar:
-
-1. Esta matriz
-2. `data/team-roles-reference.md`
-3. `primeteam-platform-rules.md` seção 8
-4. Agents afetados (adicionar na lista de roles aceitas)
-5. CHANGELOG.md do squad
-
----
-
-## Reference
-
-- Regras completas: [`primeteam-platform-rules.md`](./primeteam-platform-rules.md) seção 8
-- Time: [`team-roles-reference.md`](./team-roles-reference.md)
-- Supabase policies: ver migrations em `supabase/migrations/` do repo PrimeTeam

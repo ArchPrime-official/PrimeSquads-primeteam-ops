@@ -1,10 +1,10 @@
 # Task: manage-lovarch-access
 
-> Gerir o ACESSO de um aluno do app Lovarch (`app.lovarch.com`) — conceder/estender/revogar entitlement via a `operation` de escrita do `ops-gateway` do projeto Lovarch (`cuxbydmyahjaplzkthkr`). Preenche a lacuna [ALTO] de gestão de acesso Lovarch.
->
-> ⛔ **DEPENDÊNCIA EXTERNA (Fase 2 do gateway):** as `operation`s de escrita (`grant_access`/`revoke_access`) **ainda NÃO estão implementadas** no `ops-gateway` do projeto Lovarch — isso é trabalho no lado Lovarch (@devops/Pablo), fora do squad. Enquanto não existirem, esta task retorna **BLOCKED** com o contrato (ver `data/lovarch-ops-reference.md` §Fase 2). A camada pto já está pronta; funcionará sem mudança quando o gateway ganhar a operation.
+> Gerir o ACESSO de um usuário do app Lovarch (`app.lovarch.com`, plataforma SaaS) — conceder/estender/atualizar/revogar entitlement (planos/produtos) via a EF **`archprime-access-proxy`** do PrimeTeam (que já está em produção e é o mesmo caminho que a UI CS + o stripe-webhook usam). O pto NUNCA toca o banco Lovarch (`cuxbydmyahjaplzkthkr`) direto — o proxy encapsula o shared secret server-side.
 
 **Cumpre:** HO-TP-001 (anatomy) · **HO-TP-002 (required fields)** — ver `data/primeteam-platform-rules.md` §12.
+
+> ✅ **Religada 2026-07-04** para o `archprime-access-proxy` (antes apontava para uma "Fase 2 do ops-gateway" que não existia e a task ficava BLOCKED). Agora funciona de fato. O ops-gateway segue read-only para lookup/tickets/erros; ESCRITA de acesso é pelo proxy.
 
 ---
 
@@ -17,58 +17,62 @@
 `pending`
 
 ### responsible_executor
-`lovarch-ops-specialist` — auth **owner/admin** (matriz papel→operação do `ops-gateway`). O app Lovarch é projeto Supabase SEPARADO; o pto NUNCA toca `cuxbydmyahjaplzkthkr` direto — só via gateway com o token do operador.
+`lovarch-ops-specialist` — auth **owner/admin/cs** (gate real do `archprime-access-proxy`).
 
 ### execution_type
-`Agent` — confirmação obrigatória (concede/revoga acesso pago em produto externo).
+`Agent` — confirmação obrigatória (concede/revoga acesso pago em produto SaaS).
 
 ### input
-- **Cycle ID**, **User JWT** (`~/.primeteam/session.json` — token do operador)
-- `operation` — `grant | extend | revoke`
-- `email` (do aluno Lovarch) **ou** `user_id` — **ELICITAR** (o aluno-alvo no projeto Lovarch)
-- `product` (string) — **ELICITAR sempre** (qual produto/plano; nunca defaultar)
-- `access_until` (date) — obrigatório para `grant`/`extend`
+- **Cycle ID**, **User JWT** (`~/.primeteam/session.json`)
+- `operation` — `grant | extend | update | revoke | list`
+- `email` (do usuário Lovarch) — **ELICITAR** (o alvo)
+- `products` (array, para `grant`/`extend`) — cada item `{ key, access_until? | extend_months?, cumulative? }`. **`key` ELICITAR sempre** (ex.: `lovarch_studio_monthly`, `le-3-fasi`; nunca defaultar o produto)
+- `entitlement_id` (para `update`/`revoke` — obtido antes via `list`)
+- `access_until` / `notes` (para `update`); `reason` (para `revoke`)
 
 ### output
-- `email`/`user_id`, `product`, `access_until`, `verdict: DONE | BLOCKED | ESCALATE`
+- `email`, `products`/`entitlement_id`, resultado, `verdict: DONE | BLOCKED | ESCALATE`
 
 ### action_items
-1. **Auth** — owner/admin (gate do gateway). Demais → BLOCKED.
-2. **`whoami` self-test** — `POST ops-gateway {operation:'whoami'}` para descobrir `allowed_operations`. **Se `grant_access`/`revoke_access` NÃO estiver em `allowed_operations`** → **BLOCKED** repassando o contrato Fase 2 (`data/lovarch-ops-reference.md`): "escrita no Lovarch depende da Fase 2 do ops-gateway, ainda não implementada no projeto Lovarch (@devops/Pablo)". Não tentar caminho alternativo (banco direto é PROIBIDO).
-3. **Confirmar o aluno** — `lookup_user` (Fase 1, read) por `email`/`user_id` para validar que existe. `found:false` → ESCALATE.
-4. **Elicitar** `product` (+ `access_until` em grant/extend).
-5. **Confirmação:** "operação {operation} · aluno {email} · produto {product} · até {access_until} (projeto Lovarch, auditado). Confirma?".
-6. **Write via gateway:**
+1. **Auth** — owner/admin/cs (o proxy devolve 403 fora disso). Demais → BLOCKED.
+2. **Elicitar** `email` + (para grant/extend) o `products[].key` + validade (`access_until` OU `extend_months`). Produto nunca defaultado.
+3. **`list` primeiro** (grant/update/revoke) — `POST archprime-access-proxy {action:'list', payload:{email}}` para ver o estado atual (entitlements + `is_active`). `found:false` em revoke/update → ESCALATE.
+4. **Confirmação** (echo): "operação {operation} · usuário {email} · produto(s) {keys} · validade {access_until/extend_months} · motivo {reason}". `revoke` → dupla confirmação.
+5. **Write via proxy** (JWT do user):
    ```
-   POST https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/ops-gateway
+   POST {SUPABASE_URL}/functions/v1/archprime-access-proxy
    Authorization: Bearer <access_token>
-   { "operation": "grant_access" | "revoke_access", "params": { email|user_id, product, access_until } }
+   { "action": "grant" | "update" | "revoke", "payload": { ... } }
    ```
-   `401` → `pto refresh` e repetir. `403` → BLOCKED (papel). `400 unknown_operation`/`operation not allowed` → BLOCKED (Fase 2 pendente — repassar contrato).
-7. **Verificação PÓS-AÇÃO** (obrigatória): re-`lookup_user` confirmando o status/entitlement do aluno mudou. Sem confirmação → não reportar DONE.
-8. **Auditoria:** o gateway registra em `ops_audit_log` (Lovarch); logar também no PrimeTeam o cycle_id + operation (sem dados sensíveis).
+   - **grant/extend:** `{action:'grant', payload:{ email, products:[{key, access_until?|extend_months?, cumulative?}], send_email? }}` (cria user se não existe, upsert `user_entitlements`, propaga plano/créditos).
+   - **update:** `{action:'update', payload:{ entitlement_id, access_until?, notes? }}`.
+   - **revoke/restore:** `{action:'revoke', payload:{ entitlement_id, action:'revoke'|'restore', reason? }}` (soft, `revoked_at`).
+   `401` → `pto refresh`. `403` → BLOCKED (papel). Erro do Lovarch → repassar.
+6. **Verificação PÓS-AÇÃO** (obrigatória): re-`list` (`action:'list'`) confirmando o efeito (grant/extend: entitlement ativo com a nova validade; revoke: `revoked_at` preenchido / `is_active=false`). Sem confirmação → não reportar DONE.
+7. **Activity log**: `action='lovarch-ops-specialist.manage_lovarch_access'`, `details={cycle_id, operation, email, products/entitlement_id}` (sem dados sensíveis).
 
 ### acceptance_criteria
-- **[A1]** Auth owner/admin.
-- **[A2]** `email`/`user_id` e `product` elicitados; produto nunca defaultado.
-- **[A3]** `whoami` verifica a capability ANTES; Fase 2 ausente → BLOCKED com contrato (não fingir sucesso).
-- **[A4]** Nunca toca o banco Lovarch direto — só via gateway.
-- **[A5]** Verificação pós-ação (re-lookup) confirma o efeito.
+- **[A1]** Auth owner/admin/cs.
+- **[A2]** `email` e `products[].key` elicitados; produto nunca defaultado.
+- **[A3]** `list` antes de update/revoke (precisa do `entitlement_id` real).
+- **[A4]** Via `archprime-access-proxy` — NUNCA toca o banco Lovarch direto.
+- **[A5]** revoke com dupla confirmação.
+- **[A6]** Verificação pós-ação (re-`list`) confirma o efeito.
 
 ---
 
 ## Exemplos
-### Exemplo 1 — Fase 2 ainda não implementada (BLOCKED honesto)
-`whoami` não lista `grant_access` → BLOCKED com o contrato Fase 2 e o encaminhamento a @devops/Pablo.
-### Exemplo 2 — Gateway com Fase 2 (DONE)
-`grant_access` disponível → confirma → gateway concede → re-lookup mostra acesso ativo → DONE.
-### Exemplo 3 — product ausente (ELICITAR)
-Sem produto → pergunta antes de qualquer chamada de escrita.
+### Exemplo 1 — Conceder acesso Studio (grant, DONE)
+`{action:'grant', payload:{email, products:[{key:'lovarch_studio_monthly', extend_months:1}], send_email:true}}` → re-list mostra ativo → DONE.
+### Exemplo 2 — product ausente (ELICITAR)
+"dá acesso pro fulano" sem key → pergunta o produto antes de qualquer chamada.
+### Exemplo 3 — Revogar (revoke)
+`list` → pega `entitlement_id` → dupla confirmação → `{action:'revoke', payload:{entitlement_id, action:'revoke', reason}}` → re-list confirma revoked.
 
 ## Notas
-- Fase 1 (read) = `lovarch-lookup-user`/`lovarch-user-tickets`/`lovarch-recent-errors`/`lovarch-whoami`. Esta é a primeira task de ESCRITA Lovarch — gated pela Fase 2 do gateway.
-- Ticket/crédito/aula Lovarch = outras `operation`s do contrato Fase 2 (ver reference) — tasks futuras.
-- Referências: `data/lovarch-ops-reference.md` (§Fase 2 contrato), `agents/lovarch-ops-specialist.md`.
+- **Lovarch = plataforma SaaS** (empresa separada). Acesso de aluno da **Academy** (curso ArchPrime) é outra task: `manage-academy-access` (`acad_entitlements`). Não confundir os produtos.
+- Gestão de usuário Lovarch além de acesso (suspender/plano/créditos/assinatura/ticket) = ops-gateway Fase 2 (`manage-lovarch-user`, `adjust-lovarch-credits`, `respond-lovarch-ticket` — trilha B3).
+- Referências: `supabase/functions/archprime-access-proxy`, `data/lovarch-ops-reference.md`.
 
 ---
 

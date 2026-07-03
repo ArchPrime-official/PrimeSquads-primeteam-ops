@@ -581,11 +581,10 @@ review-academy-sfida:
   notes: "owner/admin/cs; via challenge-admin-bridge (não escreve acad_submissions direto)"
 
 manage-lovarch-access:
-  table: "Lovarch (via ops-gateway Fase 2)"
+  table: "Lovarch (via archprime-access-proxy EF)"
   writes: update
   required:
-    - {field: email, source: "business: aluno Lovarch alvo (ou user_id)"}
-    - {field: product, source: "business: produto/plano — nunca defaultar"}
-    - {field: access_until, source: "business: até quando o acesso vale (grant/extend)"}
-  forbidden_defaults: [product]
-  notes: "owner/admin; via ops-gateway do projeto Lovarch. BLOCKED com contrato se a Fase 2 (write) não existir no gateway"
+    - {field: email, source: "business: usuário Lovarch alvo"}
+    - {field: products, source: "business: produto/plano (key) — nunca defaultar (grant/extend)"}
+  forbidden_defaults: [products]
+  notes: "owner/admin/cs; via archprime-access-proxy (EF PT em produção). Religada 2026-07-04 (era ops-gateway Fase 2 inexistente). Smoke live OK (list HTTP 200)"

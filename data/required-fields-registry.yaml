@@ -569,7 +569,36 @@ update-academy-lesson:
   table: acad_lessons
   writes: update
   required: [{field: lesson_id, source: schema}]
-  notes: "owner/admin; SÓ video_url/is_active (metadados = autoria Lovarch, sync one-way sobrescreve)"
+  notes: "owner/admin; QUALQUER campo editável (Academy autônoma 2026-07-04; sync de aula desligado)"
+
+create-academy-lesson:
+  table: acad_lessons
+  writes: insert
+  required:
+    - {field: module_id, source: "business: a qual módulo a aula pertence (FK acad_moduli)"}
+    - {field: title_it, source: "business: título em italiano (idioma primário do portal)"}
+    - {field: order_index, source: "business: posição no módulo"}
+  forbidden_defaults: [module_id, title_it, order_index]
+  notes: "owner/admin (is_admin_or_owner); vídeo YouTube; smoke visual no portal. Academy SSoT PT"
+
+manage-academy-module:
+  table: "acad_moduli / acad_fasi / acad_corsi"
+  writes: insert
+  required:
+    - {field: titolo, source: "business: título do módulo/curso (nome na fase) — sempre elicitar"}
+    - {field: position, source: "business: ordem entre irmãos"}
+  forbidden_defaults: [titolo, position]
+  notes: "owner/admin; entity=module|fase|corso; RLS de escrita em migration 20270704120000"
+
+publish-academy-incontro:
+  table: "acad_collection_items (+acad_lessons)"
+  writes: insert
+  required:
+    - {field: collection_id, source: "business: qual coleção de incontri"}
+    - {field: title_it, source: "business: título da gravação"}
+    - {field: video_url, source: "business: a gravação (YouTube)"}
+  forbidden_defaults: [collection_id]
+  notes: "owner/admin; mentoria de grupo (Prime Pro/Elite); cria lesson + collection_item"
 
 review-academy-sfida:
   table: "acad_submissions (via challenge-admin-bridge EF)"

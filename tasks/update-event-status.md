@@ -52,7 +52,7 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 
 ### action_items
 
-1. **Role check:** cs/marketing/admin/owner. Outros → BLOCKED.
+1. **Role check:** cs/comercial/admin/owner. `marketing`/`financeiro` → BLOCKED (ver `data/role-permissions-map.md`: comercial/admin/cs têm acesso a `opportunities`; marketing não — mesma ressalva de RLS técnico documentada em `list-event-registrants.md`: migrations recentes de `opportunities` RLS também incluem `marketing`, então o bloqueio aqui é uma camada de negócio da task, não garantida pelo banco).
 2. **Resolver lead_id** (se passou email) e **resolver o campaign uuid**:
    ```sql
    -- se veio campaign_slug em vez do uuid, resolver para campaigns.id
@@ -62,7 +62,7 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 4. **Buscar opportunity ativa do lead no evento** (join por `campaigns.id`):
    ```sql
    SELECT o.id, o.stage AS old_stage, o.qualification_data,
-          l.name, l.email
+          l.full_name, l.primary_email
    FROM opportunities o
    JOIN leads l ON l.id = o.lead_id
    WHERE o.lead_id = {lead_id}
@@ -72,11 +72,13 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
    ```
    0 match → ESCALATE com `not_registered` — lead sem opportunity neste evento/campanha.
 5. **Mapear new_status → new_stage** (ver mapeamento no cabeçalho).
-6. **Validar transição** via enum real (25 stages). Estados terminais: SALE_DONE, COMPLETED, LOST → BLOCKED para volta.
+6. **Validar transição — dois guards, não só o terminal:**
+   - **Terminal:** estados SALE_DONE, COMPLETED, LOST → BLOCKED para qualquer alteração posterior (irreversível por esta task).
+   - **Regressão dentro do fluxo de evento:** `stage_priority` (coluna gerada em `opportunities`) é para ORDENAÇÃO DE KANBAN, não representa a ordem real do funil (não é monotônica pelas 25 stages — vários valores caem no mesmo bucket `99`) — **não usar `stage_priority` para este guard**. Em vez disso, usar um ranking LOCAL desta task, só para as stages que ela gerencia: `STRATEGIC_SESSION=1 (confirmed) < SALES_SESSION=2 (attended) < SALE_DONE=3 (converted)`. Se `old_stage` e `new_stage` estão ambos nesse ranking e `rank(new_stage) < rank(old_stage)` → BLOCKED ("não é possível regredir de {old_status} para {new_status}"). `SALES_NO_SHOW`/`NO_SHOW` não entram no ranking (são um ramo lateral, alcançável tanto de confirmed quanto de attended).
 7. **Confirmation:**
    ```
    Atualizar status de evento:
-   Lead: {name} ({email})
+   Lead: {full_name} ({primary_email})
    Opp ID: {opp_id}
    Status atual: {old_stage}
    Novo status: {new_status} → stage: {new_stage}
@@ -100,16 +102,16 @@ Enum real de `opportunity_stage` (25 valores em produção — ver move-opportun
 10. **Echo:**
    ```
    ✓ Status atualizado
-   {name}: {old_stage} → {new_stage} (event_status={new_status})
+   {full_name}: {old_stage} → {new_stage} (event_status={new_status})
    {converted ? 'Opportunity em SALE_DONE — pipeline atualizado.' : ''}
    ```
 
 ### acceptance_criteria
 
-- **[A1] Role gating:** cs/marketing/admin/owner.
+- **[A1] Role gating:** cs/comercial/admin/owner. `marketing` bloqueado como regra de negócio da task (ver ressalva de RLS técnico na seção Notas).
 - **[A2] Status enum:** rejeita valores fora do enum.
-- **[A3] Transition validation:** estados terminais (converted) bloqueiam volta.
-- **[A4] Conditional fields:** attended_at obrigatório se status=attended; opportunity_id obrigatório se status=converted.
+- **[A3] Transition validation:** estados terminais (SALE_DONE/COMPLETED/LOST) bloqueiam volta; regressão dentro do ranking local confirmed→attended→converted também bloqueia (ver action_item 6).
+- **[A4] Conditional fields:** `attended_at` é **opcional** (default `NOW()` quando `status='attended'` e o campo não veio no payload — nunca obrigatório); `converted_opportunity_id` é **obrigatório** se `new_status='converted'`.
 - **[A5] Audit log:** diff before/after.
 - **[A6] Idempotency:** se status atual = novo status, ESCALATE com `no_op` (não re-marca).
 
@@ -148,6 +150,8 @@ admin para correção manual via SQL (raro — significa erro de classificação
 ## Notas
 
 - **Schema real:** um evento = `campaigns` (PK `id`); inscritos = `opportunities` linkadas por `opportunities.campaign_id = campaigns.id`. Não há tabela `events` nem `event_registrations`.
+- **Role gating vs RLS técnico (2026-07-03):** `data/role-permissions-map.md` documenta que só comercial/admin/cs têm acesso a `opportunities` (marketing bloqueado desde PR #951). Na prática, as migrations mais recentes de RLS (`20260423060000`, `20260525150000`, reafirmadas em `20261005120000_rls_initplan_optimization.sql`) reabriram SELECT+UPDATE de `opportunities` também para `marketing` (efeito colateral de um fix emergencial de abril/2026 que nunca foi revertido). O bloqueio de `marketing` nesta task é, portanto, uma regra de negócio/workflow — não está garantida pelo RLS do banco hoje. Reportar para tightening de RLS se o bloqueio total for necessário.
+- **Guard de regressão:** o ranking `STRATEGIC_SESSION < SALES_SESSION < SALE_DONE` usado no action_item 6 é local a esta task (baseado no fluxo de evento), não a coluna `stage_priority` (que é só para ordenação de kanban e não é monotônica pelas 25 stages).
 - **Coluna `attended_at`:** TODO — não existe coluna `attended_at`/`no_show`/`metadata` em `opportunities`. Usar `qualification_data` JSONB como workaround (não emitir SQL contra colunas inexistentes).
 - **`launch_stage` (esteira perpétua) é read-mostly:** nunca UPDATE manual aqui — a função viva `lancio_perp_advance_cohorts` avança as coortes. Esta task só toca `opportunities.stage`.
 - **Bookings do evento:** agendamentos ficam em `bookings`, sem coluna `campaign_id` — para achar bookings de um evento, join `bookings.opportunity_id` → `opportunities.campaign_id`. (Cuidado: `bookings.event_id` FKs para `booking_events` = tipo de agendamento, NÃO é a campanha do lançamento.)

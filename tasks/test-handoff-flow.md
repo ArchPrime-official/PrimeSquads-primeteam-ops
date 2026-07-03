@@ -62,14 +62,14 @@
 **Objetivo:** validar que o ciclo completo funciona end-to-end.
 
 ```
-User → /ptOps "login"
+User → /pto "login"
   ops-chief: triage
     → identifica demanda de auth
     → *handoff @auth-specialist --cycle cyc-test-001 --context "login"
   auth-specialist: executa login
     → abre browser, faz OAuth, salva session
     → gera handoff card:
-      Announcement: "Retornando ao @ops-chief. Login Google OAuth concluído."
+      Announcement: "[auth-specialist → ops-chief] Cycle {id} — DONE."
       File List: ["~/.primeteam/session.json (created)"]
       Change Log: "User autenticado via Google OAuth. Session salva localmente."
       Convention Verification: [all ✅]
@@ -94,7 +94,7 @@ User → /ptOps "login"
 **Objetivo:** validar routing sequencial via chief (hub-and-spoke enforcing).
 
 ```
-User → /ptOps "criar transação de test e validar i18n"
+User → /pto "criar transação de test e validar i18n"
   ops-chief: triage + route → @platform-specialist
   platform-specialist: cria transação
     → handoff card com suggested_next: "route_to @quality-guardian"
@@ -114,7 +114,7 @@ User → /ptOps "criar transação de test e validar i18n"
 **Objetivo:** validar que o gate rejeita handoffs sem announcement prescrito.
 
 ```
-User → /ptOps "test malformed handoff"
+User → /pto "test malformed handoff"
   ops-chief: route → @auth-specialist
   auth-specialist (modo test): retorna com announcement quebrado:
     Announcement: "Trabalho completo" ← ERRADO, não bate regex
@@ -132,7 +132,7 @@ User → /ptOps "test malformed handoff"
 **Objetivo:** validar que o framework BLOQUEIA um specialist de chamar outro direto.
 
 ```
-User → /ptOps "test direct chain"
+User → /pto "test direct chain"
   ops-chief: route → @platform-specialist
   platform-specialist (modo test): tenta fazer:
     *handoff @quality-guardian --context "validar meu trabalho"
@@ -149,7 +149,7 @@ User → /ptOps "test direct chain"
 **Objetivo:** validar que ambiguidades escalam para o usuário, não são "resolvidas" pelo chief.
 
 ```
-User → /ptOps "criar campanha nova"
+User → /pto "criar campanha nova"
   ops-chief: route → @platform-specialist
   platform-specialist: precisa decisão estratégica (budget, targeting)
     → handoff card:
@@ -161,7 +161,7 @@ User → /ptOps "criar campanha nova"
     → Responde ao usuário:
       "A criação de campanha requer decisão de orçamento/targeting.
        Recomendo consultar /metaAds:ralph-burns primeiro. Quando tiver
-       os parâmetros, volte aqui com /ptOps continuar cyc-test-005."
+       os parâmetros, volte aqui com /pto continuar cyc-test-005."
 ```
 
 **Expected:** Ciclo pausado, aguardando user. Chief NÃO tenta resolver sozinho.
@@ -174,7 +174,7 @@ O smoke test pode ser executado manualmente assim:
 
 ```bash
 # No Claude Code, dentro do repo primeteam-ops
-/ptOps test-handoff-flow
+/pto test-handoff-flow
 ```
 
 ops-chief executa os 5 cenários em sequência e gera o report.

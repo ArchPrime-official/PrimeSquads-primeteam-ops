@@ -2,24 +2,18 @@
 
 > Editar mensagem própria em canal interno. Apenas creator pode editar (RLS). Mantém edit history.
 
-**✅ SCHEMA ADAPTED (2026-05-10):** Tabela `channel_message_edits` NÃO existe — adaptado para usar coluna JSONB `edit_history` em `channel_messages` (acrescentar entry per edit). Approach mais leve sem migration nova.
+**⚠️ SCHEMA REAL (confirmado em types.ts, 2026-07-03):** `channel_messages` tem `content`, `created_at`, `deleted_at`, `id`, `is_edited`, `reply_to_id`, `thread_*`, `updated_at`, `user_id`. **Não existem** `channel_message_edits`, `edit_count`, `edited_at`, `edit_history` nem `version`. Autoria é sempre por `user_id` (não `created_by`). Sem essas colunas, hoje só é possível persistir `content` + `is_edited=true` + `updated_at` — histórico de edição/contagem de edits e optimistic lock por `version` **não existem** e não devem ser prometidos até uma migration real criar essas colunas.
 
-**Mutation adaptada:**
+**Mutation real (sem migration pendente):**
 ```sql
 UPDATE channel_messages
-SET content={new_content},
-    edited_at=NOW(),
-    edit_count=COALESCE(edit_count,0)+1,
-    edit_history=COALESCE(edit_history,'[]'::jsonb) ||
-                 jsonb_build_object(
-                   'old_content', content,
-                   'edited_at', NOW(),
-                   'edited_by', auth.uid()
-                 )
-WHERE id={message_id} AND created_by=auth.uid() AND version={expected};
+SET content = {new_content},
+    is_edited = true,
+    updated_at = NOW()
+WHERE id = {message_id} AND user_id = auth.uid();
 ```
 
-**Migration mínima requerida (futura):**
+**Migration mínima requerida (futura, se quisermos histórico de edição):**
 ```sql
 ALTER TABLE channel_messages
 ADD COLUMN IF NOT EXISTS edit_count int DEFAULT 0,
@@ -42,15 +36,14 @@ ADD COLUMN IF NOT EXISTS edit_history jsonb;
 ### input
 - `message_id` (uuid)
 - `new_content` (string, 1..5000 chars)
-- `version` (int — optimistic lock)
 
 ### output
-- `message_id`, `edited_at`, `edit_count`
+- `message_id`, `updated_at`, `is_edited`
 - `verdict`: `DONE | BLOCKED | ESCALATE`
 
 ### action_items
 
-1. **Authority:** user MUST be `created_by` da mensagem. Outros → BLOCKED:
+1. **Authority:** user MUST be `user_id` da mensagem (não `created_by` — coluna não existe). Outros → BLOCKED:
    ```
    Apenas o autor pode editar mensagem.
    Sender original: {sender_name}.
@@ -61,39 +54,22 @@ ADD COLUMN IF NOT EXISTS edit_history jsonb;
    Para corrigir histórico antigo: delete + new message.
    ```
 3. Validar `new_content` 1..5000 chars + diff vs original.
-4. UPDATE com edit_history JSONB (tabela `channel_message_edits` NÃO existe — usar abordagem JSONB conforme cabeçalho; colunas `edit_count/edited_at/edit_history` precisam existir via migration `edit-message-migration` pendente):
-   ```sql
-   UPDATE channel_messages
-   SET content = {new_content},
-       is_edited = true,
-       updated_at = NOW(),
-       -- TODO: colunas abaixo requerem migration (edit-message-migration):
-       edited_at = NOW(),
-       edit_count = COALESCE(edit_count, 0) + 1,
-       edit_history = COALESCE(edit_history, '[]'::jsonb) ||
-                      jsonb_build_object(
-                        'old_content', content,
-                        'edited_at', NOW(),
-                        'edited_by', auth.uid()
-                      )
-   WHERE id = {message_id} AND user_id = auth.uid();
-   -- Nota: coluna `version` NÃO existe em channel_messages; sem optimistic lock disponível
-   ```
-   Se colunas edit_count/edited_at/edit_history não existirem ainda, usar apenas:
+4. **UPDATE (única forma suportada pelo schema atual):**
    ```sql
    UPDATE channel_messages
    SET content = {new_content}, is_edited = true, updated_at = NOW()
    WHERE id = {message_id} AND user_id = auth.uid();
    ```
+   Sem `edit_count`/`edited_at`/`edit_history`/`version` — essas colunas não existem hoje (ver migration futura no cabeçalho). 0 rows afetadas = mensagem não pertence ao usuário → BLOCKED.
 5. Activity log skip (mensagens triviais geram spam).
 6. Echo: "✓ Mensagem editada."
 
 ### acceptance_criteria
-- A1 Authority creator only
+- A1 Authority: apenas `user_id = auth.uid()` (creator only)
 - A2 24h window default
-- A3 Edit history preserved (JSONB edit_history se migration existir; senão `is_edited=true`)
-- A4 Edit count increment (requer migration)
-- A5 Optimistic lock via user_id (coluna version não existe)
+- A3 Sinaliza edição via `is_edited=true` (sem histórico de conteúdo anterior — `edit_history` não existe)
+- A4 Sem contagem de edits (`edit_count` requer migration futura, não prometida hoje)
+- A5 Sem optimistic lock (coluna `version` não existe em `channel_messages`) — autoria via `user_id` é controle de acesso, não controle de concorrência
 
 ---
 

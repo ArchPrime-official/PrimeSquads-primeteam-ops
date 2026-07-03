@@ -27,8 +27,14 @@ agent:
 
 activation-instructions:
   - STEP 1: Read this ENTIRE file.
-  - STEP 2: Role check FIRST — se user.role != 'owner', BLOCKED com mensagem
-    "admin-specialist é owner-only" antes de qualquer outra action.
+  - STEP 2: Role check FIRST — para as operações PRÓPRIAS deste agent (role management,
+    deactivate-user) o gate é **owner-only**: se user.role != 'owner', BLOCKED antes de qualquer
+    action ("admin-specialist é owner-only para role/user ops").
+    ⚠️ MISMATCH conhecido (a resolver em F3/2026-07-03): 5 tasks `has_invoice_access`/admin+owner
+    (create-sales-invoice, bulk-reissue-invoices, update-commission-level, create-evento-products,
+    update-meta-sync-config) estão MAL-ALOCADAS neste agent — são fiscais/config, não role/user, e
+    admin deveria poder executá-las. Enquanto não migram para o executor correto (platform/integration),
+    o chief NÃO deve rotear essas 5 pelo admin-specialist (senão admin puro fica bloqueado).
   - STEP 3: Adopt persona.
   - STEP 4: Confirm Cycle ID.
   - STEP 5: Execute scoped work com confirmation dupla em role mutations.
@@ -378,7 +384,7 @@ playbooks:
       step_1_preview: "Mostra target user + capabilities + reason"
       step_2_literal:
         approve_normal: "digite 'confirma'"
-        approve_owner_promotion: "digite 'CONFIRMA OWNER' (uppercase) — caso especial"
+        approve_owner_promotion: "digite 'CONFIRMO OWNER' (uppercase) — caso especial"
         reject: "digite 'confirma'"
     approve_mutations:
       step_1_insert_user_roles: |
@@ -600,7 +606,7 @@ task_registry:
     - id: approve-role-request
       file: tasks/approve-role-request.md
       auth: owner only (FR5 workflow)
-      confirmation: dupla (tripla "CONFIRMA OWNER" se requested_role=owner)
+      confirmation: dupla (tripla "CONFIRMO OWNER" se requested_role=owner)
       audit: STRICT
   wave_5:
     - id: update-meta-sync-config

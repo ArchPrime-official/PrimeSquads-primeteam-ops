@@ -1,6 +1,6 @@
 # Task: generate-landing-page-ai
 
-> Disparar geração de LP via AI (LLM-driven content + structure). Sandra usa para acelerar criação. Implementa F-09.2.
+> Disparar geração de LP via AI (LLM-driven `html_content`). Sandra usa para acelerar criação. Implementa F-09.2.
 
 **Cumpre:** HO-TP-001
 
@@ -15,80 +15,90 @@
 `content-builder`
 
 ### execution_type
-`Agent` — confirmation com cost awareness (LLM API quota).
+`Agent` — confirmation com cost awareness (custo resolvido via `ai-gateway`/`ai_pricing`, nunca hardcoded).
 
 ### input
 
 - **Cycle ID**, **User JWT**, **User role**
 - **Request payload:**
   - `brief` (object obrigatório):
+    - `title` (string, **obrigatório** — vira `landing_pages.title`, coluna NOT NULL)
     - `goal` (`'lead_capture' | 'product_launch' | 'webinar_signup' | 'sales'`)
     - `target_audience` (string — descrição do público)
     - `tone` (`'professional' | 'casual' | 'urgent' | 'storytelling'`)
     - `key_points` (array — bullet points obrigatórios na LP)
     - `cta_text` (string — call-to-action)
-    - `language` (`'pt-BR' | 'it-IT' | 'en'`)
-  - `template_base` (uuid opcional — usar LP existente como inspiração)
-  - `target_domain`, `slug` (para LP nova)
-  - `model` (`'claude-3-5-sonnet' | 'gpt-4'` — default Claude)
+    - `language` (`'pt-BR' | 'it-IT' | 'en' | 'es'` — mapear para `locale` real da tabela: `pt-BR→pt`, `it-IT→it`, `en→en`, `es→es`)
+  - `campaign_id` (uuid, **obrigatório** — mesma regra de `create-cms-page`: LP sem campanha é IMPOSSÍVEL, quebra attribution)
+  - `template_base` (uuid opcional — usar LP existente como inspiração de estrutura/copy)
+  - `target_domain`, `slug` (obrigatórios para LP nova)
+  - `model` (modelo LLM a usar via `ai-gateway`, ex: `claude-sonnet-4-5` — o preço é resolvido pela tabela `ai_pricing`, nunca hardcoded na task)
 
 ### output
 
-- **`landing_page_id`** (uuid — LP draft criada)
-- **`generated_blocks`** (array JSONB)
-- **`generated_html`** (string opcional — alternativa)
-- **`tokens_used`**, **`cost_usd_estimated`**
+- **`landing_page_id`** (uuid — LP draft criada, `active=false`)
+- **`generated_html`** (string — `html_content` gerado)
+- **`tokens_used`**, **`cost_usd`** (valor real resolvido via `ai_pricing`/`ai-gateway`, não estimativa fixa)
 - **`verdict`** — `DONE | BLOCKED | ESCALATE`
 
 ### action_items
 
 1. **Role check:** marketing/admin/owner.
-2. **Validar brief:** todos campos obrigatórios + key_points min 1.
-3. **Validar slug uniqueness** + domain enum.
-4. **Estimate cost:** ~3-8k tokens generation = ~$0.03-0.20 dependendo do model.
-5. **Confirmation:**
+2. **Validar brief:** `title` + demais campos obrigatórios + `key_points` min 1.
+3. **`campaign_id` obrigatório:** se ausente → **ESCALATE** (nunca criar LP sem campanha — attribution quebra). Nunca defaultar.
+4. **Validar slug uniqueness** + `target_domain` + `locale` (derivado de `language`).
+5. **Resolver custo via `ai-gateway`:** a chamada ao LLM passa pela Edge Function `ai-gateway` (`POST /functions/v1/ai-gateway`, JWT de sessão), que resolve o preço pela tabela canônica `ai_pricing` (`provider`+`model`+`variant`) e grava o uso em `creative_api_usage`. **NUNCA hardcodar um custo estimado no código da task** — se for necessário mostrar uma estimativa antes de confirmar, ela deve vir de uma consulta prévia a `ai_pricing` pelo `model` escolhido, não de um número fixo tipo "~$0.03-0.20".
+6. **Confirmation:**
    ```
    Vou gerar LP via AI:
+     Title: {title}
+     Campaign: {campaign_name}
      Goal: {goal}
      Audience: {target_audience}
      Tone: {tone}
-     Language: {language}
+     Language: {language} → locale: {locale}
      Key points: {N}
      CTA: «{cta_text}»
      Template base: {template_base or 'Genérico'}
      Model: {model}
-     Custo estimado: ~${cost}
+     Custo estimado (via ai_pricing): ~${cost}
 
-   Após generation, LP fica DRAFT — você revê + edita + publica via publish-cms-page.
+   Após generation, LP fica com active=false (draft) — você revê + edita + publica via publish-cms-page.
    Confirma?
    ```
-6. **Aguardar "sim"**.
-7. **Invoke edge `landing-page-ai-generator`:**
+7. **Aguardar "sim"**.
+8. **Invoke ai-gateway** (nunca chamar o provider LLM direto):
    ```typescript
-   const { data, error } = await supabase.functions.invoke('landing-page-ai-generator', {
-     body: { brief, template_base, model, language },
+   const { data, error } = await supabase.functions.invoke('ai-gateway', {
+     body: {
+       provider: 'anthropic', // ou o provider do `model` escolhido
+       model,
+       payload: { brief, template_base, locale },
+       mode: 'landing-page-generation',
+     },
      headers: { Authorization: `Bearer ${jwt}` }
    });
    ```
-8. **Tratar erros:**
+   Se a chamada não puder ser proxeada (ex: multipart), fazer a chamada direta ao provider + registrar via `ai-gateway` com `operation: 'log'` + aviso `CUSTO NAO TRACKEADO` no stderr como fallback.
+9. **Tratar erros:**
    - 429 (rate limit LLM) → ESCALATE com cooldown
    - 5xx → retry 1x → ESCALATE
-   - Output validation: blocks JSON malformado → ESCALATE
-9. **Persist como nova LP draft:**
-   ```sql
-   INSERT INTO landing_pages
-     (slug, target_domain, locale, blocks, status, active, created_by, ai_generated)
-   VALUES ({slug}, {domain}, {locale}, {blocks}, 'draft', false, auth.uid(), true)
-   RETURNING id;
-   ```
-10. **Activity log:** action='content-builder.generate_landing_page_ai', details com brief summary + tokens + cost + lp_id.
-11. **Echo:**
+   - Output validation: `html_content` vazio/malformado → ESCALATE
+10. **Persist como nova LP draft:**
+    ```sql
+    INSERT INTO landing_pages
+      (slug, title, target_domain, locale, campaign_id, html_content, active, created_by)
+    VALUES ({slug}, {title}, {domain}, {locale}, {campaign_id}, {html_content}, false, auth.uid())
+    RETURNING id;
+    ```
+    (**Não existe coluna `ai_generated`** em `landing_pages` — não incluir no INSERT.)
+11. **Activity log:** action='content-builder.generate_landing_page_ai', details com brief summary + tokens + cost + lp_id + campaign_id.
+12. **Echo:**
     ```
     ✓ LP gerada
-    LP ID: {lp_id} (draft)
-    Blocks: {N} sections geradas
+    LP ID: {lp_id} (active=false, draft)
     Tokens: {tokens}
-    Cost: ~${cost}
+    Cost: ${cost} (via ai_pricing)
     Preview URL (após publish): https://{domain}/{slug}
 
     Próximos passos:
@@ -100,13 +110,14 @@
 ### acceptance_criteria
 
 - **[A1] Role gating:** marketing/admin/owner.
-- **[A2] Brief validation:** todos required fields.
-- **[A3] Cost estimate antes:** user vê custo antes de confirmar.
-- **[A4] Confirmation OBRIGATÓRIO:** consome quota.
-- **[A5] LP starts draft:** zero risco de publish acidental.
-- **[A6] AI flag:** `ai_generated=true` permite tracking.
-- **[A7] Audit:** activity_log com tokens/cost.
-- **[A8] Idempotency:** retry interno 1x; ESCALATE depois.
+- **[A2] Brief validation:** todos required fields, incluindo `title`.
+- **[A3] `campaign_id` obrigatório:** ESCALATE se ausente — nunca defaultar (`forbidden_defaults`).
+- **[A4] Custo via ai-gateway/ai_pricing:** nunca hardcodar preço; usuário vê custo real resolvido antes de confirmar.
+- **[A5] Confirmation OBRIGATÓRIO:** consome quota paga.
+- **[A6] LP starts inactive:** `active=false`, zero risco de publish acidental.
+- **[A7] Sem coluna `ai_generated`:** tracking de origem AI vive em `creative_api_usage` (via `ai-gateway`), não em `landing_pages`.
+- **[A8] Audit:** activity_log com tokens/cost/lp_id.
+- **[A9] Idempotency:** retry interno 1x; ESCALATE depois.
 
 ---
 
@@ -114,17 +125,23 @@
 
 ### Exemplo 1 — Sandra gera LP webinar
 
-**Input:** `brief={goal: 'webinar_signup', target_audience: 'arquitetos italianos 35-50', tone: 'professional', cta: 'Iscriviti gratuita', language: 'it-IT', key_points: ['Casos reais', 'Aula gravada', '2h conteúdo']}`
+**Input:** `brief={title: 'Iscriviti al Webinar AI', goal: 'webinar_signup', target_audience: 'arquitetos italianos 35-50', tone: 'professional', cta_text: 'Iscriviti gratuita', language: 'it-IT', key_points: ['Casos reais', 'Aula gravada', '2h conteúdo']}`, `campaign_id={webinar_campaign_id}`
 
-**Specialist:** confirmation → invoke generator → 5800 tokens, $0.10 → INSERT LP draft → DONE.
+**Specialist:** confirmation (custo resolvido via ai_pricing) → invoke `ai-gateway` → 5800 tokens, $0.10 → INSERT LP draft (`active=false`) → DONE.
 
-### Exemplo 2 — Quota excedida → ESCALATE
+### Exemplo 2 — `campaign_id` ausente → ESCALATE
 
-**Input:** LLM retorna 429
+**Input:** brief completo, sem `campaign_id`
+
+**Specialist:** ESCALATE — "LP sem campaign_id é impossível: attribution quebra. Informe a campanha antes de gerar."
+
+### Exemplo 3 — Quota excedida → ESCALATE
+
+**Input:** LLM retorna 429 via ai-gateway
 
 **Specialist:** ESCALATE com cooldown 30s + suggestion para retry.
 
-### Exemplo 3 — CS tenta gerar → BLOCKED
+### Exemplo 4 — CS tenta gerar → BLOCKED
 
 **Input:** Jessica → BLOCKED (marketing-only).
 
@@ -132,10 +149,11 @@
 
 ## Notas
 
-- **Edge `landing-page-ai-generator`:** orchestra prompt → LLM → parse → return blocks JSON.
-- **Templates:** se `template_base` passado, edge analisa estrutura + replicates pattern com brief novo.
-- **Refinement:** task gera initial draft. Refinements sucessivos = `update-landing-page` manual ou nova generation.
-- **Cost tracking:** `landing_page_ai_generations` table guarda tokens/cost para audit mensal.
+- **`html_content`, não `blocks`:** a plataforma não oferece construtor de blocos (ver CLAUDE.md — landing pages são sempre HTML self-contained gerado por Claude Code/AI, com pixel/CAPI embutido). O gerador deve produzir `html_content` pronto para publicar, não `blocks` JSONB.
+- **AI cost tracking:** toda chamada ao LLM passa por `ai-gateway`/`logAiCall()`, preço vem de `ai_pricing` (nunca hardcoded). **Não existe** a tabela `landing_page_ai_generations` — uso e custo ficam em `creative_api_usage`, visível em `/gestao` → Creative Studio.
+- **Locale mapping:** `landing_pages.locale` usa códigos curtos (`it`, `en`, `pt`, `es`), não `pt-BR`/`it-IT` — sempre mapear o `language` de negócio para o `locale` real antes do INSERT.
+- **Pixel/eventID:** se o `html_content` gerado dispara `fbq('track', ...)`, seguir a regra de `eventID` determinístico (nunca `uuid()`/`Date.now()`/`Math.random()`) e nunca usar `document.write()`.
+- **Refinement:** task gera draft inicial. Refinamentos sucessivos = `update-landing-page` manual ou nova geração.
 
 ---
 

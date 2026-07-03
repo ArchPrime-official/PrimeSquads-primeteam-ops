@@ -44,6 +44,9 @@
    - locale ∈ ISO 639-1 + região
    - html_content NÃO vazio se passado
    - blocks JSONB válido
+   - html_content novo NUNCA usa `document.write()` (quebra pós-hydration); pixel/form handlers via `addEventListener`/`fetch`; `fbq('Lead'/'Purchase', ...)` sempre com `eventID` determinístico (derivado de `lead_id`/`opportunity_id`/`session_id`, nunca `uuid()`/`Date.now()`/`Math.random()`)
+   - **`active=false` BLOQUEADO sem `redirect_to` OU `redirect_to_slug` configurado** (regra Attiva — LP desativada precisa de destino de redirect definido; sem isso, BLOCKED pedindo para configurar o redirect antes)
+   - **Se `target_domain`, `slug` OU `locale` mudarem:** re-checar uniqueness (`target_domain`+`slug`+`locale`) ANTES do UPDATE — a constraint pode disparar `23505` (unique_violation); tratar e reportar de forma clara (não deixar o erro Postgres cru vazar pro usuário)
 4. **Lovarch obligation check (se html_content mudou):**
    - Surface warning se LP é em `lovarch.com` ou `archprime.io`:
      ```
@@ -91,6 +94,8 @@
 - **[A5] Revalidate webhook:** automático em published + content change.
 - **[A6] Audit diff:** activity_log com before/after diff.
 - **[A7] No publish:** task NUNCA muda status.
+- **[A8] Attiva guard:** `active=false` sem `redirect_to`/`redirect_to_slug` = BLOCKED.
+- **[A9] Uniqueness recheck:** mudança de `target_domain`/`slug`/`locale` trata `23505` explicitamente, não deixa erro cru.
 
 ---
 
@@ -121,6 +126,8 @@
 - **Lovarch dual-renderer:** memory:CLAUDE.md + tech-debt note ainda ativos até migração `app.lovarch.com`.
 - **`cms-revalidate` edge:** invalida ISR Vercel; LP `lp.archprime.io` é SPA, sem cache (skip).
 - **Versioning:** trigger BEFORE UPDATE incrementa version + auto-snapshot em `landing_page_versions`.
+- **Toggle Attiva:** quando `active=false`, o renderer redireciona para `redirect_to` ou `/<redirect_to_slug>` — por isso a task bloqueia a desativação sem esse destino configurado (mesma regra da UI admin).
+- **HTML novo:** sempre revisar contra as regras de `document.write()` proibido e `eventID` de Pixel determinístico (ver CLAUDE.md seção "Pixel Lead event") antes de persistir `html_content`.
 
 ---
 

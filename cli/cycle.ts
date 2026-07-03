@@ -10,7 +10,7 @@
  *
  * Storage: ~/.primeteam/active-cycle.json
  *  {
- *    "cycle_id": "uuid v4",
+ *    "cycle_id": "cyc-YYYY-MM-DD-NNN",
  *    "sub_squad": "creative-studio" | "strategic-management" | ... | null,
  *    "cross_squad": false,
  *    "started_at": "ISO 8601",
@@ -28,7 +28,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { SESSION_DIR } from './paths.js';
 
 const ACTIVE_CYCLE_FILE = path.join(SESSION_DIR, 'active-cycle.json');
@@ -83,11 +82,20 @@ function validateSubSquad(name: string | undefined): string | null {
   return name;
 }
 
+// Cycle ID no formato CANÔNICO cyc-YYYY-MM-DD-NNN (config.yaml cross_squad_routing.cycle_id_format
+// = "cyc-YYYY-MM-DD-NNN # NÃO UUID"; o ops-chief gera o mesmo). Corrige o drift de UUID v4 que
+// quebrava a correlação end-to-end em activity_logs/cycle_timeline entre CLI/hook e chief (F4).
+function generateCycleId(): string {
+  const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const nnn = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+  return `cyc-${date}-${nnn}`;
+}
+
 export async function cycleStart(opts: { subSquad?: string } = {}): Promise<void> {
   const subSquad = validateSubSquad(opts.subSquad);
   const now = new Date().toISOString();
   const state: CycleState = {
-    cycle_id: randomUUID(),
+    cycle_id: generateCycleId(),
     sub_squad: subSquad,
     cross_squad: false,
     squads_seen: subSquad ? [subSquad] : [],

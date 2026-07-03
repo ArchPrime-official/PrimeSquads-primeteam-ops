@@ -51,7 +51,7 @@ phases:
     actions:
       - "Validate role: marketing/admin/owner. Else BLOCKED."
       - "Identify creative_type from brief keywords."
-      - "Generate Cycle ID (UUID v4)."
+      - "Generate Cycle ID no formato cyc-YYYY-MM-DD-NNN (NÃO UUID — bate com config + ops-chief)."
       - "Activity log: action='ops-chief.start_creative_cycle', cycle_id=<UUID>, parent_squad='primeteam-ops', cross_squad=true."
     outputs:
       - cycle_id
@@ -205,7 +205,7 @@ phases:
       - "  - immagine → INSERT em content_items (type='image') + upload Storage"
       - "  - marketing_studio → INSERT em content_items (type='ad_creative') + upload Storage"
       - "Use signed URLs (24h validity) ou public URLs based on visibility."
-      - "Update creative_usage table com cost from creative-studio metadata."
+      - "Update creative_api_usage table (canônica de custo AI) com cost from creative-studio metadata."
       - "Activity log: action='content-builder.publish_creative', sub_squad=null (internal), cycle_id, cross_squad=true."
     outputs:
       - published_id (uuid da row criada)

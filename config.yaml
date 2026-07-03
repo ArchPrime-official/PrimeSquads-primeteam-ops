@@ -4,7 +4,7 @@
 
 pack:
   name: primeteam-ops
-  version: 1.5.0
+  version: 1.6.0
   description: >
     ROOT SQUAD da PrimeTeam — Master orchestration layer + execution layer.
     CLI binary `pto` é o entry point único da plataforma (Google OAuth + JWT).
@@ -120,7 +120,7 @@ cross_squad_routing:
       workflow: "workflows/cross-squad/wf-full-launch-cycle.yaml (TODO)"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Agents registry (10 agents — v1.2.0)
+# Agents registry (gerado; ver ls agents/)
 # ─────────────────────────────────────────────────────────────────────────────
 agents:
   - id: ops-chief
@@ -238,7 +238,7 @@ agents:
       recent_errors. NÃO escreve na Lovarch. Ref: data/lovarch-ops-reference.md.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tasks registry (16 tasks HO-TP-001)
+# Tasks registry (HO-TP-001; ver ls tasks/)
 # Atualizado 2026-05-10: registradas 3 tasks CMS adicionadas em 2026-05-09
 # (create-cms-page, list-cms-pages, publish-cms-page) — drift detectado em
 # audit-2026-05-10 doc 02 (squad-current-state).
@@ -915,7 +915,7 @@ tasks:
     agent: integration-specialist
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Workflows registry (7 workflows multi-fase)
+# Workflows registry (multi-fase; ver ls workflows/)
 # ─────────────────────────────────────────────────────────────────────────────
 workflows:
   - id: wf-platform-operation

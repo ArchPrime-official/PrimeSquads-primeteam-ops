@@ -618,6 +618,14 @@ manage-academy-sfida:
   forbidden_defaults: [title]
   notes: "owner/admin/cs; CRUD de sfide/missões via bridge (campos PT-owned direto). RLS migration 20270704140000"
 
+manage-lovarch-user:
+  table: "Lovarch profiles (via ops-gateway Fase 2)"
+  writes: update
+  required:
+    - {field: email, source: "business: usuário Lovarch alvo (ou user_id)"}
+  forbidden_defaults: [user_type]
+  notes: "owner/admin; suspend/reactivate (status) + set_plan (user_type) via ops-gateway. Créditos/ticket = Fase 2b"
+
 manage-lovarch-access:
   table: "Lovarch (via archprime-access-proxy EF)"
   writes: update

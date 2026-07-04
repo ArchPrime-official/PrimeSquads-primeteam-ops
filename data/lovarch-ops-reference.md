@@ -57,11 +57,16 @@ Se o token estiver expirado (`401 invalid_token`), rode `pto refresh` (ou `pto l
 
 ## Limites / próximas fases
 
-- **Fase 1 (esta):** somente leitura. Não altera nada na Lovarch.
-- **Fase 2 (contrato definido, gateway PENDENTE):** operações de escrita controladas. A camada de
-  tasks do pto já existe (`manage-lovarch-access`), mas **as `operation`s de escrita ainda NÃO
-  estão implementadas no `ops-gateway` do projeto Lovarch** (`cuxbydmyahjaplzkthkr`). Até lá, a task
-  retorna **BLOCKED** com este contrato. Construir do lado Lovarch (@devops/Pablo) é a dependência.
+- **Fase 1:** somente leitura (whoami/lookup_user/user_tickets/recent_errors).
+- **Fase 2 (NO AR desde 2026-07-04):** o `ops-gateway` ganhou `list_users`/`user_progress` (read,
+  owner/admin/cs) e `update_user_status`/`set_user_plan` (write, owner/admin) — auditadas em
+  `ops_audit_log`. Tasks pto: `list-lovarch-students` (read) e `manage-lovarch-user` (suspend/
+  reactivate/set_plan). **Acesso/entitlement** (dar/tirar produto) NÃO passa pelo gateway — usa
+  `archprime-access-proxy` (task `manage-lovarch-access`).
+- **Fase 2b (PENDENTE):** `adjust_credits` e `respond_ticket` — ficam nas EFs admin dedicadas do
+  Lovarch (`admin-adjust-credits`, `manage-user-thread`) por causa da lógica sensível de
+  paid_credits/thread. Exigem expor essas EFs ao gateway ou modo shared-secret — trabalho no repo
+  Lovarch (@devops/Pablo).
 
 ### Contrato Fase 2 — `operation`s de escrita a implementar no `ops-gateway`
 

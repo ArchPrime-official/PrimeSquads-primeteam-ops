@@ -633,7 +633,27 @@ manage-lovarch-user:
   required:
     - {field: email, source: "business: usuário Lovarch alvo (ou user_id)"}
   forbidden_defaults: [user_type]
-  notes: "owner/admin; suspend/reactivate (status) + set_plan (user_type) via ops-gateway. Créditos/ticket = Fase 2b"
+  notes: "owner/admin; suspend/reactivate (status) + set_plan (user_type) via ops-gateway"
+
+adjust-lovarch-credits:
+  table: "Lovarch ai_credits (via ops-gateway Fase 2b)"
+  writes: update
+  required:
+    - {field: email, source: "business: usuário Lovarch alvo (ou user_id)"}
+    - {field: type, source: "business: add|remove|refund"}
+    - {field: amount, source: "business: quantidade > 0"}
+    - {field: reason, source: "business: motivo (audit trail) — nunca defaultar"}
+  forbidden_defaults: [reason]
+  notes: "owner/admin; credit_transactions + ai_credits via gateway. Smoke net-zero OK"
+
+respond-lovarch-ticket:
+  table: "Lovarch feedback_messages (via ops-gateway Fase 2b)"
+  writes: insert
+  required:
+    - {field: feedback_id, source: "business: ticket alvo (via user_tickets)"}
+    - {field: message, source: "business: resposta ao usuário — nunca vazia"}
+  forbidden_defaults: [message]
+  notes: "owner/admin; feedback_messages is_admin=true + status in_progress via gateway"
 
 manage-lovarch-access:
   table: "Lovarch (via archprime-access-proxy EF)"

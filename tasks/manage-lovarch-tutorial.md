@@ -24,16 +24,17 @@
 
 ### input
 - **Cycle ID**, **User role** (owner/admin autoriza)
-- `operation` — `add | edit`
+- `operation` — `add | edit` (inclui trocar thumbnail)
 - `category_id` — **ELICITAR** (a qual categoria: primi/ai/studio/business)
 - `title` (l10n it/en/pt/es) — **ELICITAR** (título nos 4 idiomas — o app é multi-idioma)
 - `desc` (l10n), `duration` (`m:ss`), `level` (`base|intermediate|advanced`), `videoUrl` (YouTube embed), `badge` (opcional `new|beta|coming_soon`)
+- `thumbnail` (URL de imagem, opcional) — capa da aula. Sem ela, o card usa o gradiente DS. Atalho pronto: a thumb do YouTube é `https://img.youtube.com/vi/<VIDEO_ID>/hqdefault.jpg`.
 - `lesson_id` (para `edit`)
 
 ### action_items
 1. **Autorização** — owner/admin.
 2. **Elicitar** `category_id`, `title` (l10n) + `videoUrl`. Nunca defaultar o idioma (o catálogo tem it/en/pt/es).
-3. **Editar** `src/components/new-home/panels/tutorials/tutorialsCatalog.ts` no repo `ByPabloRuanL/lovarch` (branch novo de `origin/main`): adicionar/editar o objeto `TutLesson` na categoria certa (seguir o shape existente `{ id, title:L10n, desc:L10n, duration, level, badge?, videoUrl? }`).
+3. **Editar** `src/components/new-home/panels/tutorials/tutorialsCatalog.ts` no repo `ByPabloRuanL/lovarch` (branch novo de `origin/main`): adicionar/editar o objeto `TutLesson` na categoria certa (shape `{ id, title:L10n, desc:L10n, duration, level, badge?, videoUrl?, thumbnail? }`). Para trocar SÓ a capa: setar/editar o campo `thumbnail`. O card já cai no gradiente DS se `thumbnail` for omitido.
 4. **PR** no repo Lovarch (`gh pr create`), typecheck passa, merge → deploy Vercel.
 5. **Smoke visual** (obrigatório): abrir `app.lovarch.com/?m=tutorials` (autenticado) e confirmar o tutorial renderizando no idioma. NÃO reportar DONE sem ver.
 
@@ -48,7 +49,7 @@
 ## Exemplos
 ### Exemplo 1 — Novo tutorial "Come usare il Render Studio" na categoria studio → edita tutorialsCatalog.ts → PR → deploy → aparece em ?m=tutorials.
 ### Exemplo 2 — title só em italiano (ELICITAR os outros 3 idiomas).
-### Exemplo 3 — comercial pede (autorização: só owner/admin).
+### Exemplo 3 — "trocar a capa da aula p1" → editar só o campo `thumbnail` (URL/thumb YouTube) → PR → deploy → card mostra a imagem no lugar do gradiente.
 
 ## Notas
 - **Lovarch = plataforma SaaS**; tutoriais são de USO da plataforma (não curso). Curso/aulas = Academy ArchPrime (`create-academy-lesson`).

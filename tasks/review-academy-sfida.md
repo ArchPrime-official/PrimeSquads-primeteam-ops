@@ -1,10 +1,10 @@
 # Task: review-academy-sfida
 
-> Revisar e avaliar as consegne (submissions) das sfide/challenges da Academy via a EF `challenge-admin-bridge` (proxy autenticado owner/admin/cs → admin de challenges do Lovarch). Preenche a lacuna [ALTO]: há UI (`AdminSfideReview`) e EF, mas nenhuma task pto para listar pendências e aprovar/pedir modifiche pelo terminal.
+> Revisar e avaliar as consegne (submissions) das sfide da Academy (ArchPrime) — leitura e UPDATE **direto em `acad_submissions`** (PT). Desde A3b (2026-07-04) as sfide são 100% PrimeTeam (o `challenge-admin-bridge` → Lovarch foi aposentado). A RLS de escrita já existe (`acad_submissions_admin_upd`, migration 20261127000000).
 
 **Cumpre:** HO-TP-001 (anatomy) · **HO-TP-002 (required fields)** — ver `data/primeteam-platform-rules.md` §12.
 
-> ⚠️ A EF `challenge-admin-bridge` valida JWT do PrimeTeam + role **owner/admin/cs** e repassa ao Lovarch via shared secret. Ações relevantes: `list_submissions`, `evaluate_submission`. NÃO escrever `acad_submissions` direto.
+> ✅ **PT-nativo (A3b):** o sync de `challenge_submissions` foi desligado — `acad_submissions` é o SSoT (submissões de aluno logado E de ex-aluno por token nascem no PT). Avaliar = UPDATE direto, sem risco de reversão pelo cron. A UI `AdminSfideReview` já escreve assim.
 
 ---
 
@@ -17,7 +17,7 @@
 `pending`
 
 ### responsible_executor
-`platform-specialist` — auth **owner/admin/cs** (gate real da EF `challenge-admin-bridge`).
+`platform-specialist` — auth **owner/admin/cs** (RLS `acad_submissions_admin_upd` = staff academy).
 
 ### execution_type
 `Agent` — confirmação obrigatória ao avaliar (muda o status da consegna do aluno).
@@ -31,32 +31,32 @@
 - `feedback` (string) — comentário ao aluno (obrigatório se `changes_requested`)
 
 ### action_items
-1. **Auth** — owner/admin/cs. Demais → BLOCKED (a EF devolve 403).
-2. **`list`** — `invoke('challenge-admin-bridge', { action:'list_submissions', payload:{ challenge_id, status:'pending' } })` → renderizar pendências (`| aluno | enviado em | status |`).
+1. **Auth** — owner/admin/cs. Demais → BLOCKED (RLS nega).
+2. **`list`** — `SELECT id, mission_id, user_id, token_participant_id, status, submitted_at FROM acad_submissions WHERE challenge_id={challenge_id} AND status='pending' ORDER BY submitted_at` → renderizar pendências. (aluno logado tem `user_id`; ex-aluno tem `token_participant_id`).
 3. **`evaluate`** — ELICITAR `submission_id` + `verdict` (+ `feedback` se `changes_requested`).
    - **Confirmação:** "avaliar consegna {submission_id} como {verdict}. Feedback: {feedback}. Confirma?".
-   - `invoke('challenge-admin-bridge', { action:'evaluate_submission', payload:{ submission_id, verdict, feedback } })`.
-   - Respostas: `403` → BLOCKED; `404 submission not found` → ESCALATE; erro do Lovarch → repassar.
-4. **Verificação PÓS-AÇÃO** (obrigatória): re-`list_submissions` (ou `get`) confirmando que a submission saiu de `pending` para o `verdict` aplicado.
+   - `UPDATE acad_submissions SET status={verdict=='approved'?'approved':'changes_requested'}, admin_feedback={feedback}, evaluated_by=auth.uid(), evaluated_at=now() WHERE id={submission_id}` (via JWT do user, RLS admin).
+   - `42501` → BLOCKED (sem staff academy); 0 linhas → ESCALATE (submission inexistente).
+4. **Verificação PÓS-AÇÃO** (obrigatória): re-`SELECT status FROM acad_submissions WHERE id={submission_id}` confirmando o novo status.
 5. **Activity log**: `action='platform-specialist.review_academy_sfida'`, `details={cycle_id, operation, submission_id, verdict}`.
 
 ### acceptance_criteria
 - **[A1]** Auth owner/admin/cs.
 - **[A2]** `submission_id` e `verdict` elicitados; verdict nunca defaultado.
 - **[A3]** `feedback` obrigatório em `changes_requested`.
-- **[A4]** Via EF `challenge-admin-bridge` (nunca escrever `acad_submissions` direto).
+- **[A4]** UPDATE direto em `acad_submissions` (PT) — NÃO usa mais o bridge Lovarch.
 - **[A5]** Verificação pós-ação confirma a mudança de status.
 
 ---
 
 ## Exemplos
-### Exemplo 1 — Listar pendências (list) → tabela de consegne pending.
-### Exemplo 2 — Aprovar (evaluate/approved) → confirma → EF → status muda.
+### Exemplo 1 — Listar pendências (SELECT acad_submissions status=pending) → tabela.
+### Exemplo 2 — Aprovar (UPDATE status=approved) → confirma → status muda.
 ### Exemplo 3 — Pedir modifiche sem feedback → ELICITAR o feedback antes.
 
 ## Notas
-- Par de `list-academy-students` (ver alunos). Gestão de MISSÕES/challenges (criar/editar/publicar) usa as outras ações do mesmo bridge (`create_mission`/`update_mission`/`publish_mission`) — task futura se necessário.
-- Referências: `supabase/functions/challenge-admin-bridge` (ações), `apps/v2/src/academy/components/AdminSfideReview.tsx`.
+- Par de `list-academy-students`. CRUD de sfide/missões = `manage-academy-sfida`. Fluxo de ex-aluno (submissão por token) = EFs `challenge-token-*` PT-nativas (A3b) — gravam em `acad_submissions`.
+- Referências: `acad_submissions` (RLS `acad_submissions_admin_upd`), `apps/v2/src/academy/components/AdminSfideReview.tsx`.
 
 ---
 

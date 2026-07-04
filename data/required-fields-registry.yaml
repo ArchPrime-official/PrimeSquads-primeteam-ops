@@ -601,22 +601,22 @@ publish-academy-incontro:
   notes: "owner/admin; mentoria de grupo (Prime Pro/Elite); cria lesson + collection_item"
 
 review-academy-sfida:
-  table: "acad_submissions (via challenge-admin-bridge EF)"
+  table: acad_submissions
   writes: update
   required:
-    - {field: submission_id, source: "business: consegna a avaliar (EF evaluate_submission)"}
+    - {field: submission_id, source: "business: consegna a avaliar"}
     - {field: verdict, source: "business: approved|changes_requested — nunca defaultar"}
   forbidden_defaults: [verdict]
-  notes: "owner/admin/cs; via challenge-admin-bridge (não escreve acad_submissions direto)"
+  notes: "owner/admin/cs; UPDATE direto acad_submissions (RLS acad_submissions_admin_upd). A3b: sfide 100% PT, sem bridge"
 
 manage-academy-sfida:
-  table: "acad_challenges / acad_missions (via challenge-admin-bridge)"
+  table: "acad_challenges / acad_missions"
   writes: insert
   required:
     - {field: title, source: "business: título da sfida/missão — sempre elicitar"}
     - {field: challenge_id, source: "business: a qual desafio (missão) — elicitar"}
   forbidden_defaults: [title]
-  notes: "owner/admin/cs; CRUD de sfide/missões via bridge (campos PT-owned direto). RLS migration 20270704140000"
+  notes: "owner/admin; escrita DIRETA acad_challenges/acad_missions (RLS 20270704140000). A3b: sem bridge"
 
 manage-lovarch-tutorial:
   table: "Lovarch tutorialsCatalog.ts (runbook — PR de código)"

@@ -609,6 +609,15 @@ review-academy-sfida:
   forbidden_defaults: [verdict]
   notes: "owner/admin/cs; via challenge-admin-bridge (não escreve acad_submissions direto)"
 
+manage-academy-sfida:
+  table: "acad_challenges / acad_missions (via challenge-admin-bridge)"
+  writes: insert
+  required:
+    - {field: title, source: "business: título da sfida/missão — sempre elicitar"}
+    - {field: challenge_id, source: "business: a qual desafio (missão) — elicitar"}
+  forbidden_defaults: [title]
+  notes: "owner/admin/cs; CRUD de sfide/missões via bridge (campos PT-owned direto). RLS migration 20270704140000"
+
 manage-lovarch-access:
   table: "Lovarch (via archprime-access-proxy EF)"
   writes: update

@@ -618,6 +618,15 @@ manage-academy-sfida:
   forbidden_defaults: [title]
   notes: "owner/admin/cs; CRUD de sfide/missões via bridge (campos PT-owned direto). RLS migration 20270704140000"
 
+manage-lovarch-tutorial:
+  table: "Lovarch tutorialsCatalog.ts (runbook — PR de código)"
+  writes: update
+  required:
+    - {field: category_id, source: "business: a qual categoria (primi/ai/studio/business)"}
+    - {field: title, source: "business: título l10n it/en/pt/es — nunca defaultar idioma"}
+  forbidden_defaults: [title]
+  notes: "owner/admin; runbook (edita o catálogo hardcoded via PR no repo Lovarch). B2b = DB-driven"
+
 manage-lovarch-user:
   table: "Lovarch profiles (via ops-gateway Fase 2)"
   writes: update

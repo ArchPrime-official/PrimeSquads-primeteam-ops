@@ -3,7 +3,7 @@
 > Casos de teste manuais a serem executados no primeiro uso de cada task crítica antes de operação livre. Foco em authorization, compliance, e mutations destrutivas.
 
 **Mantido por:** quality-guardian
-**Última atualização:** 2026-07-02 (alinhado à regra de smoke test do dono, 2026-06-13)
+**Última atualização:** 2026-07-04 (add 6 tasks de identidade/acesso: create-user, grant-role, reactivate-user, manage-academy-access, review-academy-sfida, manage-lovarch-access)
 
 > ⛔ **Regra do dono (2026-06-13, vale para SEMPRE):** smoke test = **ver o resultado final REAL como o usuário vê/usa** — Playwright autenticado abrindo a tela/dado exato, OU query REST/RPC/SQL real confirmando o número/comportamento. Build/lint/tsc passar é pré-requisito, **não** é smoke test. **Após deploy, re-testar em PRODUÇÃO** (o usuário olha produção). Se não estiver 100% como pedido, **corrigir e re-testar em loop** até estar certo. Nenhuma task/mudança está isenta.
 
@@ -112,6 +112,50 @@ Cada test case roda contra o **resultado real**: Playwright autenticado (login a
 4. ✅ **Cascade reassign:** com flag + reassign_to_user_id, leads/opps/tasks reatribuídos
 5. ✅ **Tripla "DEACTIVATE USER":** uppercase
 6. ✅ **Reversible:** subsequent reactivate-user restaura state
+
+### create-user
+**Test cases:**
+1. ✅ **Auth-gate:** não-admin/owner tenta criar → `BLOCKED`
+2. ✅ **Role inicial válida:** criar com role fora da hierarquia → `ESCALATE`
+3. ✅ **Duplicidade:** e-mail já existente → não cria fantasma; retorna existente
+4. ✅ **Audit STRICT:** simular log failure → rollback da criação
+5. ✅ **Smoke real:** após criar, confirmar via REST que o usuário existe com a role certa
+
+### grant-role
+**Test cases:**
+1. ✅ **Auth-gate:** só admin/owner concede
+2. ✅ **Owner escalation:** conceder `owner` → tripla confirmação literal
+3. ✅ **Idempotência:** role já presente → no-op, não duplica
+4. ✅ **Audit STRICT:** log failure → mutation não persiste
+5. ✅ **Smoke real:** REST confirma a role no perfil após conceder
+
+### reactivate-user
+**Test cases:**
+1. ✅ **Auth-gate:** só admin/owner reativa
+2. ✅ **Corrige fantasma/drift:** usuário inativo com estado inconsistente → reativa e reconcilia
+3. ✅ **Não sobre-escreve:** assignments/roles restaurados, não zerados
+4. ✅ **Smoke real:** REST confirma `active=true` + roles restauradas
+
+### manage-academy-access
+**Test cases:**
+1. ✅ **Auth-gate:** só admin/owner altera acesso pago
+2. ✅ **Grant/revoke reais:** conceder e revogar entitlement → REST confirma o estado
+3. ✅ **Sync one-way:** não corromper o banco Academy (SSoT `acad_*`)
+4. ✅ **Audit STRICT:** log failure → rollback
+
+### review-academy-sfida
+**Test cases:**
+1. ✅ **Auth-gate:** só reviewer autorizado
+2. ✅ **Aprovar/rejeitar:** transição de estado da consegna → REST confirma
+3. ✅ **Feedback obrigatório:** rejeição sem feedback → `BLOCKED`
+4. ✅ **Smoke real:** ver o resultado na tela do aluno (estado + feedback)
+
+### manage-lovarch-access
+**Test cases:**
+1. ✅ **Dependência externa:** escrita depende do `ops-gateway` Lovarch — se ausente, `BLOCKED` honesto (Fase 2)
+2. ✅ **Banco SEPARADO:** confirmar que opera no projeto Lovarch, não no PrimeTeam
+3. ✅ **Grant/revoke:** quando disponível, REST do projeto Lovarch confirma o acesso
+4. ✅ **Audit STRICT:** log failure → rollback
 
 ---
 

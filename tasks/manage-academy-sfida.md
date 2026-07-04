@@ -1,10 +1,10 @@
 # Task: manage-academy-sfida
 
-> Criar/editar/publicar SFIDE e MISSÕES da Academy (ArchPrime) — `acad_challenges` + `acad_missions`. Gestão do time. Hoje o caminho vivo é a EF `challenge-admin-bridge` (CRUD de challenges/missions, já em produção); com a RLS de escrita (migration `20270704140000`) a escrita direta em `acad_*` também é possível para os campos PT-owned.
+> Criar/editar/publicar SFIDE e MISSÕES da Academy (ArchPrime) — `acad_challenges` + `acad_missions`, **escrita DIRETA no PT** (RLS `is_admin_or_owner`, migration `20270704140000`). Desde A3b (2026-07-04) as sfide são 100% PrimeTeam.
 
 **Cumpre:** HO-TP-001 (anatomy) · **HO-TP-002 (required fields)** — ver `data/primeteam-platform-rules.md` §12.
 
-> ⚠️ **Transição em curso (A3):** challenges/missions ainda sincronizam do Lovarch (o fluxo de ex-aluno por token submete lá). Por isso, para campos que o sync AINDA espelha, autorar via `challenge-admin-bridge` (grava no Lovarch, volta pelo sync) evita reversão. Título/subtítulo/banner de `acad_challenges` já são PT-owned (fora da whitelist do sync) → editáveis direto no PT. O fluxo ex-aluno 100% PT é a sub-fase A3b.
+> ✅ **PT-nativo (A3b):** o sync de `challenges`/`challenge_missions` foi DESLIGADO — `acad_challenges`/`acad_missions` são o SSoT. Escrita direta não é mais revertida pelo cron. O `challenge-admin-bridge` (→ Lovarch) foi aposentado.
 
 ---
 
@@ -17,7 +17,7 @@
 `pending`
 
 ### responsible_executor
-`platform-specialist` — auth **owner/admin/cs** (gate do `challenge-admin-bridge`).
+`platform-specialist` — auth **owner/admin** (RLS de escrita `is_admin_or_owner` em acad_challenges/acad_missions).
 
 ### execution_type
 `Agent` — confirmação (muda o desafio visto pelo aluno).
@@ -32,36 +32,35 @@
 - campos por entity: challenge (`description`, `registration_*`/`challenge_*_date`, `access_products`, `rules`); mission (`instructions`, `order_index`, `submission_deadline`, `submission_types`, `materials`)
 
 ### action_items
-1. **Auth** — owner/admin/cs. Demais → BLOCKED (a EF devolve 403).
+1. **Auth** — owner/admin (RLS `is_admin_or_owner`). Demais → BLOCKED (42501).
 2. **Elicitar** `title` (create) + `challenge_id` (mission). Nunca defaultar.
 3. **Confirmação** (echo dos valores).
-4. **Write via `challenge-admin-bridge`** (caminho vivo, grava no Lovarch e volta pelo sync):
-   ```
-   invoke('challenge-admin-bridge', { action: 'create_mission'|'update_mission'|'publish_mission'|'update_challenge', payload: {...} })
-   ```
-   `403` → BLOCKED; erro do Lovarch → repassar.
-   - **Campos PT-owned** (`acad_challenges.title/subtitle/banner_url`): podem ser UPDATE direto em `acad_challenges` (RLS `is_admin_or_owner`) — não voltam pelo sync.
-5. **Verificação PÓS-AÇÃO** (obrigatória): re-`get_challenge`/`list_missions` (ou `SELECT` para campos PT-owned) confirmando + smoke visual na aba Sfide do portal.
+4. **Write DIRETO no PT** (JWT do user, RLS `is_admin_or_owner` — migration 20270704140000):
+   - challenge: `INSERT/UPDATE acad_challenges (title, subtitle, description, banner_url, registration_*/challenge_*_date, access_products, rules, is_active)`.
+   - mission: `INSERT/UPDATE acad_missions (challenge_id, title, description, instructions, order_index, release_date, submission_deadline, submission_types, materials, video_url, status)`.
+   - `id` gerado no cliente se `acad_missions.id`/`acad_challenges.id` não tiver default (mesma nota das outras tasks de conteúdo).
+   `42501` → BLOCKED.
+5. **Verificação PÓS-AÇÃO** (obrigatória): re-`SELECT` do challenge/mission + smoke visual na aba Sfide do portal.
 6. **Activity log**: `action='platform-specialist.manage_academy_sfida'`, `details={cycle_id, entity, operation, challenge_id/mission_id}`.
 
 ### acceptance_criteria
 - **[A1]** Auth owner/admin/cs.
 - **[A2]** `title`/`challenge_id` elicitados; nada defaultado.
-- **[A3]** Via `challenge-admin-bridge` (ou UPDATE direto em campos PT-owned).
+- **[A3]** Escrita DIRETA em `acad_challenges`/`acad_missions` (PT, RLS is_admin_or_owner) — não usa mais o bridge Lovarch.
 - **[A4]** Verificação pós-ação + smoke visual.
 - **[A5]** Colunas reais (`acad_challenges`/`acad_missions`).
 
 ---
 
 ## Exemplos
-### Exemplo 1 — Nova missão num desafio (create_mission via bridge) → aparece na aba Sfide.
-### Exemplo 2 — Editar título da sfida (UPDATE direto acad_challenges.title, PT-owned).
+### Exemplo 1 — Nova missão num desafio (INSERT acad_missions) → aparece na aba Sfide.
+### Exemplo 2 — Editar título da sfida (UPDATE acad_challenges.title).
 ### Exemplo 3 — Sem challenge_id numa missão (ELICITAR).
 
 ## Notas
-- **Avaliar consegne** = `review-academy-sfida` (par desta). **Fluxo ex-aluno por token** (submissão) = runtime do produto (challenge-token-*), sub-fase A3b (migração PT-nativa com cuidado a usuário ativo).
-- Academy = ArchPrime; sfide NÃO ficam mais na superfície do app Lovarch (trilha B4).
-- Referências: `supabase/functions/challenge-admin-bridge`, migration `20270704140000`, `types.ts` (`acad_challenges/acad_missions`).
+- **Avaliar consegne** = `review-academy-sfida` (par desta). **Fluxo ex-aluno por token** (submissão) = EFs `challenge-token-*` PT-nativas (A3b) — gravam em `acad_submissions` (bucket `academy-submissions`).
+- Academy = ArchPrime; sfide 100% PT (A3b) e fora da superfície do app Lovarch (B4).
+- Referências: migration `20270704140000` (RLS escrita), `types.ts` (`acad_challenges/acad_missions`).
 
 ---
 

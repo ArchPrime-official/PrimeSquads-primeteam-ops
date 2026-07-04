@@ -63,10 +63,14 @@ Se o token estiver expirado (`401 invalid_token`), rode `pto refresh` (ou `pto l
   `ops_audit_log`. Tasks pto: `list-lovarch-students` (read) e `manage-lovarch-user` (suspend/
   reactivate/set_plan). **Acesso/entitlement** (dar/tirar produto) NÃO passa pelo gateway — usa
   `archprime-access-proxy` (task `manage-lovarch-access`).
-- **Fase 2b (PENDENTE):** `adjust_credits` e `respond_ticket` — ficam nas EFs admin dedicadas do
-  Lovarch (`admin-adjust-credits`, `manage-user-thread`) por causa da lógica sensível de
-  paid_credits/thread. Exigem expor essas EFs ao gateway ou modo shared-secret — trabalho no repo
-  Lovarch (@devops/Pablo).
+- **Fase 2b (NO AR desde 2026-07-04):** `adjust_credits` (add/remove/refund — `credit_transactions`
+  + `ai_credits`, replicando `admin-adjust-credits`) e `respond_ticket` (`feedback_messages`
+  `is_admin=true`) — write owner/admin, auditadas. Tasks pto: `adjust-lovarch-credits`,
+  `respond-lovarch-ticket`. Smoke live: add+remove net-zero num user interno = saldo volta ao original.
+
+**Todas as `operation`s do gateway (2026-07-04):** whoami · lookup_user · user_tickets · recent_errors
+· list_users · user_progress (read) · update_user_status · set_user_plan · adjust_credits ·
+respond_ticket (write, owner/admin).
 
 ### Contrato Fase 2 — `operation`s de escrita a implementar no `ops-gateway`
 

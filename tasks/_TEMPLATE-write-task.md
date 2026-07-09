@@ -44,7 +44,12 @@
    ENABLE após (nunca `DISABLE TRIGGER USER`). Ver `checklists/finance-triggers-hazard.md`.
 5. **Confirmação** (echo dos valores, incl. empresa) — literal uppercase se destrutivo/bulk.
 6. **Write** (INSERT/UPDATE) via JWT do user (RLS).
-7. **Verificação PÓS-AÇÃO** (obrigatória): re-query confirmando o efeito (contagem/valor mudou).
+7. **Verificação PÓS-AÇÃO — smoke de DADOS** (obrigatória): re-query REST/RPC/SQL real confirmando o
+   efeito (contagem/valor mudou), com termo-controle (que existe) + termo-impossível.
+7b. **Verificação PÓS-AÇÃO — smoke VISUAL** (obrigatória se o efeito aparece em alguma TELA): Playwright
+   autenticado (login autônomo via sessão do Chrome — `~/.claude/rules/playwright-login-autonomo.md`) na
+   rota EXATA em PRODUÇÃO (primeteam.archprime.io/...), assertando o elemento/coluna/valor pedido — não
+   só "abriu". Se ≠100% → corrigir e re-testar em LOOP. Anexar screenshot como evidência.
 8. **Activity log**: `action='<agent>.<verb>'`, `cycle_id`, `details` com diff (sem PII/token).
 
 ### acceptance_criteria
@@ -52,7 +57,8 @@
 - **[A2]** TODOS os campos obrigatórios do registry elicitados (nenhum default silencioso).
 - **[A3]** Empresa/`brand` explícita (se a tabela tem empresa).
 - **[A4]** Hazard triggers desabilitados pelo nome (se aplicável).
-- **[A5]** Verificação pós-ação (re-query) confirma o efeito.
+- **[A5]** Smoke de DADOS (re-query real) confirma o efeito — com evidência (resultado colado).
+- **[A5b]** Smoke VISUAL Playwright em produção na tela onde o efeito aparece (se há UI) — screenshot anexado.
 - **[A6]** Nenhuma coluna/tabela fantasma (bate com types.ts).
 
 ---

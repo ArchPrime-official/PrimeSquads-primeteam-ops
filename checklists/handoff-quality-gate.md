@@ -78,16 +78,16 @@ Verifica conformidade com convenções da plataforma PrimeTeam. Checa especifica
 
 | # | Check | Regra | Pass? |
 |---|-------|-------|-------|
-| 3.2.1 | **Imports `@/` alias** | Nenhum import relativo dentro de `src/` | [ ] |
-| 3.2.2 | **Supabase client oficial** | `from '@/integrations/supabase/client'` (não `createClient` solto) | [ ] |
+| 3.2.1 | **Imports no estilo do vizinho** | @/ e relativo AMBOS válidos; a v2 usa relativo PREDOMINANTE (~1225 vs ~104) — siga o arquivo/pasta vizinho, NÃO force @/ | [ ] |
+| 3.2.2 | **Supabase client oficial** | importa o `supabase` de `integrations/supabase/client` (não `createClient` solto) | [ ] |
 | 3.2.3 | **Sem URLs hardcoded** | Supabase URL via `import.meta.env.VITE_SUPABASE_URL` | [ ] |
-| 3.2.4 | **Forms com react-hook-form + zod** | Se formulário novo: usa pattern completo | [ ] |
+| 3.2.4 | **Forms no estilo do vizinho** | A v2 é Field-pattern MANUAL (RHF+zod minoritário, ~12 arq) — siga o form vizinho, não force RHF | [ ] |
 
 ### 3.3 UI / Design System (HIGH — bloqueia)
 
 | # | Check | Regra | Pass? |
 |---|-------|-------|-------|
-| 3.3.1 | **shadcn/ui base** | Componentes novos seguem padrão shadcn (ui primitives) | [ ] |
+| 3.3.1 | **Primitivos próprios (NÃO shadcn)** | Componentes novos usam os primitivos da v2 (Modal, EmptyState, DataTable em `apps/v2/src/components/ui/`) — a v2 NÃO usa shadcn/ui | [ ] |
 | 3.3.2 | **ArchPrime DS tokens** | Cores via tokens (`--gold`, `--bg`, etc.), não hex fixos | [ ] |
 | 3.3.3 | **Mobile-first** | Testado em viewport 375px ou justificativa (desktop-only flag) | [ ] |
 

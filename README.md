@@ -283,7 +283,7 @@ Concluída — RLS em 5 tabelas + `verify_jwt` em 2 edge functions (PR #951/#952
 Scaffold, config, central rules, handoff infra, ops-chief + auth-specialist.
 
 ### ✅ Fase 2 — Operational MVP (v1.1.0)
-17 sprints mergeados. 10 agents, 7 workflows, 12 tasks HO-TP-001, CLI PKCE, 4 boundaries externas (Calendar, Revolut, Meta, Phone), activity logging integrado.
+17 sprints mergeados. Agents/workflows/tasks HO-TP-001, CLI PKCE, boundaries externas (Calendar, Revolut, Meta, Phone), activity logging integrado. (Contagens NÃO hardcoded — apodrecem; conferir ao vivo em `agents/`, `workflows/`, `tasks/`.)
 
 ### ✅ Fase 3 — CLI para humanos (v1.2.0)
 Setup wizard, i18n 3 idiomas (PT-BR + IT + EN), copy humanizada, session hygiene hook, onboarding guiado, bin `pto` global.
@@ -295,7 +295,7 @@ Setup wizard, i18n 3 idiomas (PT-BR + IT + EN), copy humanizada, session hygiene
 - Wave 7 ✅ — 13 tasks UI-vs-CLI gaps (operações diárias)
 - Wave 8 ✅ — 24 tasks Tier 2+3 backlog completo
 
-**Resultado:** 16 → 80 tasks. ~30% → ~100% UI coverage. Authorization model enforced em cada task com hierarchy + workflows formais (F-08.3 + FR5) + compliance (LGPD/GDPR opt-out, HMRC won+invoice protection, last-owner/admin protection).
+**Resultado:** cobertura de UI de ~30% → ~100% (contagem de tasks conferida ao vivo em `tasks/`, não hardcoded). Authorization model enforced em cada task com hierarchy + workflows formais (F-08.3 + FR5) + compliance (LGPD/GDPR opt-out, HMRC won+invoice protection, last-owner/admin protection).
 
 **Skip legítimo permanente:** Chat AI (UI cobre) + aArchPrime (estático).
 

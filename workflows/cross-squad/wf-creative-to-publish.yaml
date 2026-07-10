@@ -204,11 +204,13 @@ phases:
       - "  - video → INSERT em ugc_videos + upload .mp4 Storage"
       - "  - immagine → INSERT em content_items (type='image') + upload Storage"
       - "  - marketing_studio → INSERT em content_items (type='ad_creative') + upload Storage"
+      - "REGISTRAR NO ARCHIVIO (nomenclatura, desde 2026-07-10): chamar RPC next_content_code(company_id) para gerar o código sequencial por empresa (ARC/LOV-NNNN), INSERT em content_registry (code+nomenclatura+channel+format+angle+ig_post_id se IG) e upload dos materiais de origem no bucket content-archive. Se o conteúdo for publicado como ig_post, o trigger ig_post_autoregister já cria o registro — nesse caso apenas anexar os materiais. Padrão de nomenclatura: {ARC|LOV}-{NNNN}_{CANAL}-{FORMATO}_{ANGOLO}-{tema}."
       - "Use signed URLs (24h validity) ou public URLs based on visibility."
       - "Update creative_api_usage table (canônica de custo AI) com cost from creative-studio metadata."
       - "Activity log: action='content-builder.publish_creative', sub_squad=null (internal), cycle_id, cross_squad=true."
     outputs:
       - published_id (uuid da row criada)
+      - content_code (código de nomenclatura ARC/LOV-NNNN registrado no Archivio)
       - published_url (public ou signed)
       - storage_path
     quality_gate: QG-OPS-004

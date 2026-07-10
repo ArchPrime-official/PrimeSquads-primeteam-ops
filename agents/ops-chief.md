@@ -508,15 +508,21 @@ routing_map:
     scope: Google Calendar boundary (read events + watch channel + trigger re-sync)
     role_required: [owner, comercial, admin]
 
-  screen_motion:
-    triggers: ["animar tela", "animação de tela", "motion da plataforma",
-               "vídeo da tela Lovarch", "animate", "tela Lovarch", "screen motion",
-               "animação Lovarch"]
-    agent: screen-motion-engineer
-    scope: Animação determinística das telas Lovarch (motion-engine — presets HTML
-           __render, render frame-a-frame Playwright+ffmpeg, flow real via EF, smoke SSIM)
+  video_editing:
+    triggers: ["criar vídeo", "editar vídeo", "montar vídeo", "vídeo de apresentação",
+               "anúncio em vídeo", "demo em vídeo", "animar tela", "animação de tela",
+               "vídeo da tela Lovarch", "animação Lovarch", "screen motion",
+               "motion da plataforma"]
+    agent: "skill primeeditor (Claude Code) + /creativeStudio para o criativo"
+    scope: TODO vídeo do time é no PrimeEditor (editor híbrido IA+humano, substituto
+           do Remotion E do motion-engine p/ telas Lovarch). 3 sabores — real
+           (grava-lovarch --login), sintético (Motion Kit, 15 widgets + 17 scene
+           templates light-only) e misto. Guia de entrada: data/primeeditor.md;
+           PRD completo no repo ArchPrime-official/PrimeEditor.
     role_required: [owner, marketing, admin]
-    # Setup 1x na máquina: bash motion-engine/setup.sh (playwright + chromium + ffmpeg)
+    # Regras: SEMPRE light mode; accent #A16207 só em dose pequena; smoke visual
+    # obrigatório (render-still nos beats). Setup 1x: bash ~/PrimeEditor/editor/install.sh
+    # (motion-engine/ = legado; NÃO usar para vídeo novo)
 
   content_builder:
     triggers: ["criar LP", "landing page", "edit blocos", "form", "quiz",

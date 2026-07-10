@@ -5,6 +5,12 @@
 > Remotion. Local, gratuito, sem API paga. Este é o doc de ENTRADA; o guia
 > completo vive no repo do editor.
 
+## Onboarding completo (instalação + acesso ao sync)
+
+Guia passo-a-passo p/ qualquer pessoa do zero ao primeiro material compartilhado:
+**`~/PrimeEditor/editor/docs/ONBOARDING-TIME.md`** (instalação + `pto login` +
+role marketing + fluxo push/pull + vitrine /materiali).
+
 ## Instalar (1x por máquina)
 
 ```bash

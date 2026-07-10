@@ -77,3 +77,12 @@ nome/mês/status, links do brief, render final) SEM abrir o editor.
 **Onde está o material X?** → vitrine `/materiali` (ou `material list`). O brief
 de cada material (`brief.md` / verbo `brief`) tem o pedido, os links e as
 decisões — é a memória do material.
+
+## Logar como persona Lovarch (personas PrimeVoices) — 2026-07-10
+
+Os 7 PrimeVoices têm conta na plataforma Lovarch. Qualquer usuário do PrimeTeam
+loga como qualquer um deles via a Edge Function `lovarch-persona-login` (ou
+`grava-lovarch --persona <slug>`): a senha fica no secret `LOVARCH_PERSONAS`,
+o login é server-side, **ninguém manuseia senha crua**. Só precisa da sessão pto.
+Regra: `PrimeTeam/.claude/rules/lovarch-personas-login.md` · memória
+`lovarch-personas-login-ef`.

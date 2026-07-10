@@ -508,6 +508,14 @@ routing_map:
     scope: Google Calendar boundary (read events + watch channel + trigger re-sync)
     role_required: [owner, comercial, admin]
 
+  find_material:
+    triggers: ["onde está o material", "cadê o vídeo", "achar material", "material X",
+               "render final de", "vitrine de materiais"]
+    agent: "vitrine /materiali (primeteam.archprime.io) ou `material list` no editor"
+    scope: Todo vídeo = 1 material = 1 pasta (brief+timeline+arquivos+render),
+           sincronizado no registry creative_materials. Buscar por nome/mês/status.
+    role_required: [owner, marketing, admin]
+
   video_editing:
     triggers: ["criar vídeo", "editar vídeo", "montar vídeo", "vídeo de apresentação",
                "anúncio em vídeo", "demo em vídeo", "animar tela", "animação de tela",

@@ -51,3 +51,23 @@ Pedido de vídeo → ativar skill `primeeditor` + task do squad dono:
 - Aula/CPL → checklist `cpl-studio/checklists/montagem-smoke-checklist.md`
   (+ `scripts/compose-aula.mjs` no editor)
 - Vídeo p/ Meta Ads → criativo SEMPRE em 2 versões CTA (clique + comenta)
+
+## Materiais = pasta (organização + sync do time) — 2026-07-10
+
+Cada vídeo é 1 MATERIAL = 1 PASTA (`projects/<id>/`: timeline, biblioteca,
+`brief.md` com o pedido/links/decisões, `uploads/`, `renders/`). Nada de vala
+comum — tudo do material fica junto e achável.
+
+**Sync remoto (editor é local em cada máquina):**
+```bash
+node scripts/material.mjs push [--id X]   # sobe a pasta ao bucket + registry
+node scripts/material.mjs pull <id>        # baixa noutra máquina
+node scripts/material.mjs list             # o que existe
+```
+Auth = sessão pto individual (auditável). **Vitrine**:
+`primeteam.archprime.io/materiali` — qualquer um do time acha um material (busca
+nome/mês/status, links do brief, render final) SEM abrir o editor.
+
+**Onde está o material X?** → vitrine `/materiali` (ou `material list`). O brief
+de cada material (`brief.md` / verbo `brief`) tem o pedido, os links e as
+decisões — é a memória do material.

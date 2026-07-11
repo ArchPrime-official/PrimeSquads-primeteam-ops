@@ -681,12 +681,19 @@ routing_map:
 
   editorial:
     triggers: ["post editorial", "calendário editorial", "criar post", "publicação social",
-               "conteúdo IG", "conteúdo Instagram", "calendario editoriale"]
+               "conteúdo IG", "conteúdo Instagram", "calendario editoriale",
+               "agendar post", "programmare post", "publicar no instagram", "postar no IG",
+               "registrar no archivio", "content_code", "nomenclatura de conteúdo"]
     agent: content-builder
     task: create-editorial-post
-    scope: Criação de posts no calendário editorial
+    scope: >
+      Criação de posts no calendário editorial. PUBLICAÇÃO/AGENDAMENTO REAL na
+      plataforma segue o PROCESSO CANÔNICO (data/content-archivio-reference.md):
+      renomeador (content_code via trigger/RPC) → arquivo (content-archive) →
+      programação (ig_posts scheduled). Ciclos nascidos no creative-studio publicam
+      via @content-publisher daquele squad (wf-publish-to-platform).
     role_required: [owner, admin, marketing]
-    # Atualizado 2026-06-12 (Wave 6-8 routing)
+    # Atualizado 2026-07-11 (processo canônico de publicação + Archivio)
 
   audit:
     triggers: ["auditar", "validar", "handoff quality gate", "cycle review"]
@@ -1381,7 +1388,9 @@ sub_chief_routing:
       - "qc_verdict (PASS/CONCERNS/FAIL)"
       - "Cycle ID echo"
     next_step_after_return:
-      - "Se qc_verdict=PASS: route a @content-builder para publish na plataforma"
+      - "Se qc_verdict=PASS e o ciclo NASCEU no creative-studio: o próprio @creative-chief roteia ao @content-publisher (fase 13 do pipeline dele, wf-publish-to-platform) — a publicação volta pronta (content_code + status + horário). Não duplicar o publish aqui."
+      - "Se qc_verdict=PASS e o publish é responsabilidade do primeteam-ops: route a @content-builder seguindo o PROCESSO CANÔNICO (data/content-archivio-reference.md): post IG = INSERT ig_posts (trigger dá o content_code — NUNCA next_content_code antes); não-IG = next_content_code + content_registry; materiais → bucket content-archive; verificação por SELECT antes de reportar"
+      - "Se o conteúdo for distribuído como AD depois: entregar o content_code ao squad meta-ads com a regra 'código DENTRO do ad_name' (liga orgânico↔pago no Archivio)"
       - "Se qc_verdict=CONCERNS: report ao user, decidir junto"
       - "Se qc_verdict=FAIL: send back para creative-chief com feedback"
 

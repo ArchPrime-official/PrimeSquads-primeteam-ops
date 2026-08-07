@@ -83,7 +83,7 @@
     - **401** → BLOCKED (JWT do usuário ausente/expirado; refazer login).
     - **400** → ESCALATE (faltou `number` ou `text` no corpo — bug de payload).
     - **500** → a EF lançou exceção (falha de rede/UAZAPI). Retry 1x → ESCALATE.
-    - **200 com `data.error`** (ou `status='failed'`): a UAZAPI recusou o envio (instância desconectada / número inválido / sessão caiu). ESCALATE sugerindo checar status da instância (`whatsapp-session` / QR via `whatsapp-qr`).
+    - **200 com `data.error`** (ou `status='failed'`): a UAZAPI recusou o envio (instância desconectada / número inválido / sessão caiu). ESCALATE sugerindo checar o status da sessão (`wa-qr-status`) e, se ela caiu de vez, re-parear a MESMA sessão pelo `/whatsapp` (`wa-qr-connect`) — nunca criar instância nova.
     > Não existem erros 429/470/"token Meta expirou" aqui — isso era resquício do modelo Meta Graph. Falha de auth de sessão = instância UAZAPI desconectada, resolvida por reconexão (QR), não por renovar token Meta.
 12. **Activity log:** `action='integration-specialist.send_whatsapp_message'`, details com phone (mascarado últimos 4 dígitos), lead_id, message_id.
 13. **Echo:**
@@ -119,7 +119,7 @@
 
 **Input:** send válido, mas a EF retorna `200 { success:true, data:{ error: ... } }` / `status='failed'`.
 
-**Specialist:** ESCALATE — "A sessão WhatsApp (UAZAPI) parece desconectada. Reconecte a instância principal (QR via `whatsapp-qr` / status via `whatsapp-session`) e tente de novo."
+**Specialist:** ESCALATE — "A sessão WhatsApp parece desconectada. Confira o status em `wa-qr-status` e re-pareie a MESMA sessão pelo `/whatsapp` (`wa-qr-connect`, que preserva o `session_name`) antes de tentar de novo."
 
 ### Exemplo 3 — financeiro tenta send → BLOCKED
 

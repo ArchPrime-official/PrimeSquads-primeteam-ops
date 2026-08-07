@@ -77,7 +77,7 @@
 | Status | ✅ Ativo |
 
 **Edge Functions (6):**
-- `whatsapp-gateway`, `whatsapp-qr`, `whatsapp-secret`, `whatsapp-session`, `whatsapp-send`, `whatsapp-webhook`
+- `whatsapp-gateway`, `whatsapp-send`, `whatsapp-webhook` (legado UAZAPI) · PrimeWa/WAHA (atual): `wa-qr-connect`, `wa-qr-status`, `wa-qr-instances`, `wa-qr-send`, `wa-qr-send-media`, `wa-qr-schedule`
 
 **Para squad:** agent futuro (integration-specialist) para envio programado.
 

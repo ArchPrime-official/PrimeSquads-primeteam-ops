@@ -532,6 +532,19 @@ routing_map:
     # obrigatório (render-still nos beats). Setup 1x: bash ~/PrimeEditor/editor/install.sh
     # (motion-engine/ = legado; NÃO usar para vídeo novo)
 
+  motion_graphics_conteudo:
+    triggers: ["motion graphics", "reel de motion", "animar telas", "telas-pôster", "pôster animado",
+               "vídeo do Piano 300", "motion editorial", "vídeo editorial ArchPrime", "reel VOC",
+               "animação com locução", "motion graphics com a voz"]
+    agent: "/creativeStudio → @creative-chief → @motion-designer (método Editoriale: *telas → aprovação do Pablo → *animar)"
+    scope: Vídeo de CONTEÚDO orgânico ArchPrime (Piano 300). Telas-pôster paradas aprovadas ANTES de
+           animar; dentro da tela nada sai (só entradas sincronizadas à voz); crossfade só na troca de tela;
+           DS Editoriale (navy #081828 · creme · ouro só pontuação · Anton + Playfair itálico).
+           SSOT: creative-studio/data/motion-editoriale/METODO.md. Skill Claude Code: `motion-editoriale`.
+    role_required: [owner, marketing, admin]
+    # Aprovado pelo Pablo em 23/09/2026 (reel v4: «agora gostei, quero assim»). NÃO é o PrimeEditor
+    # (esse é promo/demo de produto — video_editing acima); NÃO é IA generativa de vídeo.
+
   content_builder:
     triggers: ["criar LP", "landing page", "edit blocos", "form", "quiz",
                "add block", "publicar LP"]
@@ -1371,6 +1384,7 @@ sub_chief_routing:
     when:
       - "criar carosello" / "carousel" / "carosello instagram"
       - "criar video AI" / "gerar video" / "criar reel"
+      - "motion graphics" / "reel de motion" / "animar telas" / "vídeo do Piano 300" / "motion editorial" → @motion-designer (Método Editoriale: *telas → aprovação → *animar)
       - "criar immagine" / "criar poster" / "single image"
       - "marketing studio" / "commercial Higgsfield" / "no people ad"
       - "podcast clip simulato" / "podcast com Marco e Alessandro"

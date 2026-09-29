@@ -1143,8 +1143,10 @@ playbooks:
       FROM telephony_calls WHERE id = {uuid};
     note: >
       Sentiment / key_points são extraídos por edge function post-call
-      (via Whisper transcription + GPT analysis). Specialist NÃO
-      re-analyze, só lê cache.
+      (transcrição STT + GPT analysis). Specialist NÃO
+      re-analyze, só lê cache. STT novo = ElevenLabs Scribe v2 via fal
+      (`fal-ai/elevenlabs/speech-to-text/scribe-v2`, pelo ai-gateway);
+      NUNCA Whisper (regra do Pablo, 29/09/2026).
 
   list_failed_calls:
     description: Calls com status='failed' — diagnosticar padrões.

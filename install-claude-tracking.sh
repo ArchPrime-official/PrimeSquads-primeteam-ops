@@ -5,8 +5,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/ArchPrime-official/PrimeSquads-primeteam-ops/main/install-claude-tracking.sh | bash
 #
 # What it does:
-#   1. Asks (or detects via git) your company email
-#   2. Calls enroll-claude-tracking edge function → gets HMAC token + endpoint
+#   1. Uses your PrimeTeam login (pto session, ~/.primeteam/session.json) as identity
+#   2. Calls enroll-claude-tracking with that JWT → gets the HMAC token for YOUR email only
 #   3. Saves config at ~/.claude/.archprime-config.json
 #   4. Downloads hook to ~/.claude/hooks/log-claude-activity.cjs
 #   5. Wires hook into ~/.claude/settings.json (UserPromptSubmit/PostToolUse/SessionStart/Stop)
@@ -38,40 +38,30 @@ command -v node >/dev/null 2>&1 || { err "Node.js não encontrado. Instale Node 
 command -v curl >/dev/null 2>&1 || { err "curl não encontrado."; exit 1; }
 mkdir -p "$HOOK_DIR"
 
-# 2. Resolve email
-EMAIL="${ARCHPRIME_EMAIL:-}"
-if [ -z "$EMAIL" ]; then
-  GIT_EMAIL="$(git config --global user.email 2>/dev/null || true)"
-  if [ -n "$GIT_EMAIL" ]; then
-    printf 'Email da empresa [%s]: ' "$GIT_EMAIL"
-  else
-    printf 'Email da empresa: '
-  fi
-  if [ -t 0 ]; then
-    read -r INPUT
-  else
-    INPUT=""
-    warn "Sem TTY — usando git config"
-  fi
-  EMAIL="${INPUT:-$GIT_EMAIL}"
+# 2. Identidade = o seu login no PrimeTeam (sessão do pto). Desde 30/09/2026 o enroll só entrega o
+#    token do PRÓPRIO e-mail de quem está logado — antes aceitava qualquer e-mail sem login.
+SESSION_FILE="$HOME/.primeteam/session.json"
+JWT="${ARCHPRIME_JWT:-}"
+if [ -z "$JWT" ] && [ -f "$SESSION_FILE" ]; then
+  command -v pto >/dev/null 2>&1 && pto whoami >/dev/null 2>&1 || true   # renova a sessão se o pto souber
+  JWT="$(node -e "try{const s=require('$SESSION_FILE');process.stdout.write(s.access_token||'')}catch(e){}")"
 fi
-
-if [ -z "$EMAIL" ]; then
-  err "Email não informado."
+if [ -z "$JWT" ]; then
+  err "Você precisa estar logado no PrimeTeam: rode  pto login  e depois este instalador de novo."
   exit 1
 fi
 
-bold "→ Registrando $EMAIL..."
+bold "→ Registrando o seu login..."
 
-# 3. Call enroll endpoint
+# 3. Call enroll endpoint (o e-mail vem do login, não de digitação)
 RESPONSE=$(curl -fsS -X POST "$SUPABASE_URL/functions/v1/enroll-claude-tracking" \
   -H "Content-Type: application/json" \
   -H "apikey: $SUPABASE_ANON" \
-  -H "Authorization: Bearer $SUPABASE_ANON" \
-  -d "{\"email\":\"$EMAIL\"}" 2>&1) || {
+  -H "Authorization: Bearer $JWT" \
+  -d '{}' 2>&1) || {
     err "Falha no enrollment:"
     echo "$RESPONSE" | sed 's/^/  /'
-    err "Verifique seu email ou peça ao admin para criar seu profile."
+    err "Se a sessão venceu, rode  pto login  e tente de novo."
     exit 1
 }
 

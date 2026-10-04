@@ -60,6 +60,19 @@ const SECRET_PATTERNS = [
   [/ghp_[A-Za-z0-9]{36}/g, '[REDACTED_GH_TOKEN]'],
   [/xoxb-[A-Za-z0-9-]{20,}/g, '[REDACTED_SLACK]'],
   [/-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]+?-----END [A-Z ]+PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]'],
+  // 04/10/2026 (auditoria de segurança): um segredo de webhook do Stripe colado num prompt ficou
+  // gravado em activity_logs. Os tipos abaixo não eram mascarados.
+  [/whsec_[A-Za-z0-9+/=]{20,}/g, 'whsec_[REDACTED]'],
+  [/rk_(?:test|live)_[A-Za-z0-9]{16,}/g, 'rk_[REDACTED]'],
+  [/sb_secret_[A-Za-z0-9_-]{16,}/g, 'sb_secret_[REDACTED]'],
+  [/ptk_[A-Za-z0-9_-]{16,}/g, 'ptk_[REDACTED]'],
+  [/\bre_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}/g, 're_[REDACTED]'],
+  [/\bgh[opsu]_[A-Za-z0-9]{30,}/g, '[REDACTED_GH_TOKEN]'],
+  [/github_pat_[A-Za-z0-9_]{40,}/g, '[REDACTED_GH_TOKEN]'],
+  [/\bEAA[A-Za-z0-9]{60,}/g, '[REDACTED_META_TOKEN]'],
+  [/AIza[0-9A-Za-z_-]{35}/g, '[REDACTED_GOOGLE_KEY]'],
+  [/xox[abprs]-[A-Za-z0-9-]{20,}/g, '[REDACTED_SLACK]'],
+  [/\b(password|passwd|pwd|senha|secret)(\s*[=:]\s*)["']?[^\s"',;]{4,}/gi, '$1$2[REDACTED]'],
 ];
 
 // ─── Squad detection ─────────────────────────────────────────────
@@ -479,4 +492,5 @@ async function main() {
   process.exit(0);
 }
 
-main();
+if (require.main === module) main();
+else module.exports = { sanitizeString, sanitizeDeep };

@@ -11,7 +11,7 @@
 //
 // USO:  node motion-engine/scripts/seed-demo-data.mjs
 // ─────────────────────────────────────────────────────────────────────────────
-const REF = 'cuxbydmyahjaplzkthkr';
+const REF = 'bmjmlugriutujmfbdzst';
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 if (!TOKEN) { console.error('Falta SUPABASE_ACCESS_TOKEN'); process.exit(1); }
 
@@ -52,7 +52,7 @@ const IG_CAPTIONS = [
   ['Prima e dopo: soggiorno luminoso 🌅', 2110, 92],
   ['Nuovo cantiere in partenza! Seguiteci 👷', 870, 27],
 ];
-const IG_MEDIA = 'https://cuxbydmyahjaplzkthkr.supabase.co/storage/v1/object/public/render-images/776dffbc-f128-43eb-bca5-93fb1430d80d/1781691091322.jpeg';
+const IG_MEDIA = 'https://bmjmlugriutujmfbdzst.supabase.co/storage/v1/object/public/render-images/776dffbc-f128-43eb-bca5-93fb1430d80d/1781691091322.jpeg';
 
 async function run() {
   const rows = (await sql(`select email, id from auth.users where email in (${EMAILS.map(q).join(',')})`));

@@ -17,7 +17,7 @@
 // Requer env: SUPABASE_ACCESS_TOKEN  (token da Management API; já presente na
 // máquina do Pablo). Project ref e domínio configuráveis via env (defaults abaixo).
 // ─────────────────────────────────────────────────────────────────────────────
-const REF = process.env.LOVARCH_PROJECT_REF || 'cuxbydmyahjaplzkthkr';
+const REF = process.env.LOVARCH_PROJECT_REF || 'bmjmlugriutujmfbdzst';
 const MGMT = 'https://api.supabase.com';
 const PROJ = `https://${REF}.supabase.co`;
 export const STORAGE_KEY = `sb-${REF}-auth-token`;

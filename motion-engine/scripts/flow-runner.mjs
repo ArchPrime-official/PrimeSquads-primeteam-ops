@@ -111,7 +111,7 @@ async function uploadAsset(p, asset) { const fi = p.locator('input[type=file]').
 function loadGateway() {
   let url, secret;
   if (fs.existsSync(GATEWAY)) { const g = JSON.parse(fs.readFileSync(GATEWAY, 'utf8')); url = g.url; secret = g.secret; }
-  url = process.env.PRIMEVOICES_GATEWAY_URL || url || `${BASE.replace('app.', '').replace('https://', 'https://cuxbydmyahjaplzkthkr.supabase.co')}`;
+  url = process.env.PRIMEVOICES_GATEWAY_URL || url || `${BASE.replace('app.', '').replace('https://', 'https://bmjmlugriutujmfbdzst.supabase.co')}`;
   secret = process.env.PRIMEVOICES_GATEWAY_SECRET || secret;
   if (!secret) throw new Error('Falta o gateway secret (motion-engine/config/gateway.json ou env PRIMEVOICES_GATEWAY_SECRET).');
   let anon;
@@ -126,7 +126,7 @@ async function getSession(alias) {
   if (!j.ok) throw new Error('primevoices-session: ' + (j.error || r.status));
   return j;
 }
-const REST = 'https://cuxbydmyahjaplzkthkr.supabase.co/rest/v1';
+const REST = 'https://bmjmlugriutujmfbdzst.supabase.co/rest/v1';
 // REGRA (Pablo): toda geração FICA salva na galeria do PrimeVoice. Vídeo persiste
 // sozinho; imagem (Crea) só ao "Salva" → aqui garantimos via REST. Assim, se a
 // captura falhar, recuperamos o asset da galeria em vez de re-gerar (custa créditos).

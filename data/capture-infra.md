@@ -18,9 +18,9 @@ node motion-engine/scripts/capture-ground-truth.mjs planning
 
 Login autônomo (sem senha) via `lovarch-login.mjs`: Management API → revela
 service_role → `admin/generate_link` (magic-link) → `verify` (anon) → sessão →
-injetada em `localStorage['sb-cuxbydmyahjaplzkthkr-auth-token']` + flags de onboarding.
+injetada em `localStorage['sb-bmjmlugriutujmfbdzst-auth-token']` + flags de onboarding.
 
-### As 7 contas PrimeVoices (DB `cuxbydmyahjaplzkthkr`, business + 100k créditos)
+### As 7 contas PrimeVoices (DB `bmjmlugriutujmfbdzst`, business + 100k créditos)
 
 | alias | email | dados ricos |
 |---|---|---|
@@ -38,7 +38,7 @@ injetada em `localStorage['sb-cuxbydmyahjaplzkthkr-auth-token']` + flags de onbo
 
 ### Override de ambiente
 - `LOVARCH_URL` (default `https://app.lovarch.com`)
-- `LOVARCH_PROJECT_REF` (default `cuxbydmyahjaplzkthkr`)
+- `LOVARCH_PROJECT_REF` (default `bmjmlugriutujmfbdzst`)
 
 ### Dev local (alternativa — evitar; só p/ telas não publicadas)
 `cd /Users/pablo/Lovarch && npm run dev` (porta 8080). Há um bug de realtime
@@ -57,7 +57,7 @@ conta escolhida e devolve. O service_role fica 100% no servidor.
 - Config: `motion-engine/config/gateway.json` = `{ url, secret }` (shared secret de
   **baixo privilégio**: só libera sessão das 7 contas DEMO; repo privado = autorizado).
 - Gating: header `x-internal-secret`. Allowlist fixa `@archprime.io`.
-- Rotacionar o secret: `POST https://api.supabase.com/v1/projects/cuxbydmyahjaplzkthkr/secrets`
+- Rotacionar o secret: `POST https://api.supabase.com/v1/projects/bmjmlugriutujmfbdzst/secrets`
   `[{"name":"PRIMEVOICES_GATEWAY_SECRET","value":"novo"}]` + atualizar `gateway.json`.
 - O `flow-runner` **pergunta com qual PrimeVoice gravar** (1–7) se `--account`/`account` não vier.
 

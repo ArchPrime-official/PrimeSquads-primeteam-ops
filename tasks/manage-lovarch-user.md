@@ -1,6 +1,6 @@
 # Task: manage-lovarch-user
 
-> Gerir um usuário do app Lovarch (plataforma SaaS) — suspender/reativar (`status`) ou mudar plano (`user_type`) via as write-ops da **Fase 2 do `ops-gateway`** do projeto Lovarch. O pto NUNCA toca o banco Lovarch (`cuxbydmyahjaplzkthkr`) direto — só via gateway, com o token do operador, auditado em `ops_audit_log`.
+> Gerir um usuário do app Lovarch (plataforma SaaS) — suspender/reativar (`status`) ou mudar plano (`user_type`) via as write-ops da **Fase 2 do `ops-gateway`** do projeto Lovarch. O pto NUNCA toca o banco Lovarch (`bmjmlugriutujmfbdzst`) direto — só via gateway, com o token do operador, auditado em `ops_audit_log`.
 
 **Cumpre:** HO-TP-001 (anatomy) · **HO-TP-002 (required fields)** — ver `data/primeteam-platform-rules.md` §12.
 
@@ -36,7 +36,7 @@
 4. **Confirmação** (echo): "operação {operation} · usuário {email} · {status/plano atual → novo} · motivo {reason} (conta REAL de cliente Lovarch, auditado). Confirma?". Suspend/mudança de plano → dupla confirmação.
 5. **Write via gateway:**
    ```
-   POST https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/ops-gateway
+   POST https://bmjmlugriutujmfbdzst.supabase.co/functions/v1/ops-gateway
    Authorization: Bearer <access_token>
    suspend/reactivate: { "operation":"update_user_status", "params":{ email|user_id, status:"suspended"|"active" } }
    set_plan:           { "operation":"set_user_plan", "params":{ email|user_id, user_type } }

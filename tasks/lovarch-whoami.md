@@ -33,7 +33,7 @@
 
 ### action_items
 1. `TOKEN` = access_token de `~/.primeteam/session.json`.
-2. `POST https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/ops-gateway`
+2. `POST https://bmjmlugriutujmfbdzst.supabase.co/functions/v1/ops-gateway`
    com header `Authorization: Bearer $TOKEN` e body `{"operation":"whoami"}`.
 3. 401 → orientar `pto refresh` (ou `pto login`) e reexecutar. 403 → operador não é membro do time (reporte). 500 `gateway_misconfigured` → escalar @devops.
 4. 200 → reportar `email`, `roles`, `allowed_operations` em PT.

@@ -71,7 +71,7 @@ capabilities:
   reference: data/lovarch-ops-reference.md
   gateway:
     method: POST
-    url: https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/ops-gateway
+    url: https://bmjmlugriutujmfbdzst.supabase.co/functions/v1/ops-gateway
     auth_header: "Authorization: Bearer <~/.primeteam/session.json .access_token>"
     body: '{ "operation": "<op>", "params": { ... } }'
   operations:

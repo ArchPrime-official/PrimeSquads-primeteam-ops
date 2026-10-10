@@ -25,7 +25,7 @@ const G = JSON.parse(fs.readFileSync(path.join(ENGINE, 'config', 'gateway.json')
 // anon key (pública) p/ o header apikey do PostgREST
 const ANON = process.env.LOVARCH_ANON_KEY || G.anon ||
   'fallback'; // se ausente, o gallery pede via env; ver nota abaixo
-const REF = 'cuxbydmyahjaplzkthkr';
+const REF = 'bmjmlugriutujmfbdzst';
 const REST = `https://${REF}.supabase.co/rest/v1`;
 
 async function getSession(alias) {

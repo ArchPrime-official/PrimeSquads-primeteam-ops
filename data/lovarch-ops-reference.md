@@ -11,7 +11,7 @@ do membro (o mesmo `access_token` de `~/.primeteam/session.json`), valida quem �
 o papel dele, executa uma operação **read-only** com o service role da Lovarch (só no
 servidor) e **audita tudo** em `ops_audit_log`. Nenhum dado sensível-fiscal é retornado.
 
-- **Endpoint:** `POST https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/ops-gateway`
+- **Endpoint:** `POST https://bmjmlugriutujmfbdzst.supabase.co/functions/v1/ops-gateway`
 - **Header:** `Authorization: Bearer <access_token do ~/.primeteam/session.json>`
 - **Body:** `{ "operation": "<op>", "params": { ... } }`
 - **Auth:** o gateway valida o token contra o projeto PrimeTeam (`/auth/v1/user`) e lê os
@@ -48,7 +48,7 @@ Retorna `{ found, target, errors: [{ id, error_message, function_name, severity,
 
 ```bash
 TOKEN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.primeteam/session.json')))['access_token'])")
-curl -s -X POST "https://cuxbydmyahjaplzkthkr.supabase.co/functions/v1/ops-gateway" \
+curl -s -X POST "https://bmjmlugriutujmfbdzst.supabase.co/functions/v1/ops-gateway" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"operation":"lookup_user","params":{"email":"cliente@studio.com"}}' | python3 -m json.tool
 ```
@@ -86,7 +86,7 @@ Mesmo envelope (`{ operation, params }`, token do operador, gated por papel, aud
 | `upsert_lesson` | `{ lesson: {...} }` | cria/edita aula da Central de Aulas **se o catálogo estiver em tabela** (hoje pode ser código no repo — confirmar antes) | owner/admin |
 
 Regras invioláveis da Fase 2: (1) o gateway usa o service role da Lovarch **só no servidor**; o pto
-nunca toca o banco `cuxbydmyahjaplzkthkr` direto. (2) Toda escrita é auditada em `ops_audit_log`.
+nunca toca o banco `bmjmlugriutujmfbdzst` direto. (2) Toda escrita é auditada em `ops_audit_log`.
 (3) `upsert_lesson` só é viável se as aulas forem DB-driven — se forem hard-coded no repo
 `ByPabloRuanL/lovarch`, criar/editar aula exige PR de código, não passa pelo gateway.
 

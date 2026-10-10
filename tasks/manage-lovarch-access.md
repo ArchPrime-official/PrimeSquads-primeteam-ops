@@ -1,6 +1,6 @@
 # Task: manage-lovarch-access
 
-> Gerir o ACESSO de um usuário do app Lovarch (`app.lovarch.com`, plataforma SaaS) — conceder/estender/atualizar/revogar entitlement (planos/produtos) via a EF **`archprime-access-proxy`** do PrimeTeam (que já está em produção e é o mesmo caminho que a UI CS + o stripe-webhook usam). O pto NUNCA toca o banco Lovarch (`cuxbydmyahjaplzkthkr`) direto — o proxy encapsula o shared secret server-side.
+> Gerir o ACESSO de um usuário do app Lovarch (`app.lovarch.com`, plataforma SaaS) — conceder/estender/atualizar/revogar entitlement (planos/produtos) via a EF **`archprime-access-proxy`** do PrimeTeam (que já está em produção e é o mesmo caminho que a UI CS + o stripe-webhook usam). O pto NUNCA toca o banco Lovarch (`bmjmlugriutujmfbdzst`) direto — o proxy encapsula o shared secret server-side.
 
 **Cumpre:** HO-TP-001 (anatomy) · **HO-TP-002 (required fields)** — ver `data/primeteam-platform-rules.md` §12.
 

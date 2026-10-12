@@ -7,6 +7,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ---
 
 ## [1.6.1] — 2026-10-12 — Rota de motion graphics em código
+- `ops-chief`: regra «VÍDEO E MOTION — decida pelo JOB» com precedência (demo_tela → motion_graphics → motion_graphics_conteudo → video_editing; «motion graphics» solto → perguntar); rotas novas `demo_tela` e `carousel`; gatilhos de TELA saem do `video_editing` (PrimeEditor mandava demo para o Motion Kit sintético, que o método da demo proíbe); `expected_return` por tipo de entrega; showreel pergunta se é peça nova ou nova versão. Achado num teste de roteamento com um agente sem contexto.
 - `ops-chief`: rota nova `motion_graphics` (showreel, vídeo da plataforma/produto inteiro, peça de marca animada, versão 9:16) → `/creativeStudio:agents:creative-chief` → `@motion-graphics` (`wf-motion-graphics`); `video_editing` (PrimeEditor) passa a declarar a exceção; `sub_chief_routing.creative-studio` ganha os gatilhos de motion graphics e de demo de tela e o retorno «index.html local + portões». Origem: o processo do showreel Lovarch «Lo studio completo» virou o agente `@motion-graphics` no creative-studio (PRs #56–#58).
 
 ## [1.6.0] — 2026-07-03 — Enforcement de campos obrigatórios (plano pto-100, F0–F4)

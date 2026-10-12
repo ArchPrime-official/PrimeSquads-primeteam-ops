@@ -6,6 +6,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.6.1] — 2026-10-12 — Rota de motion graphics em código
+- `ops-chief`: rota nova `motion_graphics` (showreel, vídeo da plataforma/produto inteiro, peça de marca animada, versão 9:16) → `/creativeStudio:agents:creative-chief` → `@motion-graphics` (`wf-motion-graphics`); `video_editing` (PrimeEditor) passa a declarar a exceção; `sub_chief_routing.creative-studio` ganha os gatilhos de motion graphics e de demo de tela e o retorno «index.html local + portões». Origem: o processo do showreel Lovarch «Lo studio completo» virou o agente `@motion-graphics` no creative-studio (PRs #56–#58).
+
 ## [1.6.0] — 2026-07-03 — Enforcement de campos obrigatórios (plano pto-100, F0–F4)
 - **F0** — `data/required-fields-registry.yaml` (fonte canônica dos campos obrigatórios por operação) + regra **HO-TP-002** (Required Fields Completeness) + `scripts/validate-task-fields.py` no CI + `tasks/_TEMPLATE-write-task.md`. Registradas 5 tasks órfãs.
 - **F1** — 31 tasks inexecutáveis reparadas contra o schema real (13 CRITICAL): hazard de 3 triggers no `update-finance-transaction`; OSS guard + empresa emissora obrigatória no `create-sales-invoice`; **`create-task` passa a exigir data+HORA de execução + responsável**; `create-schedule-block` com `user_id`; família onboarding-forms/editorial/chat reescritas; handoff unificado no formato `[specialist → ops-chief] Cycle X — DONE`.

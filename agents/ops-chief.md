@@ -516,13 +516,26 @@ routing_map:
            sincronizado no registry creative_materials. Buscar por nome/mês/status.
     role_required: [owner, marketing, admin]
 
+  motion_graphics:
+    triggers: ["showreel", "vídeo da plataforma inteira", "vídeo do produto inteiro", "motion graphics",
+               "motion graphics em código", "peça de marca animada", "teaser de marca", "versão 9:16 do showreel",
+               "vídeo com as telas reais de todos os módulos", "showreel em italiano e inglês"]
+    agent: "/creativeStudio:agents:creative-chief → @motion-graphics (workflows/wf-motion-graphics.yaml)"
+    scope: Motion graphics EM CÓDIGO (não é o PrimeEditor) — o produto real gravado e congelado, cena determinística
+           capturada quadro a quadro, IT/EN, 16:9 + 9:16 (área 4:5 do feed), portões medidos, página HTML local.
+           Método: squads/creative-studio/data/motion-graphics/METODO.md (origem: showreel Lovarch «Lo studio completo»).
+    role_required: [owner, marketing, admin]
+    # Decida pelo JOB: ensinar UM fluxo da Lovarch → *demo-tela; anunciar UMA feature (gravação encenada + montagem) →
+    # video_editing / wf-product-promo-anthropic; produto/plataforma INTEIRO ou peça de marca em código → aqui.
+
   video_editing:
     triggers: ["criar vídeo", "editar vídeo", "montar vídeo", "vídeo de apresentação",
                "anúncio em vídeo", "demo em vídeo", "animar tela", "animação de tela",
                "vídeo da tela Lovarch", "animação Lovarch", "screen motion",
                "motion da plataforma"]
     agent: "skill primeeditor (Claude Code) + /creativeStudio para o criativo"
-    scope: TODO vídeo do time é no PrimeEditor (editor híbrido IA+humano, substituto
+    scope: TODO vídeo de MONTAGEM/EDIÇÃO do time é no PrimeEditor — EXCEÇÃO: showreel / motion graphics em código →
+           motion_graphics (acima, @motion-graphics no /creativeStudio). PrimeEditor = editor híbrido IA+humano, substituto
            do Remotion E do motion-engine p/ telas Lovarch). 3 sabores — real
            (grava-lovarch --login), sintético (Motion Kit, 15 widgets + 17 scene
            templates light-only) e misto. Guia de entrada: data/primeeditor.md;
@@ -1391,6 +1404,8 @@ sub_chief_routing:
       - "batch ads A/B" / "batch criativos para test"
       - "trend reativo" / "criativo para trend TikTok"
       - "*safety-audit creative asset"
+      - "showreel" / "motion graphics em código" / "vídeo da plataforma inteira" / "peça de marca animada" (→ @motion-graphics)
+      - "demo de tela ensinando a usar a Lovarch" (→ @motion-designer *demo-tela)
     payload_to_send:
       - "Brief original"
       - "Avatar data (consultar Supabase tabela avatars antes)"
@@ -1401,6 +1416,7 @@ sub_chief_routing:
       - "metadata (type, slug, palette, duration, cost)"
       - "qc_verdict (PASS/CONCERNS/FAIL)"
       - "Cycle ID echo"
+      - "motion graphics: index.html LOCAL do projeto + números dos portões (o vídeo não vai a outputs/)"
     next_step_after_return:
       - "Se qc_verdict=PASS e o ciclo NASCEU no creative-studio: o próprio @creative-chief roteia ao @content-publisher (fase 13 do pipeline dele, wf-publish-to-platform) — a publicação volta pronta (content_code + status + horário). Não duplicar o publish aqui."
       - "Se qc_verdict=PASS e o publish é responsabilidade do primeteam-ops: route a @content-builder seguindo o PROCESSO CANÔNICO (data/content-archivio-reference.md): post IG = INSERT ig_posts (trigger dá o content_code — NUNCA next_content_code antes); não-IG = next_content_code + content_registry; materiais → bucket content-archive; verificação por SELECT antes de reportar"

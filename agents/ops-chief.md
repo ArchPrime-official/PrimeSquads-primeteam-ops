@@ -516,34 +516,78 @@ routing_map:
            sincronizado no registry creative_materials. Buscar por nome/mês/status.
     role_required: [owner, marketing, admin]
 
+  # ── VÍDEO E MOTION: decida pelo JOB — precedência da LISTA abaixo (não da ordem das entradas no arquivo) ─────────────────────────────────────────────
+  #   1. demo_tela              ENSINAR a usar UM fluxo da Lovarch (onde clicar → resultado)  → @motion-designer *demo-tela
+  #   2. motion_graphics        produto/plataforma INTEIRO ou peça de MARCA em código; vários idiomas ou 16:9 + 9:16 → @motion-graphics
+  #   3. motion_graphics_conteudo  CONTEÚDO orgânico ArchPrime (pôsteres + voz, Piano 300) → @motion-designer Editoriale
+  #   4. video_editing          MONTAR/EDITAR takes já gravados, legenda, anúncio de UMA feature com gravação encenada, teaser com
+  #                             UI SINTÉTICA como cenário (Motion Kit — nunca para ensinar) → PrimeEditor
+  #   Só «motion graphics»/«vídeo» sem o job → PERGUNTE: «é para ensinar a usar, mostrar o produto/a marca inteira, conteúdo
+  #   editorial com voz, ou montar material já gravado?» Todas passam pelo /creativeStudio:agents:creative-chief (hub-and-spoke).
+  demo_tela:
+    triggers: ["demo de tela", "tutorial da Lovarch", "como usar a Lovarch", "onde clicar", "aula mostrando a Lovarch",
+               "demo em vídeo da Lovarch", "vídeo ensinando a usar", "vídeo da tela Lovarch", "animação de tela da Lovarch"]
+    agent: "/creativeStudio:agents:creative-chief → @motion-designer *demo-tela (tasks/demo-tela-palco.md)"
+    scope: >-
+      Demo que ENSINA — geração real 1× na conta da persona, palco (HAR) → DOM real congelado → cena com a
+      gramática medida → portão de movimento → revisão. NUNCA Motion Kit sintético nem print para ensinar.
+      Método: squads/creative-studio/data/demo-tela/METODO.md. Se NÃO for ensinar (é anúncio ou peça) → regra acima.
+    role_required: [owner, marketing, admin]
+
+  motion_graphics:
+    triggers: ["showreel", "vídeo da plataforma inteira", "vídeo do produto inteiro", "motion graphics",
+               "motion graphics em código", "peça de marca animada", "teaser de marca", "versão 9:16 do showreel",
+               "vídeo com as telas reais de todos os módulos", "showreel em italiano e inglês", "motion da plataforma",
+               "animação Lovarch de marca"]
+    agent: "/creativeStudio:agents:creative-chief → @motion-graphics (workflows/wf-motion-graphics.yaml)"
+    scope: >-
+      Motion graphics EM CÓDIGO (não é o PrimeEditor) — o produto real gravado e congelado, cena determinística
+      capturada quadro a quadro, IT/EN, 16:9 + 9:16 (área 4:5 do feed), portões medidos, página HTML local.
+      Método: squads/creative-studio/data/motion-graphics/METODO.md (origem: showreel Lovarch «Lo studio completo»).
+    role_required: [owner, marketing, admin]
+    # ANTES de abrir o ciclo: já existe peça desse produto? (~/CREATIVI-CONTENUTI/*/projeto.json ou */index.html — ex.: o showreel
+    # Lovarch «Lo studio completo» em LOVARCH-SHOWREEL-ECOSISTEMA). Pergunte: peça NOVA ou nova VERSÃO da existente?
+
   video_editing:
-    triggers: ["criar vídeo", "editar vídeo", "montar vídeo", "vídeo de apresentação",
-               "anúncio em vídeo", "demo em vídeo", "animar tela", "animação de tela",
-               "vídeo da tela Lovarch", "animação Lovarch", "screen motion",
-               "motion da plataforma"]
+    triggers: ["editar vídeo", "montar vídeo", "montar os takes", "legenda karaokê", "cortar vídeo",
+               "anúncio em vídeo de uma feature", "vídeo de apresentação com takes gravados", "criar vídeo a partir dos takes"]
+    # gatilhos de TELA saíram daqui (12/10/2026): demo que ensina → demo_tela; peça do produto/marca → motion_graphics.
+    # «criar vídeo»/«vídeo de apresentação» soltos → regra de VÍDEO E MOTION acima (perguntar o job).
     agent: "skill primeeditor (Claude Code) + /creativeStudio para o criativo"
-    scope: TODO vídeo do time é no PrimeEditor (editor híbrido IA+humano, substituto
-           do Remotion E do motion-engine p/ telas Lovarch). 3 sabores — real
-           (grava-lovarch --login), sintético (Motion Kit, 15 widgets + 17 scene
-           templates light-only) e misto. Guia de entrada: data/primeeditor.md;
-           PRD completo no repo ArchPrime-official/PrimeEditor.
+    scope: >-
+      TODO vídeo de MONTAGEM/EDIÇÃO do time é no PrimeEditor — EXCEÇÃO: showreel / motion graphics em código →
+      motion_graphics (acima, @motion-graphics no /creativeStudio). PrimeEditor = editor híbrido IA+humano, substituto
+      do Remotion E do motion-engine p/ telas Lovarch). 3 sabores — real
+      (grava-lovarch --login), sintético (Motion Kit, 15 widgets + 17 scene
+      templates light-only) e misto. Guia de entrada: data/primeeditor.md;
+      PRD completo no repo ArchPrime-official/PrimeEditor.
     role_required: [owner, marketing, admin]
     # Regras: SEMPRE light mode; accent #A16207 só em dose pequena; smoke visual
     # obrigatório (render-still nos beats). Setup 1x: bash ~/PrimeEditor/editor/install.sh
     # (motion-engine/ = legado; NÃO usar para vídeo novo)
 
   motion_graphics_conteudo:
-    triggers: ["motion graphics", "reel de motion", "animar telas", "telas-pôster", "pôster animado",
+    triggers: ["reel de motion", "animar telas", "telas-pôster", "pôster animado",
                "vídeo do Piano 300", "motion editorial", "vídeo editorial ArchPrime", "reel VOC",
                "animação com locução", "motion graphics com a voz"]
     agent: "/creativeStudio → @creative-chief → @motion-designer (método Editoriale: *telas → aprovação do Pablo → *animar)"
-    scope: Vídeo de CONTEÚDO orgânico ArchPrime (Piano 300). Telas-pôster paradas aprovadas ANTES de
-           animar; dentro da tela nada sai (só entradas sincronizadas à voz); crossfade só na troca de tela;
-           DS Editoriale (navy #081828 · creme · ouro só pontuação · Anton + Playfair itálico).
-           SSOT: creative-studio/data/motion-editoriale/METODO.md. Skill Claude Code: `motion-editoriale`.
+    scope: >-
+      Vídeo de CONTEÚDO orgânico ArchPrime (Piano 300). Telas-pôster paradas aprovadas ANTES de
+      animar; dentro da tela nada sai (só entradas sincronizadas à voz); crossfade só na troca de tela;
+      DS Editoriale (navy #081828 · creme · ouro só pontuação · Anton + Playfair itálico).
+      SSOT: creative-studio/data/motion-editoriale/METODO.md. Skill Claude Code: `motion-editoriale`.
+      Sem copy aprovada → o creative-chief passa pelo @screenwriter antes do *telas.
     role_required: [owner, marketing, admin]
     # Aprovado pelo Pablo em 23/09/2026 (reel v4: «agora gostei, quero assim»). NÃO é o PrimeEditor
-    # (esse é promo/demo de produto — video_editing acima); NÃO é IA generativa de vídeo.
+    # (esse é montagem / promo de UMA feature — video_editing acima); NÃO é IA generativa de vídeo.
+
+  carousel:
+    triggers: ["carrossel", "carosello", "carousel", "post carrossel", "carrossel de Instagram"]
+    agent: "/creativeStudio:agents:creative-chief → *carosello (workflows/wf-carousel-archprime.yaml)"
+    scope: >-
+      Copy + imagens do carrossel no Creative Studio; publicação depois pelo content-builder (ig_posts → content_code).
+      Pergunte a marca/conta (archprime.io | bylovarch) e, se citar «curso»/«lançamento», QUAL.
+    role_required: [owner, marketing, admin]
 
   content_builder:
     triggers: ["criar LP", "landing page", "edit blocos", "form", "quiz",
@@ -1391,16 +1435,20 @@ sub_chief_routing:
       - "batch ads A/B" / "batch criativos para test"
       - "trend reativo" / "criativo para trend TikTok"
       - "*safety-audit creative asset"
+      - "showreel" / "motion graphics em código" / "vídeo da plataforma inteira" / "peça de marca animada" (→ @motion-graphics)
+      - "demo de tela ensinando a usar a Lovarch" (→ @motion-designer *demo-tela)
     payload_to_send:
       - "Brief original"
       - "Avatar data (consultar Supabase tabela avatars antes)"
       - "Cycle ID (gerado por mim)"
       - "Target platform + duration + objective"
     expected_return:
-      - "asset_files (paths em outputs/{slug}/)"
+      - "asset_files: onde o tipo entrega — outputs/{slug}/ (carrossel, imagem, vídeo IA) · pasta do projeto com index.html LOCAL
+         (motion graphics, demo de tela) · projects/<id>/ + vitrine /materiali (PrimeEditor)"
       - "metadata (type, slug, palette, duration, cost)"
       - "qc_verdict (PASS/CONCERNS/FAIL)"
       - "Cycle ID echo"
+      - "motion graphics / demo de tela: os números dos portões (movimento, alinhamento, idioma, áudio, fidelidade)"
     next_step_after_return:
       - "Se qc_verdict=PASS e o ciclo NASCEU no creative-studio: o próprio @creative-chief roteia ao @content-publisher (fase 13 do pipeline dele, wf-publish-to-platform) — a publicação volta pronta (content_code + status + horário). Não duplicar o publish aqui."
       - "Se qc_verdict=PASS e o publish é responsabilidade do primeteam-ops: route a @content-builder seguindo o PROCESSO CANÔNICO (data/content-archivio-reference.md): post IG = INSERT ig_posts (trigger dá o content_code — NUNCA next_content_code antes); não-IG = next_content_code + content_registry; materiais → bucket content-archive; verificação por SELECT antes de reportar"

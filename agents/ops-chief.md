@@ -520,7 +520,8 @@ routing_map:
   #   1. demo_tela              ENSINAR a usar UM fluxo da Lovarch (onde clicar → resultado)  → @motion-designer *demo-tela
   #   2. motion_graphics        produto/plataforma INTEIRO ou peça de MARCA em código; vários idiomas ou 16:9 + 9:16 → @motion-graphics
   #   3. motion_graphics_conteudo  CONTEÚDO orgânico ArchPrime (pôsteres + voz, Piano 300) → @motion-designer Editoriale
-  #   4. video_editing          MONTAR/EDITAR takes já gravados, legenda, anúncio de UMA feature com gravação encenada → PrimeEditor
+  #   4. video_editing          MONTAR/EDITAR takes já gravados, legenda, anúncio de UMA feature com gravação encenada, teaser com
+  #                             UI SINTÉTICA como cenário (Motion Kit — nunca para ensinar) → PrimeEditor
   #   Só «motion graphics»/«vídeo» sem o job → PERGUNTE: «é para ensinar a usar, mostrar o produto/a marca inteira, conteúdo
   #   editorial com voz, ou montar material já gravado?» Todas passam pelo /creativeStudio:agents:creative-chief (hub-and-spoke).
   demo_tela:
@@ -570,13 +571,15 @@ routing_map:
                "vídeo do Piano 300", "motion editorial", "vídeo editorial ArchPrime", "reel VOC",
                "animação com locução", "motion graphics com a voz"]
     agent: "/creativeStudio → @creative-chief → @motion-designer (método Editoriale: *telas → aprovação do Pablo → *animar)"
-    scope: Vídeo de CONTEÚDO orgânico ArchPrime (Piano 300). Telas-pôster paradas aprovadas ANTES de
-           animar; dentro da tela nada sai (só entradas sincronizadas à voz); crossfade só na troca de tela;
-           DS Editoriale (navy #081828 · creme · ouro só pontuação · Anton + Playfair itálico).
-           SSOT: creative-studio/data/motion-editoriale/METODO.md. Skill Claude Code: `motion-editoriale`.
+    scope: >-
+      Vídeo de CONTEÚDO orgânico ArchPrime (Piano 300). Telas-pôster paradas aprovadas ANTES de
+      animar; dentro da tela nada sai (só entradas sincronizadas à voz); crossfade só na troca de tela;
+      DS Editoriale (navy #081828 · creme · ouro só pontuação · Anton + Playfair itálico).
+      SSOT: creative-studio/data/motion-editoriale/METODO.md. Skill Claude Code: `motion-editoriale`.
+      Sem copy aprovada → o creative-chief passa pelo @screenwriter antes do *telas.
     role_required: [owner, marketing, admin]
     # Aprovado pelo Pablo em 23/09/2026 (reel v4: «agora gostei, quero assim»). NÃO é o PrimeEditor
-    # (esse é promo/demo de produto — video_editing acima); NÃO é IA generativa de vídeo.
+    # (esse é montagem / promo de UMA feature — video_editing acima); NÃO é IA generativa de vídeo.
 
   carousel:
     triggers: ["carrossel", "carosello", "carousel", "post carrossel", "carrossel de Instagram"]

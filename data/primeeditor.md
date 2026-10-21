@@ -54,8 +54,9 @@ Atualizar depois: `bash ~/PrimeEditor/editor/install.sh` (git pull + re-instala 
 Pedido de vídeo → ativar skill `primeeditor` + task do squad dono:
 - Criativo/anúncio/demo → `creative-studio` (`tasks/lovarch-motion-kit.md`,
   `tasks/compose-in-primeeditor.md`)
-- Aula/CPL → checklist `cpl-studio/checklists/montagem-smoke-checklist.md`
-  (+ `scripts/compose-aula.mjs` no editor)
+- Aula gravada/CPL → NÃO é o PrimeEditor: `creative-studio` `@aula-gravada` (`workflows/wf-aula-gravada.yaml`,
+  portão `checklists/aula-gravada-gate.md`). O `cpl-studio` foi arquivado em 21/10/2026; o `montagem-smoke-checklist.md`
+  dele fica só como histórico das aulas de junho.
 - Vídeo p/ Meta Ads → criativo SEMPRE em 2 versões CTA (clique + comenta)
 
 ## Materiais = pasta (organização + sync do time) — 2026-07-10

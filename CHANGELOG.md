@@ -6,6 +6,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ---
 
+## [1.6.2] — 2026-10-21 — Rota de aula gravada / CPL para o creative-studio
+- `ops-chief`: rota nova `aula_gravada` (aula gravada, CPL, aula de curso, VSL longa, versão inglesa por mercado) → `/creativeStudio:agents:creative-chief` → `@aula-gravada` (`wf-aula-gravada`), item 0 da regra «VÍDEO E MOTION» (vem antes da demo de tela: «aula» com narrador não é tutorial); o domínio `academy` deixa de capturar «produzir o vídeo da aula» (é só gestão do portal); `sub_chief_routing.creative-studio` ganha os gatilhos. Origem: o squad `cpl-studio` do PrimeTeam foi arquivado (decisão do Pablo, 21/10/2026: «deixarmos tudo somente no creative studio») e o processo das 5 aulas gravadas da Sfida virou o agente `@aula-gravada`.
+- `data/primeeditor.md`: «Aula/CPL → checklist do cpl-studio» trocado pela rota do `@aula-gravada`.
+
 ## [1.6.1] — 2026-10-12 — Rota de motion graphics em código
 - `ops-chief`: regra «VÍDEO E MOTION — decida pelo JOB» com precedência (demo_tela → motion_graphics → motion_graphics_conteudo → video_editing; «motion graphics» solto → perguntar); rotas novas `demo_tela` e `carousel`; gatilhos de TELA saem do `video_editing` (PrimeEditor mandava demo para o Motion Kit sintético, que o método da demo proíbe); `expected_return` por tipo de entrega; showreel pergunta se é peça nova ou nova versão. Achado num teste de roteamento com um agente sem contexto.
 - `ops-chief`: teaser com UI SINTÉTICA como cenário (Motion Kit) declarado no `video_editing` — espelha a 5ª rota do creative-chief; `motion_graphics_conteudo.scope` vira YAML válido (`>-`; o `#081828` no meio de um escalar simples cortava o texto) e diz que sem copy aprovada passa pelo @screenwriter.

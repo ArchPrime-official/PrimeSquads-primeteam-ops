@@ -517,6 +517,8 @@ routing_map:
     role_required: [owner, marketing, admin]
 
   # ── VÍDEO E MOTION: decida pelo JOB — precedência da LISTA abaixo (não da ordem das entradas no arquivo) ─────────────────────────────────────────────
+  #   0. aula_gravada           PRODUZIR uma aula gravada / CPL / aula de curso / VSL LONGA — minutos guiados pela VOZ do narrador
+  #                             (PrimeVoice v4, motion preso à palavra, personagens de IA, mercados) → @aula-gravada (squad CPL arquivado em 21/10/2026)
   #   1. demo_tela              ENSINAR a usar UM fluxo da Lovarch (onde clicar → resultado)  → @motion-designer *demo-tela
   #   2. motion_graphics        produto/plataforma INTEIRO ou peça de MARCA em código; vários idiomas ou 16:9 + 9:16 → @motion-graphics
   #   3. motion_graphics_conteudo  CONTEÚDO orgânico ArchPrime (pôsteres + voz, Piano 300) → @motion-designer Editoriale
@@ -524,6 +526,23 @@ routing_map:
   #                             UI SINTÉTICA como cenário (Motion Kit — nunca para ensinar) → PrimeEditor
   #   Só «motion graphics»/«vídeo» sem o job → PERGUNTE: «é para ensinar a usar, mostrar o produto/a marca inteira, conteúdo
   #   editorial com voz, ou montar material já gravado?» Todas passam pelo /creativeStudio:agents:creative-chief (hub-and-spoke).
+  aula_gravada:
+    triggers: ["aula gravada", "gravar a aula", "produzir a aula", "vídeo da aula", "aulas gravadas da Sfida", "produzir CPL",
+               "gravar CPL", "aulas CPL", "CPL do lançamento", "aula de lançamento", "aulas do lançamento",
+               "aula de pré-lançamento", "VSL longa", "aula em inglês", "versão inglesa da aula", "aula por mercado",
+               "lezione registrata", "recorded lesson"]
+    agent: "/creativeStudio:agents:creative-chief → @aula-gravada (workflows/wf-aula-gravada.yaml)"
+    scope: >-
+      PRODUÇÃO do vídeo de uma aula (Sfida, curso, as 3 aulas de um lançamento/CPL) ou VSL longa: roteiro falado com validadores e
+      aprovado pelo Pablo, voz eleven_v4 conferida, motion em código preso a cada palavra, personagens de IA (storyboard aprovado,
+      uma versão 720p), master com portões, conferência independente, revisão no player, publicação só com OK explícito.
+      Método: squads/creative-studio/data/aula-gravada/METODO.md (origem: as 5 aulas gravadas da Sfida, 12–21/10/2026).
+      O squad cpl-studio foi ARQUIVADO em 21/10/2026 (decisão do Pablo): CPL vem para cá, com a Bíblia do lançamento e a
+      revisão de estratégia. GESTÃO do portal (publicar no Academy, matrícula, progresso) continua no domínio academy.
+    role_required: [owner, marketing, admin]
+    # «CPL» SOLTO é também a MÉTRICA de anúncio (custo por lead → integration-specialist): só é aula quando o pedido é PRODUZIR.
+    # ANTES de abrir o ciclo: a aula já existe (~/CREATIVI-CONTENUTI/<P>/, ex. SFIDA-SOCIO-INVISIBILE)? Nova língua/mercado ou
+    # emenda de comentário = nova VERSÃO na mesma pasta, nunca recomeçar.
   demo_tela:
     triggers: ["demo de tela", "tutorial da Lovarch", "como usar a Lovarch", "onde clicar", "aula mostrando a Lovarch",
                "demo em vídeo da Lovarch", "vídeo ensinando a usar", "vídeo da tela Lovarch", "animação de tela da Lovarch"]
@@ -716,7 +735,7 @@ routing_map:
       (academy_curriculum, academy_lessons, academy_modules). Progresso do aluno,
       matrículas (entitlements), consegne/submissions das sfide.
     role_required: [owner, admin, cs, marketing]
-    note: "Portal do aluno público (academy.archprime.io / app.lovarch.com) é frontend separado — aqui é a gestão interna do conteúdo/progresso."
+    note: "Portal do aluno público (academy.archprime.io / app.lovarch.com) é frontend separado — aqui é a gestão interna do conteúdo/progresso. PRODUZIR o vídeo de uma aula (gravar, voz, motion, CPL) → aula_gravada (creative-studio @aula-gravada), não aqui."
 
   lancio_perpetuo:
     triggers: ["funil perpétuo", "funil perpetuo", "lancio perpetuo",
@@ -1436,6 +1455,7 @@ sub_chief_routing:
       - "trend reativo" / "criativo para trend TikTok"
       - "*safety-audit creative asset"
       - "showreel" / "motion graphics em código" / "vídeo da plataforma inteira" / "peça de marca animada" (→ @motion-graphics)
+      - "aula gravada" / "produzir CPL" / "aula de lançamento" / "VSL longa" / "versão inglesa da aula" (→ @aula-gravada)
       - "demo de tela ensinando a usar a Lovarch" (→ @motion-designer *demo-tela)
     payload_to_send:
       - "Brief original"
